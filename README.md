@@ -1,8 +1,7 @@
-# NextUi SaaS landing page template
+# Quick Start - Ai
 
-A Next.js 14 landing page template for SaaS applications with NextUI and Tailwind CSS.
 
-![Preview](/public/preview.png)
+![Preview](/public/preview1.png)
 
 ## Table of Contents
 
@@ -11,11 +10,10 @@ A Next.js 14 landing page template for SaaS applications with NextUI and Tailwin
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Introduction
 
-This project is a starter template for SaaS applications landing page using Next.js 14, NextUI, and Tailwind CSS.
+This project is a Saas product in order to help business.
 
 ## Features
 
@@ -27,7 +25,7 @@ This project is a starter template for SaaS applications landing page using Next
 
 To get started with this template, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/gonzalochale/nextui-saas-template.git`
+1. Clone the repository: `git clone https://github.com/Abdul-Moiz31/QuickStart-ai`
 2. Install the dependencies: `npm install`
 3. Start the development server: `npm run dev`
 
@@ -39,6 +37,3 @@ Once the development server is running, you can access the application at `http:
 
 Contributions are welcome! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request.
 
-## License
-
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
