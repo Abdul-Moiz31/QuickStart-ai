@@ -18,13 +18,11 @@ import {
   DropdownItem,
 } from "@nextui-org/dropdown";
 import {
-  AppWindow,
   ChevronDown,
-  Contact2,
-  TimerReset,
-  User2,
-  Webhook,
 } from "lucide-react";
+
+// Import your logo image
+import Image from "next/image";
 
 export default function NavBar() {
   const menuItems = ["docs", "features", "pricing", "blog"];
@@ -37,15 +35,24 @@ export default function NavBar() {
       <NavbarContent className="sm:hidden pr-3" justify="center">
         <NavbarBrand>
           <span className="font-light tracking-tighter text-inherit text-lg">
-          Quickstart
+            Quickstart
           </span>
         </NavbarBrand>
       </NavbarContent>
       <NavbarContent className="hidden sm:flex gap-5" justify="center">
-        <NavbarBrand>
-          <span className="font-light tracking-tighter text-2xl flex gap-3 justify-center items-center">
-          Quickstart
+        <NavbarBrand className="flex items-center gap-2">
+          <span className="font-light tracking-tighter text-2xl">
+            
           </span>
+          {/* Add the logo image here */}
+          <Image
+            src="/logo.png" 
+            alt="Quickstart Logo"
+             href="/"
+            width={57} 
+            height={57} 
+            className="object-contain" 
+          />
         </NavbarBrand>
         <NavbarItem>
           <Button as={Link} variant="light">
@@ -66,25 +73,11 @@ export default function NavBar() {
                 base: "gap-4",
               }}
             >
-              <DropdownItem
-              >
-                Autoscaling
-              </DropdownItem>
-              <DropdownItem>
-                Usage Metrics
-              </DropdownItem>
-              <DropdownItem
-              >
-                Production Ready
-              </DropdownItem>
-              <DropdownItem
-              >
-                +99% Uptime
-              </DropdownItem>
-              <DropdownItem
-              >
-                +Supreme Support
-              </DropdownItem>
+              <DropdownItem>Autoscaling</DropdownItem>
+              <DropdownItem>Usage Metrics</DropdownItem>
+              <DropdownItem>Production Ready</DropdownItem>
+              <DropdownItem>+99% Uptime</DropdownItem>
+              <DropdownItem>+Supreme Support</DropdownItem>
             </DropdownMenu>
           </Dropdown>
         </NavbarItem>

@@ -7,16 +7,16 @@ export default function About() {
   return (
     <div className="relative flex justify-center items-center">
       <section className="max-w-screen-xl mx-auto px-4 py-20 gap-12 md:px-8 flex flex-col md:flex-row justify-center items-center">
-        {/* Left Image with Hover and Continuous Floating Effect */}
+        
         <motion.div
           initial={{ y: 0 }}
-          animate={{ y: [0, -10, 0] }} // Floating effect
+          animate={{ y: [0, -10, 0] }}
           transition={{
             duration: 3,
             repeat: Infinity,
             repeatType: "mirror",
           }}
-          whileHover={{ scale: 1.05 }} // Scale on hover
+          whileHover={{ scale: 1.05 }} 
           className="mt-12 md:mt-0 md:mr-8"
         >
           <img
@@ -26,7 +26,6 @@ export default function About() {
           />
         </motion.div>
 
-        {/* Content on the Right Side */}
         <motion.div
           initial={{ y: 5, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
