@@ -17,11 +17,8 @@ import {
   DropdownMenu,
   DropdownItem,
 } from "@nextui-org/dropdown";
-import {
-  ChevronDown,
-} from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
-// Import your logo image
 import Image from "next/image";
 
 export default function NavBar() {
@@ -41,17 +38,14 @@ export default function NavBar() {
       </NavbarContent>
       <NavbarContent className="hidden sm:flex gap-5" justify="center">
         <NavbarBrand className="flex items-center gap-2">
-          <span className="font-light tracking-tighter text-2xl">
-            
-          </span>
-          {/* Add the logo image here */}
+          <span className="font-light tracking-tighter text-2xl"></span>
           <Image
-            src="/logo.png" 
+            src="/logo.png"
             alt="Quickstart Logo"
-             href="/"
-            width={57} 
-            height={57} 
-            className="object-contain" 
+            href="/"
+            width={57}
+            height={57}
+            className="object-contain"
           />
         </NavbarBrand>
         <NavbarItem>

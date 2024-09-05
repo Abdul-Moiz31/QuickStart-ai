@@ -3,6 +3,7 @@ import NavBar from "@/components/navbar";
 import Footer from "@/components/footer";
 import About from "@/components/about";
 import Pricing from "@/components/pricing";
+import Faq from "@/components/faq";
 
 
 
@@ -14,6 +15,7 @@ export default function Home() {
       <Hero />
       <About/>
       <Pricing/>
+      <Faq/>
       <Footer/>
       
       
