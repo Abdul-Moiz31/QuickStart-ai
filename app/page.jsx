@@ -4,6 +4,7 @@ import Footer from "@/components/footer";
 import About from "@/components/about";
 import Pricing from "@/components/pricing";
 import Faq from "@/components/faq";
+import Partners from "@/components/partners";
 
 
 
@@ -16,6 +17,7 @@ export default function Home() {
       <About/>
       <Pricing/>
       <Faq/>
+      <Partners/>
       <Footer/>
       
       

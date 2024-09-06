@@ -22,7 +22,7 @@ import { ChevronDown } from "lucide-react";
 import Image from "next/image";
 
 export default function NavBar() {
-  const menuItems = ["docs", "features", "pricing", "blog"];
+  const menuItems = ["about", "features", "pricing", "team"];
 
   return (
     <Navbar isBlurred maxWidth="xl">
@@ -49,14 +49,14 @@ export default function NavBar() {
           />
         </NavbarBrand>
         <NavbarItem>
-          <Button as={Link} variant="light">
-            docs
+          <Button href="" variant="light">
+            About
           </Button>
         </NavbarItem>
         <NavbarItem>
           <Dropdown>
             <DropdownTrigger>
-              <Button endContent={<ChevronDown size={16} />} variant="light">
+              <Button href="" endContent={<ChevronDown size={16} />} variant="light">
                 Features
               </Button>
             </DropdownTrigger>
@@ -76,13 +76,18 @@ export default function NavBar() {
           </Dropdown>
         </NavbarItem>
         <NavbarItem>
-          <Button as={Link} variant="light">
-            pricing
+          <Button href="" variant="light">
+            Pricing
           </Button>
         </NavbarItem>
         <NavbarItem>
-          <Button as={Link} variant="light">
-            blog
+          <Button href="" variant="light">
+          FAQ
+          </Button>
+        </NavbarItem>
+        <NavbarItem>
+          <Button href="" variant="light">
+          Team
           </Button>
         </NavbarItem>
       </NavbarContent>
