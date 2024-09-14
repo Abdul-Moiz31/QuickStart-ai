@@ -1,3 +1,4 @@
+import { ScrollArea } from '@radix-ui/react-scroll-area';
 import { Send } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 
@@ -27,7 +28,7 @@ const TestChatbot = () => {
   return (
     <div className="flex flex-col h-full bg-gray-900 p-4 rounded-lg">
       {/* Message Display Area */}
-      <div className="flex-1 open-sans-text overflow-y-auto mb-2 p-4 bg-gray-800 rounded-lg">
+      <ScrollArea className="flex-1 open-sans-text overflow-y-auto mb-2 p-4 bg-gray-800 rounded-lg">
         {messages.map((chat, index) => (
           <div
             key={index}
@@ -47,7 +48,7 @@ const TestChatbot = () => {
           </div>
         ))}
         <div ref={messagesEndRef} />
-      </div>
+      </ScrollArea>
 
       {/* Message Input Area */}
       <div className="flex items-center">

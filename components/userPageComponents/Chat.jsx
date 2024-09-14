@@ -1,7 +1,6 @@
 import { Send } from "lucide-react";
 import React, { useState } from "react";
-// import { ScrollArea } from "@/components/ui/scrollArea";
-
+import { ScrollArea } from "@/components/ui/scroll-area";
 const Chat = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedUser, setSelectedUser] = useState(null);
@@ -59,7 +58,9 @@ const Chat = () => {
     { id: 5, name: "Aqib", lastMessage: "Thanks for your assistance!" },
     { id: 6, name: "Saqib", lastMessage: "I have a question about..." },
     { id: 7, name: "John", lastMessage: "Thanks for your assistance!" },
-    { id: 8, name: "John", lastMessage: "Thanks for your assistance!" },
+    { id: 9, name: "Malik", lastMessage: "Thanks for your assistance!" },
+    { id: 10, name: "Ali", lastMessage: "Thanks for your assistance!" },
+    { id: 11, name: "Khan", lastMessage: "Thanks for your assistance!" },
   ];
 
   const handleSendMessage = () => {
@@ -69,7 +70,7 @@ const Chat = () => {
   return (
     <div className="flex h-full roboty-headings">
       {/* Chat Sidebar */}
-      <div className="w-1/4 bg-gray-900 p-4 rounded-lg h-[95%] ">
+      <ScrollArea className="w-1/4 bg-gray-900 p-4 rounded-lg h-[95%] ">
         <h3 className="text-2xl font-bold mb-4">Recent sessions</h3>
         <ul>
           {users.map((user) => (
@@ -85,14 +86,14 @@ const Chat = () => {
             </li>
           ))}
         </ul>
-      </div>
+      </ScrollArea>
 
       {/* Chat Window */}
       <div className="flex-1 bg-gray-800 ml-4 rounded-lg flex flex-col justify-between h-[95%]">
         {selectedUser ? (
           <>
             {/* Scrollable Messages Area */}
-            <div className="flex-1 overflow-y-auto mb-2 p-2 bg-gray-900 rounded-lg">
+            <ScrollArea className="flex-1 overflow-y-auto mb-2 p-2 bg-gray-900 rounded-lg">
               <h3 className="roboty-headings text-2xl font-bold m-3">
                 Chat with {selectedUser}
               </h3>
@@ -112,7 +113,7 @@ const Chat = () => {
                   </span>
                 </div>
               ))}
-            </div>
+            </ScrollArea>
 
             {/* Message Input */}
             <div className="flex items-center p-2">
