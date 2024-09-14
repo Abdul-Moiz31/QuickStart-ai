@@ -7,6 +7,7 @@ import BussinessDetails from "@/components/userPageComponents/BussinessDetails";
 import Token from "@/components/userPageComponents/Token";
 import TestChatbot from "@/components/userPageComponents/TestChatbot";
 import OutOfCredits from "@/components/userPageComponents/OutOfCredits";
+import Transactions from "@/components/userPageComponents/Transactions";
 
 export default function UserDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -62,6 +63,7 @@ export default function UserDashboard() {
         {activeTab === "bussiness Details" && <BussinessDetails />}
         {activeTab === "test chatbot" && <TestChatbot />}
         {activeTab === "token" && <Token />}
+        {activeTab === "Transactions" && <Transactions />}
 
         {/* Conditional rendering for the modal */}
         {credits === 0 && isOutOfCreditsOpen && (
