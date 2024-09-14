@@ -11,7 +11,8 @@ import OutOfCredits from "@/components/userPageComponents/OutOfCredits";
 export default function UserDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [credits, setCredits] = useState(0);
-  const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true); // Manage modal visibility
+  const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true); 
+  const tabs = ["overview", "chats", "bussiness Details", "test chatbot", "token","Transactions"];
 
 
 
@@ -25,10 +26,10 @@ export default function UserDashboard() {
       <aside className="w-64 bg-gray-900 p-4 h-screen fixed top-0 left-0">
         <h2 className="text-2xl font-bold mb-6">Quickstart User</h2>
         <nav className="space-y-2">
-          {["overview", "chats", "bussiness Details", "test chatbot", "token"].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
-              className={`w-full text-left py-2 px-4 rounded ${
+              className={`text-md roboty-headings w-full text-left py-2 px-4 rounded ${
                 activeTab === tab ? "bg-blue-600" : "hover:bg-gray-800"
               }`}
               onClick={() => setActiveTab(tab)}

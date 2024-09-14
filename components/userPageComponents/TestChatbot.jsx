@@ -27,7 +27,7 @@ const TestChatbot = () => {
   return (
     <div className="flex flex-col h-full bg-gray-900 p-4 rounded-lg">
       {/* Message Display Area */}
-      <div className="flex-1 overflow-y-auto mb-2 p-4 bg-gray-800 rounded-lg">
+      <div className="flex-1 open-sans-text overflow-y-auto mb-2 p-4 bg-gray-800 rounded-lg">
         {messages.map((chat, index) => (
           <div
             key={index}
@@ -36,7 +36,7 @@ const TestChatbot = () => {
             }`}
           >
             <span
-              className={`inline-block p-2 rounded-lg ${
+              className={`animate-appearance-in inline-block p-2 rounded-lg ${
                 chat.sender === "You"
                   ? "bg-blue-500"
                   : "bg-gray-500"

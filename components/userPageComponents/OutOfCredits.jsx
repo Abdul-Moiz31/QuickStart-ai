@@ -8,10 +8,12 @@ const OutOfCredits = ({ onClose }) => {
 
 
   return (
+    <>
+
     <div className="bg-800-black">
 
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 1 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
       className="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-60"
@@ -45,6 +47,7 @@ const OutOfCredits = ({ onClose }) => {
       </div>
     </motion.div>
     </div>
+    </>
   );
 };
 

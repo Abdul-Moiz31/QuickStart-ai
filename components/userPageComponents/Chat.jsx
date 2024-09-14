@@ -67,7 +67,7 @@ const Chat = () => {
 
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full roboty-headings">
     {/* Chat Sidebar */}
     <div className="w-1/4 bg-gray-900 p-4 rounded-lg h-[95%] ">
       <h3 className="text-2xl font-bold mb-4">Recent sessions</h3>
@@ -97,7 +97,7 @@ const Chat = () => {
         <>
           {/* Scrollable Messages Area */}
           <div className="flex-1 overflow-y-auto mb-2 p-2 bg-gray-900 rounded-lg">
-            <h3 className="text-2xl font-bold m-3">
+            <h3 className="roboty-headings text-2xl font-bold m-3">
               Chat with {selectedUser}
             </h3>
             {sessions[selectedUser].map((chat, index) => (
@@ -108,7 +108,7 @@ const Chat = () => {
                 }`}
               >
                 <span
-                  className={`inline-block p-2 rounded-lg ${
+                  className={`open-sans-text inline-block p-2 rounded-lg ${
                     chat.sender === "You"
                       ? "bg-blue-500"
                       : "bg-gray-500"
