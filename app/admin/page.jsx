@@ -1,6 +1,7 @@
 "use client"
 import React, { useState } from 'react';
 import { Bell, ChevronDown, Menu, Search, User, Users, BarChart, Settings, Plus } from "lucide-react";
+import Overview from '@/components/adminPageComponents/Overview';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -13,7 +14,7 @@ export default function AdminDashboard() {
           {['overview', 'users', 'plans'].map((tab) => (
             <button
               key={tab}
-              className={`w-full text-left py-2 px-4 rounded ${activeTab === tab ? 'bg-blue-600' : 'hover:bg-gray-800'}`}
+              className={`roboty-headings w-full text-left py-2 px-4 rounded ${activeTab === tab ? 'bg-blue-600' : 'hover:bg-gray-800'}`}
               onClick={() => setActiveTab(tab)}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -33,52 +34,7 @@ export default function AdminDashboard() {
         </header>
 
         {activeTab === 'overview' && (
-          <>
-            <div className="grid gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                { title: 'Total Users', icon: Users, value: '1,234', change: '+10%' },
-                { title: 'Active Users', icon: User, value: '1,021', change: '+5%' },
-                { title: 'Total Revenue', icon: BarChart, value: '$52,000', change: '+12%' },
-                { title: 'Active Plans', icon: Settings, value: '3', change: '0%' },
-              ].map((card, index) => (
-                <div key={index} className="bg-gray-800 p-6 rounded-lg">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-sm font-medium">{card.title}</h3>
-                    <card.icon className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <p className="text-2xl font-bold">{card.value}</p>
-                  <p className="text-xs text-blue-400">{card.change} from last month</p>
-                </div>
-              ))}
-            </div>
-            <div className="bg-gray-800 p-6 rounded-lg">
-              <h3 className="text-xl font-bold mb-4">Users List</h3>
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left">
-                    <th className="pb-2">Name</th>
-                    <th className="pb-2">Company</th>
-                    <th className="pb-2">Plan</th>
-                    <th className="pb-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { name: 'John Doe', company: 'Acme Inc.', plan: 'Pro', status: 'Active' },
-                    { name: 'Jane Smith', company: 'Tech Co.', plan: 'Basic', status: 'Active' },
-                    { name: 'Bob Johnson', company: 'Dev LLC', plan: 'Enterprise', status: 'Active' },
-                  ].map((user, index) => (
-                    <tr key={index} className="border-t border-gray-700">
-                      <td className="py-2">{user.name}</td>
-                      <td className="py-2">{user.company}</td>
-                      <td className="py-2">{user.plan}</td>
-                      <td className="py-2">{user.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+          <Overview />
         )}
 
         {activeTab === 'users' && (
