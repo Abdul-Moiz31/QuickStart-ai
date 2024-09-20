@@ -215,6 +215,7 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     name="name"
+                    placeholder="John Doe"
                     value={newUser.name}
                     onChange={handleInputChange}
                     className="w-full p-2 rounded bg-gray-700 text-white"
@@ -225,6 +226,7 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     name="company"
+                    placeholder="xyz Inc."
                     value={newUser.company}
                     onChange={handleInputChange}
                     className="w-full p-2 rounded bg-gray-700 text-white"
@@ -235,6 +237,7 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     name="plan"
+                    placeholder="Basic"
                     value={newUser.plan}
                     onChange={handleInputChange}
                     className="w-full p-2 rounded bg-gray-700 text-white"
@@ -245,6 +248,7 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     name="status"
+                    placeholder="Active"
                     value={newUser.status}
                     onChange={handleInputChange}
                     className="w-full p-2 rounded bg-gray-700 text-white"
