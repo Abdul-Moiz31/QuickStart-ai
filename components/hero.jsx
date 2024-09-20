@@ -11,9 +11,15 @@ import {
   ModalFooter,
 } from "@nextui-org/modal";
 import { useDisclosure } from "@nextui-org/use-disclosure";
+import { useRouter } from "next/navigation";
 
 export default function Hero() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const router = useRouter();
+
+  const handleLogin = () => {
+    router.push("/start");
+  };
   return (
     <div className="relative justify-center items-center">
       <section className="max-w-screen-xl mx-auto px-4 py-28 gap-12 md:px-8 flex flex-col justify-center items-center">
@@ -37,7 +43,7 @@ export default function Hero() {
           </p>
           <div className="items-center justify-center gap-x-3 space-y-3 sm:flex sm:space-y-0">
             <motion.div whileHover={{ scale: 1.05 }}>
-              <Button onPress={onOpen} color="primary" variant="solid">
+              <Button onPress={onOpen} color="primary" variant="solid" onClick={handleLogin} >
                 Get Started
               </Button>
               <Modal

@@ -18,11 +18,17 @@ import {
   DropdownItem,
 } from "@nextui-org/dropdown";
 import { ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import Image from "next/image";
 
 export default function NavBar() {
   const menuItems = ["about", "features", "pricing", "team"];
+  const router = useRouter();
+
+  const handleLogin = () => {
+    router.push("/start");
+  };
 
   return (
     <Navbar isBlurred maxWidth="xl">
@@ -56,7 +62,11 @@ export default function NavBar() {
         <NavbarItem>
           <Dropdown>
             <DropdownTrigger>
-              <Button href="" endContent={<ChevronDown size={16} />} variant="light">
+              <Button
+                href=""
+                endContent={<ChevronDown size={16} />}
+                variant="light"
+              >
                 Features
               </Button>
             </DropdownTrigger>
@@ -82,23 +92,22 @@ export default function NavBar() {
         </NavbarItem>
         <NavbarItem>
           <Button href="" variant="light">
-          FAQ
+            FAQ
           </Button>
         </NavbarItem>
         <NavbarItem>
           <Button href="" variant="light">
-          Team
+            Team
           </Button>
         </NavbarItem>
       </NavbarContent>
       <NavbarContent justify="end">
         <NavbarItem className="hidden sm:flex">
           <Button
-            as={Link}
             color="primary"
-            href="#"
             variant="solid"
             className="hidden sm:flex"
+            onClick={handleLogin} // Use onClick with the handleLogin function
           >
             Get Started
           </Button>

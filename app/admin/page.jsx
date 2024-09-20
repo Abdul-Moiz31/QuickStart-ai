@@ -1,18 +1,29 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; 
 import { Bell, Plus, LogOut } from "lucide-react";
 import Overview from "@/components/adminPageComponents/Overview";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [showLogoutMenu, setShowLogoutMenu] = useState(false); // State for logout menu visibility
-  const [showModal, setShowModal] = useState(false); // State for modal visibility
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const [showModal, setShowModal] = useState(false); 
   const [newUser, setNewUser] = useState({
     name: "",
     company: "",
     plan: "",
     status: "",
-  }); // State for form fields
+  });
+  
+  const router = useRouter(); // Updated to next/navigation
+
+  // Check if the user is logged in when the component mounts
+  useEffect(() => {
+    const isLoggedIn = true; // default to true for testing
+    if (!isLoggedIn) {
+      router.push("/start"); // Redirect to /start if not logged in
+    }
+  }, [router]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -23,14 +34,18 @@ export default function AdminDashboard() {
   };
 
   const handleSubmit = () => {
-    // Handle form submission logic here
     console.log("New User Added:", newUser);
-    setShowModal(false); // Close modal after submission
+    setShowModal(false);
   };
+
   const toggleLogoutMenu = () => {
-    setShowLogoutMenu(prev => !prev);
+    setShowLogoutMenu((prev) => !prev);
   };
-  
+
+  const handleLogout = () => {
+    // Add your logout logic here (e.g., clearing auth tokens)
+    router.push("/"); // Redirect to / after logout
+  };
 
   return (
     <div className="flex min-h-screen bg-black text-white">
@@ -68,9 +83,8 @@ export default function AdminDashboard() {
               {showLogoutMenu && (
                 <div className="absolute right-0 top-full mt-2 bg-gray-800 text-white rounded-lg shadow-lg">
                   <button
-                    onClick={() => console.log("Logging out...")} // Replace with your logout logic
-                    className=" px-4 py-2 hover:bg-gray-700 w-full text-left text-red-600 flex items-center justify-between "
-                  
+                    onClick={handleLogout} 
+                    className="px-4 py-2 hover:bg-gray-700 w-full text-left text-red-600 flex items-center justify-between"
                   >
                     Logout<LogOut className="h-4 w-4 ml-2 inline-block" />
                   </button>
