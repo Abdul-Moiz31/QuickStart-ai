@@ -1,4 +1,4 @@
-@tailwind base;
+/* @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -10,7 +10,7 @@
   font-weight: 700;
   font-style: normal;
   font-variation-settings:
-    "wdth" 100;
+    "width" 100;
 }
 
 .open-sans-text {
@@ -19,7 +19,7 @@
   font-weight: 400;
   font-style: normal;
   font-variation-settings:
-    "wdth" 100;
+    "width" 100;
 }
 
 .roboty-headings {
@@ -28,7 +28,7 @@
   font-weight: 700;
   font-style: normal;
   font-variation-settings:
-    "wdth" 100;
+    "width" 100;
 }
 
 :root {
@@ -45,13 +45,13 @@
   }
 }
 
-body {
+/* body {
   color: rgb(var(--foreground));
   background-color: rgb(var(--background));
-}
+} */
 
 
-@keyframes fade-in-up {
+/* @keyframes fade-in-up {
   0% {
     opacity: 0;
     transform: translateY(20px);
@@ -120,13 +120,40 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
-}
+} */
 
-@layer base {
+/* @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
   }
+} */ 
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #000;
+  --background: #fff;
+  --light: 212, 89%, 57%;
+}
+html {
+  scroll-behavior: smooth;
+}
+
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: #fff;
+    --background: #000;
+    --light: 212, 89%, 57%;
+  }
+}
+
+body {
+  color: rgb(var(--foreground));
+  background-color: rgb(var(--background));
 }
