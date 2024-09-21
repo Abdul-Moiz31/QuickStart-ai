@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import PlausibleProvider from "next-plausible";
 import { ReduxProvider } from "./redux-provider";
+import { Toaster } from "react-hot-toast";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +22,9 @@ export default function RootLayout({ children }) {
       </head>
       <body className={inter.className}>
         <ReduxProvider>
-        <Providers>{children}</Providers>
+        <Providers>
+        <Toaster position="top-center" />
+          {children}</Providers>
         </ReduxProvider>
       </body>
     </html>

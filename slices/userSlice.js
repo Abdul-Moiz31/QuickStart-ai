@@ -37,6 +37,7 @@ export const login = createAsyncThunk(
       });
       return fulfillWithValue(data);
     } catch (error) {
+      console.log(error.response.data);
       return rejectWithValue(error.response.data);
     }
   }
@@ -96,7 +97,7 @@ const userReducer = createSlice({
     });
     builder.addCase(login.rejected, (state, action) => {
       state.loading = false;
-      state.error = action.payload.message;
+      state.error = action?.payload?.message;
     });
 
    
