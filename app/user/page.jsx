@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from "react";
-import { Bell, User } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, LogOut, User } from "lucide-react";
 import Overview from "@/components/userPageComponents/Overview";
 import Chat from "@/components/userPageComponents/Chat";
 import BussinessDetails from "@/components/userPageComponents/BussinessDetails";
@@ -8,17 +8,41 @@ import Token from "@/components/userPageComponents/Token";
 import TestChatbot from "@/components/userPageComponents/TestChatbot";
 import OutOfCredits from "@/components/userPageComponents/OutOfCredits";
 import Transactions from "@/components/userPageComponents/Transactions";
+import { useRouter } from "next/navigation";
 
 export default function UserDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [credits, setCredits] = useState(0);
-  const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true); 
-  const tabs = ["overview", "chats", "bussiness Details", "test chatbot", "token","Transactions"];
-
-
+  const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true);
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const tabs = [
+    "overview",
+    "chats",
+    "bussiness Details",
+    "test chatbot",
+    "token",
+    "Transactions",
+  ];
+  const router = useRouter();
 
   const handleCloseModal = () => {
     setIsOutOfCreditsOpen(false); // Close the modal
+  };
+  // Check if the user is logged in when the component mounts
+  useEffect(() => {
+    const isLoggedIn = true; // default to true for testing
+    if (!isLoggedIn) {
+      router.push("/start"); // Redirect to /start if not logged in
+    }
+  }, [router]);
+
+  const toggleLogoutMenu = () => {
+    setShowLogoutMenu((prev) => !prev);
+  };
+
+  const handleLogout = () => {
+    // Add your logout logic here (e.g., clearing auth tokens)
+    router.push("/"); // Redirect to / after logout
   };
 
   return (
@@ -51,8 +75,22 @@ export default function UserDashboard() {
             <button className="p-2 rounded-full hover:bg-gray-800">
               <Bell className="h-5 w-5" />
             </button>
-            <div className="w-8 h-8 rounded-full bg-gray-600">
+            <div
+              className="relative w-8 h-8 rounded-full bg-gray-600 cursor-pointer"
+              onClick={toggleLogoutMenu}
+            >
               <User className="h-6 w-6 mx-auto my-auto mt-1 text-white" />
+
+              {showLogoutMenu && (
+                <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded-lg shadow-lg z-10">
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 hover:bg-gray-700 w-full text-left text-red-600 flex items-center justify-between"
+                  >
+                    Logout <LogOut className="h-4 w-4 ml-2" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -67,7 +105,7 @@ export default function UserDashboard() {
 
         {/* Conditional rendering for the modal */}
         {credits === 0 && isOutOfCreditsOpen && (
-          <OutOfCredits onClose={handleCloseModal}  />
+          <OutOfCredits onClose={handleCloseModal} />
         )}
       </main>
     </div>
