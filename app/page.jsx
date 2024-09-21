@@ -4,8 +4,8 @@ import Footer from "@/components/footer";
 import About from "@/components/about";
 import Pricing from "@/components/pricing";
 import Faq from "@/components/faq";
-import Partners from "@/components/partners";
-
+import Feature from "@/components/feature";
+import Contact from "@/components/contact";
 
 
 
@@ -15,9 +15,10 @@ export default function Home() {
       <NavBar />
       <Hero />
       <About/>
+      <Feature/>
       <Pricing/>
       <Faq/>
-      <Partners/>
+      <Contact/>
       <Footer/>
       
       
