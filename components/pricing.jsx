@@ -1,106 +1,147 @@
-"use client";
-import { Card, CardHeader, CardBody, CardFooter } from "@nextui-org/card";
-import { Button } from "@nextui-org/button";
-import { Divider } from "@nextui-org/divider";
-import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+'use client'
 
-export default function Pricing() {
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { Check, Zap, Eye } from 'lucide-react'
+
+const PricingSection = () => {
+  const [isAnnual, setIsAnnual] = useState(false)
+
   const plans = [
     {
-      name: "Hobby Plan",
-      desc: "Enjoy limited access to all our features",
-      price: 0,
-      isMostPop: false,
-      features: ["Make the best schedule", "Make the best schedule"],
-    },
-    {
-      name: "Basic Plan",
-      desc: "Make the best schedule for your team",
+      name: 'Basic plan',
       price: 10,
-      isMostPop: true,
+      icon: Zap,
       features: [
-        "Make the best schedule",
-        "Make the best schedule",
-        "Make the best schedule",
+        '200 free credits',
+        'Scalability',
+        'Real-time customer support',
+        'Basic chat widget customization',
+        'Data security',
+
       ],
     },
     {
-      name: "Enterprise Plan",
-      desc: "Make the best schedule for your team and more",
+      name: 'Business plan',
       price: 20,
-      isMostPop: false,
+      icon: Eye,
       features: [
-        "Make the best schedule",
-        "Make the best schedule",
-        "Make the best schedule",
-        "Make the best schedule",
+        '500 credits per month',
+        'Real-time customer support',
+        'Customizable chat widget',
+        'Access to interaction analytics',
+        'Data security',
+      ],
+      bestValue: true,
+    },
+    {
+      name: 'Enterprise plan',
+      price: 40,
+      icon: Check,
+      features: [
+        'Unlimited credits',
+        'Real-time customer support',
+        'Advanced chat widget customization',
+        'Interaction analytics and reporting',
+        'Priority customer support',
+        'Data security and compliance',
       ],
     },
-  ];
+  ]
 
   return (
-    <section className="max-w-screen-xl w-full mx-auto px-4 py-28 gap-12 md:px-8 flex flex-col justify-center items-center">
+    <motion.div
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"
+      initial={{ y: 20, opacity: 0 }}
+      whileInView={{ y: 0, opacity: 1 }}
+      viewport={{ once: true }}
+      transition={{ duration: 1, delay: 0.3 }}
+    >
+      {/* Pricing Section Title with Matching Style */}
       <motion.div
-        initial={{ y: 5, opacity: 0 }}
-        whileInView={{
-          y: 0,
-          opacity: 1,
-        }}
+        initial={{ y: 20, opacity: 0 }}
+        whileInView={{ y: 0, opacity: 1 }}
         viewport={{ once: true }}
-        transition={{ duration: 1, delay: 0.5 }}
-        className="max-w-screen-xl mx-auto px-4 md:px-8"
+        transition={{ duration: 1, delay: 0.3 }}
+        className="flex flex-col gap-3 justify-center items-center mb-8"
       >
-        <div className="relative max-w-xl mx-auto sm:text-center">
-          <h3 className="text-2xl font-light tracking-tighter sm:text-3xl bg-gradient-to-b from-foreground to-foreground/70 text-transparent bg-clip-text text-pretty">
-            Pricing Plans for your business
-          </h3>
-          <div className="mt-3 max-w-xl text-foreground/80 text-balance">
-            <p>Select the plan that best suits your needs.</p>
-          </div>
-        </div>
-        <div className="mt-16 gap-10 grid lg:grid-cols-3 place-content-center">
-          {plans.map((item, idx) => (
-            <Card
-              key={idx}
-              className={
-                item.isMostPop ? "border-2 border-primary sm:scale-110" : ""
-              }
-            >
-              <CardHeader>
-                <span className="font-medium">{item.name}</span>
-              </CardHeader>
-              <Divider />
-              <CardBody className="gap-3">
-                <div className="text-3xl font-semibold">
-                  ${item.price} <span className="text-xl font-normal">/mo</span>
-                </div>
-                <p>{item.desc}</p>
-                <ul className="p-8 space-y-3">
-                  <li className="font-medium">
-                    <p>Features</p>
-                  </li>
-                  {item.features.map((featureItem, idx) => (
-                    <li key={idx} className="flex items-center gap-5">
-                      <Check size={20} />
-                      {featureItem}
-                    </li>
-                  ))}
-                </ul>
-              </CardBody>
-              <CardFooter>
-                <Button
-                  className="w-full"
-                  variant="solid"
-                  color={item.isMostPop ? "primary" : "default"}
-                >
-                  Get Started
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        <h4 className="text-3xl font-bold sm:text-4xl bg-gradient-to-b from-purple-500 via-purple-600 to-purple-700 bg-clip-text text-transparent">
+          Pricing
+        </h4>
+        <p className="max-w-xl text-gray-500 text-center">
+          Choose the plan that fits your business needs and scale easily with our flexible options.
+        </p>
       </motion.div>
-    </section>
-  );
+
+      {/* Billing Toggle */}
+      <div className="flex justify-center mb-8">
+        <div className="relative bg-gray-100 rounded-full p-1">
+          <button
+            className={`px-4 py-2 rounded-full ${
+              !isAnnual ? 'bg-white shadow-sm' : ''
+            }`}
+            onClick={() => setIsAnnual(false)}
+          >
+            Monthly billing
+          </button>
+          <button
+            className={`px-4 py-2 rounded-full ${
+              isAnnual ? 'bg-white shadow-sm' : ''
+            }`}
+            onClick={() => setIsAnnual(true)}
+          >
+            Annual billing
+          </button>
+        </div>
+      </div>
+
+      {/* Pricing Plans */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {plans.map((plan, index) => (
+          <motion.div
+            key={plan.name}
+            className={`rounded-lg p-6 shadow-lg transition-all duration-500 ${
+              plan.bestValue
+                ? 'bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 text-white shadow-purple-500/40'
+                : 'bg-white shadow-md'
+            }`}
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+          >
+            <plan.icon className="w-8 h-8 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
+            <div className="text-3xl font-bold mb-4">
+              ${plan.price}
+              <span className="text-base font-normal">/month</span>
+            </div>
+            <p className="text-sm mb-4">Billed annually.</p>
+            <div className="flex items-center justify-between mb-4">
+              <button className="px-3 py-1 bg-gray-200 rounded-full">-</button>
+              <span>1 USER</span>
+              <button className="px-3 py-1 bg-gray-200 rounded-full">+</button>
+            </div>
+            <ul className="space-y-2 mb-6">
+              {plan.features.map((feature, i) => (
+                <li key={i} className="flex items-center">
+                  <Check className="w-5 h-5 mr-2" />
+                  <span className="text-sm">{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              className={`w-full py-2 rounded-full transition duration-300 ease-in-out ${
+                plan.bestValue
+                  ? 'bg-white text-purple-600'
+                  : 'bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 text-white'
+              }`}
+            >
+              Get started
+            </button>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )
 }
+
+export default PricingSection
