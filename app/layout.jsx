@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import PlausibleProvider from "next-plausible";
+import { ReduxProvider } from "./redux-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +20,9 @@ export default function RootLayout({ children }) {
         <PlausibleProvider domain={domain} customDomain={customDomain} />
       </head>
       <body className={inter.className}>
+        <ReduxProvider>
         <Providers>{children}</Providers>
+        </ReduxProvider>
       </body>
     </html>
   );
