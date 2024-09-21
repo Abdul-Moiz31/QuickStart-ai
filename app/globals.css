@@ -2,34 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
-
-.open-sans-headings {
-  font-family: "Open Sans", system-ui;
-  font-optical-sizing: auto;
-  font-weight: 700;
-  font-style: normal;
-  font-variation-settings:
-    "width" 100;
-}
-
-.open-sans-text {
-  font-family: "Open Sans", system-ui;
-  font-optical-sizing: auto;
-  font-weight: 400;
-  font-style: normal;
-  font-variation-settings:
-    "width" 100;
-}
-
-.roboty-headings {
-  font-family: "Roboto", system-ui;
-  font-optical-sizing: auto;
-  font-weight: 700;
-  font-style: normal;
-  font-variation-settings:
-    "width" 100;
-}
 
 :root {
   --foreground: #000;
@@ -156,4 +128,33 @@ html {
 body {
   color: rgb(var(--foreground));
   background-color: rgb(var(--background));
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+
+.open-sans-headings {
+  font-family: "Open Sans", system-ui;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  font-style: normal;
+  font-variation-settings:
+    "width" 100;
+}
+
+.open-sans-text {
+  font-family: "Open Sans", system-ui;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "width" 100;
+}
+
+.roboty-headings {
+  font-family: "Roboto", system-ui;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  font-style: normal;
+  font-variation-settings:
+    "width" 100;
 }
