@@ -8,8 +8,8 @@ const initialState = {
   isUserRegistered: false,
   isUserLogged: false,
   user: null,
-
-
+  isTokenGenerated: false,
+  token: null,
 };
 
 // signup user
@@ -50,6 +50,22 @@ export const loadUser = createAsyncThunk(
       const { data } = await axios.get(`${baseurl}/user/me`, {
         withCredentials: true,
       });
+      return fulfillWithValue(data.user);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// generate new token
+export const generateNewToken = createAsyncThunk(
+  "user/generateNewToken",
+  async (payload, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.post(`${baseurl}/user/token`,payload, {
+        withCredentials: true,
+      });
+      // console.log(data);
       return fulfillWithValue(data);
     } catch (error) {
       return rejectWithValue(error.response.data);
@@ -67,11 +83,9 @@ const userReducer = createSlice({
       state.error = "";
       state.isUserRegistered = false;
       state.isUserLogged = false;
-      state.user = null;
+      // state.user = null;
+      state.isTokenGenerated = false;
 
-    },
-    addNewMessageToMessages: (state, action) => {
-      state.messages.push(action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -96,6 +110,29 @@ const userReducer = createSlice({
       state.isUserLogged = true;
     });
     builder.addCase(login.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action?.payload?.message;
+    });
+    // load user
+    builder.addCase(loadUser.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(loadUser.fulfilled, (state, action) => {
+      state.loading = false;
+      state.user = action.payload;
+    });
+    builder.addCase(loadUser.rejected, (state) => {
+      state.loading = false;
+    });
+    // generate new token
+    builder.addCase(generateNewToken.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(generateNewToken.fulfilled, (state) => {
+      state.loading = false;
+      state.isTokenGenerated = true;
+    });
+    builder.addCase(generateNewToken.rejected, (state) => {
       state.loading = false;
       state.error = action?.payload?.message;
     });
