@@ -35,6 +35,7 @@ const BussinessDetails = () => {
       [e.target.name]: e.target.value,
     }))};
 
+
   useEffect(() => {
     if (isBusinessDetailsAdded) {
       toast.success("Business Details Added Successfully");
@@ -59,7 +60,7 @@ const BussinessDetails = () => {
   // Function to remove a card from the carousel
   const handleDelete = (index) => {
 
-    dispatch(deleteBusinessDetails(index));
+    // dispatch(deleteBusinessDetails(index,user));
   };
   const handleSubmit = (e) => {
     e.preventDefault();

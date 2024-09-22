@@ -1,67 +1,22 @@
 import { Send } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useDispatch,useSelector } from "react-redux";
+import { getAllSessions ,getAllMessages } from "@/slices/userSlice";
 const Chat = () => {
+  const dispatch = useDispatch();
+  const { sessions, messages } = useSelector((state) => state.user);
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedUser, setSelectedUser] = useState(null);
   const [messageInput, setMessageInput] = useState(""); // For handling message input
-  const [sessions, setSessions] = useState({
-    Alice: [
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-      { sender: "Alice", message: "How can I help you today?" },
-      { sender: "You", message: "I need assistance with my order." },
-    ],
-    Bob: [
-      { sender: "Bob", message: "Thanks for your assistance!" },
-      { sender: "You", message: "No problem, glad to help!" },
-    ],
-    Charlie: [
-      { sender: "Charlie", message: "I have a question about..." },
-      { sender: "You", message: "Sure, feel free to ask." },
-    ],
-    Aqib: [
-      { sender: "Aqib", message: "I have a question about..." },
-      { sender: "You", message: "Sure, feel free to ask." },
-    ],
+  useEffect(() => {
+    dispatch(getAllSessions());
+  }, [dispatch]);
 
-    Saqib: [
-      { sender: "Saqib", message: "I have a question about..." },
-      { sender: "You", message: "Sure, feel free to ask." },
-    ],
-    John: [
-      { sender: "John", message: "I have a question about..." },
-      { sender: "You", message: "Sure, feel free to ask." },
-    ],
-    John: [
-      { sender: "John", message: "I have a question about..." },
-      { sender: "You", message: "Sure, feel free to ask." },
-    ],
-  });
-
-  const users = [
-    { id: 1, name: "Alice", lastMessage: "How can I help you today?" },
-    { id: 2, name: "Bob", lastMessage: "Thanks for your assistance!" },
-    { id: 3, name: "Charlie", lastMessage: "I have a question about..." },
-    { id: 5, name: "Aqib", lastMessage: "Thanks for your assistance!" },
-    { id: 6, name: "Saqib", lastMessage: "I have a question about..." },
-    { id: 7, name: "John", lastMessage: "Thanks for your assistance!" },
-    { id: 9, name: "Malik", lastMessage: "Thanks for your assistance!" },
-    { id: 10, name: "Ali", lastMessage: "Thanks for your assistance!" },
-    { id: 11, name: "Khan", lastMessage: "Thanks for your assistance!" },
-  ];
+  const handleGetMessages = () => {
+    // dispatch(getAllMessages(id));
+  };
+ 
 
   const handleSendMessage = () => {
     console.log("Sending message:", messageInput);
@@ -73,7 +28,7 @@ const Chat = () => {
       <ScrollArea className="w-1/4 bg-gray-900 p-4 rounded-lg h-[95%] ">
         <h3 className="text-2xl font-bold mb-4">Recent sessions</h3>
         <ul>
-          {users.map((user) => (
+          {sessions.map((user) => (
             <li
               key={user.id}
               className={`cursor-pointer p-2 mb-2 rounded-lg ${

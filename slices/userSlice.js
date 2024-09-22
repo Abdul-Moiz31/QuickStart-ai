@@ -13,6 +13,10 @@ const initialState = {
   isBusinessDetailsAdded: false,
   isBusinessDetailsDeleted: false,
   isContactUsMessageSent: false,
+  sessions: [],
+  messages: [],
+  data:[],
+  isLoggedOut: false,
 };
 
 // signup user
@@ -41,6 +45,20 @@ export const login = createAsyncThunk(
       return fulfillWithValue(data);
     } catch (error) {
       console.log(error.response.data);
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+// logout user
+export const logout = createAsyncThunk(
+  "user/logout",
+  async (_, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.get(`${baseurl}/user/logout`, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data);
+    } catch (error) {
       return rejectWithValue(error.response.data);
     }
   }
@@ -120,6 +138,48 @@ export const sendContactUsMessage = createAsyncThunk(
     }
   }
 );
+// get all sessions
+export const getAllSessions = createAsyncThunk(
+  "user/getAllSessions",
+  async (payload, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.get(`${baseurl}/session/owner`, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data.sessions);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+// get sessions monthly data
+export const getSessionsMonthlyData = createAsyncThunk(
+  "user/getSessionsMonthlyData",
+  async (payload, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.get(`${baseurl}/session/monthly`, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data.data);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+// get all messages
+export const getAllMessages = createAsyncThunk(
+  "user/getAllMessages",
+  async (id, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.get(`${baseurl}/message/session/${id}`, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
 
 
 
@@ -131,12 +191,15 @@ const userReducer = createSlice({
       state.error = "";
       state.isUserRegistered = false;
       state.isUserLogged = false;
-      // state.user = null;
+      state.user = null;
       state.isTokenGenerated = false;
       state.isBusinessDetailsAdded= false;
       state.isBusinessDetailsDeleted = false;
       state.isContactUsMessageSent = false;
-
+      state.sessions = [];
+      state.messages = [];
+      state.data = [];
+      state.isLoggedOut = false;
     },
   },
   extraReducers: (builder) => {
@@ -223,6 +286,51 @@ const userReducer = createSlice({
       state.loading = false;
       state.error = action?.payload?.message;
     });
+    // get all sessions
+    builder.addCase(getAllSessions.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(getAllSessions.fulfilled, (state, action) => {
+      state.loading = false;
+      state.sessions = action.payload;
+    });
+    builder.addCase(getAllSessions.rejected, (state) => {
+      state.loading = false;
+    });
+    // get all messages
+    builder.addCase(getAllMessages.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(getAllMessages.fulfilled, (state, action) => {
+      state.loading = false;
+      state.messages = action.payload;
+    });
+    builder.addCase(getAllMessages.rejected, (state) => {
+      state.loading = false;
+    });
+    // get sessions monthly data
+    builder.addCase(getSessionsMonthlyData.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(getSessionsMonthlyData.fulfilled, (state, action) => {
+      state.loading = false;
+      state.data = action.payload;
+    });
+    builder.addCase(getSessionsMonthlyData.rejected, (state) => {
+      state.loading = false;
+    });
+    // logout user
+    builder.addCase(logout.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(logout.fulfilled, (state) => {
+      state.loading = false;
+      state.isLoggedOut = true;
+    });
+    builder.addCase(logout.rejected, (state) => {
+      state.loading = false;
+    });
+
 
    
   },
