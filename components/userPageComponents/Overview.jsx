@@ -1,30 +1,30 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { MessageSquare, User, Settings } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer } from "recharts";
-
+import { useDispatch,useSelector } from "react-redux";
+import { getAllSessions,getSessionsMonthlyData,loadUser  } from "@/slices/userSlice";
 const Overview = () => {
+  const dispatch = useDispatch();
+  const { sessions,data  } = useSelector((state) => state.user);
   const [credits, setCredits] = useState(0);
+  useEffect(() => {
+    dispatch(getAllSessions());
+    dispatch(getSessionsMonthlyData());
+    dispatch(loadUser());
+
+  }, [dispatch]);
 
   const cardData = [
-    { title: "Total Sessions", icon: MessageSquare, value: "1,234", change: "+10%" },
+    { 
+      title: "Total Sessions", 
+      icon: MessageSquare, 
+      value: sessions?.length ? sessions.length : 0,  // Show session length dynamically
+      change: "+10%" 
+    },
     { title: "Total Credits", icon: User, value: "256", change: "+5%" },
-    { title: "Current Plan", icon: Settings, value: "Pro", subtext: "Renews on May 1, 2023" },
+    { title: "Current Plan", icon: Settings, value: "Free", subtext: "" },
   ];
 
-  const sessionData = [
-    { month: "Jan", session: 180 },
-    { month: "Feb", session: 200 },
-    { month: "Mar", session: 150 },
-    { month: "Apr", session: 220 },
-    { month: "May", session: 250 },
-    { month: "Jun", session: 280 },
-    { month: "Jul", session: 300 },
-    { month: "Aug", session: 320 },
-    { month: "Sep", session: 340 },
-    { month: "Oct", session: 360 },
-    { month: "Nov", session: 380 },
-    { month: "Dec", session: 400 },
-  ];
 
   return (
     <div className="space-y-8">
@@ -46,7 +46,7 @@ const Overview = () => {
       <div className="bg-gray-800 p-6 rounded-lg">
         <h3 className="text-sm font-medium mb-4">Monthly Sessions Overview</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={sessionData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <Tooltip />

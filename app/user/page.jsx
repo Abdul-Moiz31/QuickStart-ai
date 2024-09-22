@@ -9,8 +9,12 @@ import TestChatbot from "@/components/userPageComponents/TestChatbot";
 import OutOfCredits from "@/components/userPageComponents/OutOfCredits";
 import Transactions from "@/components/userPageComponents/Transactions";
 import { useRouter } from "next/navigation";
-
+import { logout,clearState } from "@/slices/userSlice";
+import { useDispatch,useSelector } from "react-redux";
+import toast from "react-hot-toast";
 export default function UserDashboard() {
+  const dispatch = useDispatch();
+  const {isLoggedOut,loading} = useSelector((state) => state.user);
   const [activeTab, setActiveTab] = useState("overview");
   const [credits, setCredits] = useState(0);
   const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true);
@@ -39,10 +43,19 @@ export default function UserDashboard() {
   const toggleLogoutMenu = () => {
     setShowLogoutMenu((prev) => !prev);
   };
+  useEffect(() => {
+
+    if (isLoggedOut) {
+      toast.success("Logged out successfully");
+      dispatch(clearState());
+      router.push("/start");
+    }
+  }, [isLoggedOut, loading, router]);
 
   const handleLogout = () => {
     // Add your logout logic here (e.g., clearing auth tokens)
-    router.push("/"); // Redirect to / after logout
+    dispatch(logout());
+
   };
 
   return (

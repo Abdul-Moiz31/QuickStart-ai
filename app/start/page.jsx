@@ -12,14 +12,17 @@ import {
   Image,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { signUp, login, clearState } from "@/slices/userSlice";
+import { signUp, login, clearState,loadUser } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { storage } from "@/Firebase/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { useRouter } from "next/navigation";
+
 
 export default function UserAuth() {
   const dispatch = useDispatch();
+  const router = useRouter();
   const { error, loading, isUserRegistered, isUserLogged, user } = useSelector(
     (state) => state.user
   );
@@ -38,10 +41,19 @@ export default function UserAuth() {
     email: "",
     password: "",
   });
+  // if user role is user navigate to /user and if admin navigate to /admin
+  useEffect(() => {
+    if (user && user.role === "user") {
+      router.push("/user");
+    } else if (user && user.role === "admin") {
+      router.push("/admin");
+    }
+  }, [user, router]);
   useEffect(() => {
     if (isUserRegistered) {
       toast.success("User registered successfully");
       dispatch(clearState());
+      dispatch(loadUser());
       // clear form data
       setFormData({
         name: "",
@@ -56,6 +68,7 @@ export default function UserAuth() {
     if (isUserLogged) {
       toast.success("User logged in successfully");
       dispatch(clearState());
+      dispatch(loadUser());
       // clear form data
       setLoginData({
         email: "",
