@@ -1,23 +1,35 @@
 "use client";
-import React, { useState ,useEffect } from "react";
-import { Eye, EyeOff, Lock, Mail, User, Building } from "lucide-react";
-import { motion } from "framer-motion"; // For animations
-import { signUp ,login ,clearState } from "@/slices/userSlice";
+import React, { useState, useEffect } from "react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User,
+  Building,
+  Briefcase,
+  Clipboard,
+  Image,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import { signUp, login, clearState } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
-import  toast from "react-hot-toast";
+import toast from "react-hot-toast";
 import { storage } from "@/Firebase/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 export default function UserAuth() {
   const dispatch = useDispatch();
-  const { error, loading, isUserRegistered, isUserLogged, user } = useSelector((state) => state.user);
+  const { error, loading, isUserRegistered, isUserLogged, user } = useSelector(
+    (state) => state.user
+  );
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    picture : "",
+    picture: "",
     bussinessName: "",
     bussinessDescription: "",
     bussinessCategory: "",
@@ -35,7 +47,7 @@ export default function UserAuth() {
         name: "",
         email: "",
         password: "",
-        picture : "",
+        picture: "",
         bussinessName: "",
         bussinessDescription: "",
         bussinessCategory: "",
@@ -56,15 +68,16 @@ export default function UserAuth() {
       toast.error(error);
       dispatch(clearState());
     }
-  }, [isUserRegistered, isUserLogged,error,dispatch]);
+  }, [isUserRegistered, isUserLogged, error, dispatch]);
 
-  const handleChange= (e) => {
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  }
+  };
 
   const handleLoginChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
-  }
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     const reader = new FileReader();
@@ -81,8 +94,8 @@ export default function UserAuth() {
   const handleLogin = (e) => {
     e.preventDefault();
     dispatch(login(loginData));
-    // toast.loading("loading");
-  }
+  };
+
   const handleSignUp = (e) => {
     e.preventDefault();
     const storageRef = ref(storage, `users/${formData.email}`);
@@ -90,7 +103,8 @@ export default function UserAuth() {
     uploadTask.on(
       "state_changed",
       (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         console.log(`Upload is ${progress}% done`);
         switch (snapshot.state) {
           case "paused":
@@ -112,7 +126,7 @@ export default function UserAuth() {
         });
       }
     );
-  }
+  };
 
   const toggleAuthMode = () => setIsSignUp(!isSignUp);
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
@@ -128,9 +142,9 @@ export default function UserAuth() {
           transition={{ duration: 1.5 }}
         >
           <img
-            src="sign.png" // replace with your image path
+            src="sign.png"
             alt="signbot"
-            className="object-cover w-full h-full"
+            className="object-cover w-full h-80%"
           />
         </motion.div>
 
@@ -152,92 +166,12 @@ export default function UserAuth() {
               {isSignUp && (
                 <>
                   <div>
-                    <label htmlFor="bussinessName" className="sr-only">
-                      Business Name
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="bussinessName"
-                        name="bussinessName"
-                        type="text"
-                        required
-                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                        placeholder="Business Name"
-                        value={formData.bussinessName}
-                        onChange={handleChange}
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="bussinessCategory" className="sr-only">
-                      Business Category
-                    </label>
-                    <div className="relative">
-                      <input
-                       id="bussinessCategory"
-                        name="bussinessCategory"
-                        type="text"
-                        required
-                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                        placeholder=" Business Category"
-                        value={formData.bussinessCategory}
-                        onChange={handleChange}
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Building className="h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="bussinessDescription" className="sr-only">
-                      Business Description
-                    </label>
-                    <div className="relative">
-                      <input
-                       id="bussinessDescription"
-                        name="bussinessDescription"
-                        type="text"
-                        required
-                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                        placeholder="Business Description"
-                        value={formData.bussinessDescription}
-                        onChange={handleChange}
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Building className="h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="bussinessDescription" className="sr-only">
-                      Business Image
-                    </label>
-                    <div className="relative">
-                      <input
-                       id="picture"
-                        name="picture"
-                        type="file"
-                        required
-                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                        placeholder="Picture"
-                        // value={formData.picture}
-                        onChange={handleImageChange}
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Building className="h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                  <div>
                     <label htmlFor="name" className="sr-only">
                       Name
                     </label>
                     <div className="relative">
                       <input
-                       id="name"
+                        id="name"
                         name="name"
                         type="text"
                         required
@@ -247,7 +181,7 @@ export default function UserAuth() {
                         onChange={handleChange}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Building className="h-5 w-5 text-gray-400" />
+                        <User className="h-5 w-5 text-gray-400" />
                       </div>
                     </div>
                   </div>
@@ -306,56 +240,125 @@ export default function UserAuth() {
                   </button>
                 </div>
               </div>
+              {isSignUp && (
+                <>
+                  <div>
+                    <label htmlFor="bussinessName" className="sr-only">
+                      Business Name
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="bussinessName"
+                        name="bussinessName"
+                        type="text"
+                        required
+                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                        placeholder="Business Name"
+                        value={formData.bussinessName}
+                        onChange={handleChange}
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Building className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="bussinessDescription" className="sr-only">
+                      Business Description
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="bussinessDescription"
+                        name="bussinessDescription"
+                        type="text"
+                        required
+                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                        placeholder="Business Description"
+                        value={formData.bussinessDescription}
+                        onChange={handleChange}
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Briefcase className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="bussinessCategory" className="sr-only">
+                      Business Category
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="bussinessCategory"
+                        name="bussinessCategory"
+                        type="text"
+                        required
+                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                        placeholder="Business Category"
+                        value={formData.bussinessCategory}
+                        onChange={handleChange}
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Clipboard className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="picture" className="sr-only">
+                      Picture
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="picture"
+                        name="picture"
+                        type="file"
+                        accept="image/*"
+                        required
+                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                        onChange={handleImageChange}
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Image className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-600"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <a
-                  href="#"
-                  className="font-medium text-purple-600 hover:text-purple-500"
-                >
-                  Forgot your password?
-                </a>
-              </div>
-            </div>
-
             <div>
-              <motion.button
+              <button
                 type="submit"
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-full text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:bg-gradient-to-l focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={isSignUp ?  handleSignUp : handleLogin}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-full shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                onClick={isSignUp ? handleSignUp : handleLogin}
               >
-                {isSignUp ? "Sign Up" : "Sign In"}
-              </motion.button>
+                {isSignUp ? "Sign up" : "Sign in"}
+              </button>
+            </div>
+            <div className="text-center text-sm text-gray-600 mt-4">
+              {isSignUp ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    className="font-medium text-purple-600 hover:text-purple-500"
+                    onClick={toggleAuthMode}
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    className="font-medium text-purple-600 hover:text-purple-500"
+                    onClick={toggleAuthMode}
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
             </div>
           </form>
-          <div className="text-center mt-4">
-            <button
-              onClick={toggleAuthMode}
-              className="font-medium text-purple-600 hover:text-purple-500"
-            >
-              {isSignUp
-                ? "Already have an account? Sign In"
-                : "Don't have an account? Sign Up"}
-            </button>
-          </div>
         </motion.div>
       </div>
     </div>
