@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState ,useEffect } from "react";
 import { MdDeleteOutline, MdInfoOutline } from "react-icons/md";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,30 +19,58 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"; // Shadcn alert-dialog component
-
+import { useDispatch,useSelector } from "react-redux";
+import { addBusinessDetails ,deleteBusinessDetails,loadUser,clearState } from "@/slices/userSlice";
+import toast from "react-hot-toast";
 const BussinessDetails = () => {
-  const [details, setDetails] = useState([
-    {
-      question: "🚀 What is our Company Objective?",
-      answer:
-        "Our objective is to provide the best services to our customers and to continuously improve our offerings. 💼",
-    },
-    {
-      question: "🎯 What is our Company Mission?",
-      answer:
-        "Our mission is to deliver quality service and create lasting customer relationships. 🤝",
-    },
-    {
-      question: "🌟 What is our Company Vision?",
-      answer:
-        "Our vision is to be the leading provider of innovative solutions in our industry. 🏆",
-    },
-  ]);
+  const dispatch = useDispatch();
+  const {isBusinessDetailsAdded,isBusinessDetailsDeleted,user,error,loading}=useSelector((state)=>state.user);
+  const [formData, setFormData] = useState({
+    question: "",
+    answer: "",
+  });
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }))};
+
+  useEffect(() => {
+    if (isBusinessDetailsAdded) {
+      toast.success("Business Details Added Successfully");
+      dispatch(clearState());
+      dispatch(loadUser());
+      setFormData({
+        question: "",
+        answer: "",
+      });
+    }
+    if (isBusinessDetailsDeleted) {
+      dispatch(clearState());
+      toast.success("Business Details Deleted Successfully");
+      dispatch(loadUser());
+    }
+    if (error) {
+      toast.error(error);
+      console.log(error);
+    }
+  }, [isBusinessDetailsAdded, isBusinessDetailsDeleted]);
 
   // Function to remove a card from the carousel
   const handleDelete = (index) => {
-    setDetails((prev) => prev.filter((_, i) => i !== index));
+
+    dispatch(deleteBusinessDetails(index));
   };
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log(formData,user);
+    // fill all the fields
+    if (!formData.question || !formData.answer) {
+      toast.error("Please fill all the fields");
+      return;
+    }
+    dispatch(addBusinessDetails(formData,user));
+  }
 
   return (
     <div className="relative ">
@@ -106,7 +134,11 @@ const BussinessDetails = () => {
               </label>
               <Input
                 id="question"
+                name="question"
+                value={formData.question}
+                onChange={handleChange}
                 type="text"
+                required
                 placeholder="What is our Company Objective? 🚀"
                 className="mt-1 block w-full border border-gray-500 bg-gray-900 text-white placeholder-gray-500"
               />
@@ -121,6 +153,10 @@ const BussinessDetails = () => {
               </label>
               <Textarea
                 id="answer"
+                name="answer"
+                value={formData.answer}
+                onChange={handleChange}
+                required
                 placeholder="Our objective is to provide the best services to our customers... 💼"
                 rows={4}
                 className="mt-1 block w-full border border-gray-500 bg-gray-900 text-white placeholder-gray-500"
@@ -128,6 +164,7 @@ const BussinessDetails = () => {
             </div>
             <Button
               type="submit"
+              onClick={handleSubmit}
               className="w-full bg-blue-600 text-white hover:bg-blue-700"
             >
               Add Detail
@@ -148,7 +185,7 @@ const BussinessDetails = () => {
         >
           <div className="bg-gray-700 p-4 text-white">
             <CarouselContent>
-              {details.map((item, index) => (
+              {user.bussinessDetails.map((item, index) => (
                 <CarouselItem key={index}>
                   <div className="relative text-white">
                     <Card className="h-full relative group">

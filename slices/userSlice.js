@@ -10,6 +10,9 @@ const initialState = {
   user: null,
   isTokenGenerated: false,
   token: null,
+  isBusinessDetailsAdded: false,
+  isBusinessDetailsDeleted: false,
+  isContactUsMessageSent: false,
 };
 
 // signup user
@@ -73,6 +76,51 @@ export const generateNewToken = createAsyncThunk(
   }
 );
 
+// add business details
+export const addBusinessDetails = createAsyncThunk(
+  "user/addBusinessDetails",
+  async (payload, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.post(`${baseurl}/user/bussinessDetails`, payload, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// delete business details
+export const deleteBusinessDetails = createAsyncThunk(
+  "user/deleteBusinessDetails",
+  async (id, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.delete(`${baseurl}/user/bussinessDetails/${id}`, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// send contact us message
+export const sendContactUsMessage = createAsyncThunk(
+  "user/sendContactUsMessage",
+  async (payload, { rejectWithValue, fulfillWithValue }) => {
+    try {
+      const { data } = await axios.post(`${baseurl}/user/contact`, payload, {
+        withCredentials: true,
+      });
+      return fulfillWithValue(data);
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
 
 
 const userReducer = createSlice({
@@ -85,6 +133,9 @@ const userReducer = createSlice({
       state.isUserLogged = false;
       // state.user = null;
       state.isTokenGenerated = false;
+      state.isBusinessDetailsAdded= false;
+      state.isBusinessDetailsDeleted = false;
+      state.isContactUsMessageSent = false;
 
     },
   },
@@ -133,6 +184,42 @@ const userReducer = createSlice({
       state.isTokenGenerated = true;
     });
     builder.addCase(generateNewToken.rejected, (state) => {
+      state.loading = false;
+      state.error = action?.payload?.message;
+    });
+    // add business details
+    builder.addCase(addBusinessDetails.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(addBusinessDetails.fulfilled, (state) => {
+      state.loading = false;
+      state.isBusinessDetailsAdded = true;
+    });
+    builder.addCase(addBusinessDetails.rejected, (state) => {
+      state.loading = false;
+      state.error = action?.payload?.message;
+    });
+    // delete business details
+    builder.addCase(deleteBusinessDetails.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(deleteBusinessDetails.fulfilled, (state) => {
+      state.loading = false;
+      state.isBusinessDetailsDeleted = true;
+    });
+    builder.addCase(deleteBusinessDetails.rejected, (state) => {
+      state.loading = false;
+      state.error = action?.payload?.message;
+    });
+    // send contact us message
+    builder.addCase(sendContactUsMessage.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(sendContactUsMessage.fulfilled, (state) => {
+      state.loading = false;
+      state.isContactUsMessageSent = true;
+    });
+    builder.addCase(sendContactUsMessage.rejected, (state) => {
       state.loading = false;
       state.error = action?.payload?.message;
     });
