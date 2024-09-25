@@ -273,6 +273,65 @@ const BusinessDetails = () => {
           </form>
         </CardContent>
       </Card>
+
+            {/* Floating Carousel */}
+            <div className="w-full max-w-4xl mt-8">
+        <Carousel
+          plugins={[
+            Autoplay({
+              delay: 3000,
+            }),
+          ]}
+          className="h-[250px] rounded-lg overflow-hidden relative shadow-lg"
+        >
+          <CarouselContent>
+            {user?.bussinessDetails?.map((item, index) => (
+              <CarouselItem key={index}>
+                <div className="relative p-6 bg-gray-800 text-white rounded-lg shadow-lg transition-transform transform hover:scale-105">
+                  <Card className="h-full relative group">
+                    <CardHeader className="flex flex-row align-middle gap-3">
+                      <FaRobot className="text-2xl text-gray-400" />
+                      <CardTitle className="text-lg">{item.question}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                      <p>{item.answer}</p>
+                    </CardContent>
+                    <div className="absolute top-3 right-3">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            onClick={() => handleDelete(index)}
+                            className="p-2 text-gray-400 hover:text-gray-200 transition-all"
+                          >
+                            <MdDeleteOutline className="text-2xl" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-gray-900 text-white rounded-lg p-6">
+                          <AlertDialogTitle className="text-lg font-semibold mb-2">
+                            Delete Confirmation
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this detail?
+                          </AlertDialogDescription>
+                          <div className="mt-4 flex justify-end space-x-2">
+                            <AlertDialogCancel className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                              Delete
+                            </AlertDialogAction>
+                          </div>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </Card>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
+
     </div>
   );
 };
