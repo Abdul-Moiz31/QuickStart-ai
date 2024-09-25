@@ -14,6 +14,12 @@ const Overview = () => {
 
   }, [dispatch]);
 
+
+  const chartData= data?.map((item) => {
+    return { month: item.month, session: item.count };
+  } );
+
+
   const cardData = [
     { 
       title: "Total Sessions", 
@@ -46,7 +52,7 @@ const Overview = () => {
       <div className="bg-gray-800 p-6 rounded-lg">
         <h3 className="text-sm font-medium mb-4">Monthly Sessions Overview</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <Tooltip />
@@ -56,6 +62,8 @@ const Overview = () => {
               stroke="#8884d8"
               fill="blue"
               fillOpacity={0.3}
+              animationBegin={1000}
+              animationDuration={1500}
 
             />
           </AreaChart>

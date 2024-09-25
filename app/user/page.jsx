@@ -9,12 +9,14 @@ import TestChatbot from "@/components/userPageComponents/TestChatbot";
 import OutOfCredits from "@/components/userPageComponents/OutOfCredits";
 import Transactions from "@/components/userPageComponents/Transactions";
 import { useRouter } from "next/navigation";
-import { logout,clearState } from "@/slices/userSlice";
-import { useDispatch,useSelector } from "react-redux";
+import { logout, clearState } from "@/slices/userSlice";
+import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 export default function UserDashboard() {
   const dispatch = useDispatch();
-  const {isLoggedOut,loading} = useSelector((state) => state.user);
+  const { isLoggedOut, loading, user } = useSelector((state) => state.user);
   const [activeTab, setActiveTab] = useState("overview");
   const [credits, setCredits] = useState(0);
   const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true);
@@ -22,16 +24,17 @@ export default function UserDashboard() {
   const tabs = [
     "overview",
     "chats",
-    "bussiness Details",
+    "business details",
     "test chatbot",
     "token",
-    "Transactions",
+    "transactions",
   ];
   const router = useRouter();
 
   const handleCloseModal = () => {
     setIsOutOfCreditsOpen(false); // Close the modal
   };
+
   // Check if the user is logged in when the component mounts
   useEffect(() => {
     const isLoggedIn = true; // default to true for testing
@@ -43,8 +46,8 @@ export default function UserDashboard() {
   const toggleLogoutMenu = () => {
     setShowLogoutMenu((prev) => !prev);
   };
-  useEffect(() => {
 
+  useEffect(() => {
     if (isLoggedOut) {
       toast.success("Logged out successfully");
       dispatch(clearState());
@@ -53,9 +56,8 @@ export default function UserDashboard() {
   }, [isLoggedOut, loading, router]);
 
   const handleLogout = () => {
-    // Add your logout logic here (e.g., clearing auth tokens)
     dispatch(logout());
-
+    toggleLogoutMenu(); // Close the menu on logout
   };
 
   return (
@@ -89,18 +91,21 @@ export default function UserDashboard() {
               <Bell className="h-5 w-5" />
             </button>
             <div
-              className="relative w-8 h-8 rounded-full bg-gray-600 cursor-pointer"
+              className="relative w-8 h-8 cursor-pointer"
               onClick={toggleLogoutMenu}
             >
-              <User className="h-6 w-6 mx-auto my-auto mt-1 text-white" />
+              <Avatar>
+                <AvatarImage src={user?.picture} alt={user?.bussinessName} />
+                <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
 
               {showLogoutMenu && (
-                <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded-lg shadow-lg z-10">
+                <div className="absolute right-0 mt-2  text-white rounded-lg shadow-lg z-10 bg-red-700">
                   <button
+                    className="flex items-center p-2 hover:bg-gray-700 w-full "
                     onClick={handleLogout}
-                    className="px-4 py-2 hover:bg-gray-700 w-full text-left text-red-600 flex items-center justify-between"
                   >
-                    Logout <LogOut className="h-4 w-4 ml-2" />
+                    <LogOut className="h-4 w-4 mr-2 " color="white"/> Logout
                   </button>
                 </div>
               )}
@@ -111,10 +116,10 @@ export default function UserDashboard() {
         {/* Render content based on active tab */}
         {activeTab === "overview" && <Overview />}
         {activeTab === "chats" && <Chat />}
-        {activeTab === "bussiness Details" && <BussinessDetails />}
+        {activeTab === "business details" && <BussinessDetails />}
         {activeTab === "test chatbot" && <TestChatbot />}
         {activeTab === "token" && <Token />}
-        {activeTab === "Transactions" && <Transactions />}
+        {activeTab === "transactions" && <Transactions />}
 
         {/* Conditional rendering for the modal */}
         {credits === 0 && isOutOfCreditsOpen && (
