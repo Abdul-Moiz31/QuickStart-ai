@@ -174,7 +174,7 @@ export const getAllMessages = createAsyncThunk(
       const { data } = await axios.get(`${baseurl}/message/session/${id}`, {
         withCredentials: true,
       });
-      return fulfillWithValue(data);
+      return fulfillWithValue(data.messages);
     } catch (error) {
       return rejectWithValue(error.response.data);
     }

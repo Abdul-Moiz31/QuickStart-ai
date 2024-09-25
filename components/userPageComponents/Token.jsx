@@ -44,7 +44,7 @@ const Token = () => {
             <button className="bg-blue-600 text-white px-4 py-2 rounded"
             onClick={handleGenerateNewToken} 
             >
-              Generate New Token
+              Reset Token
             </button>
           </div>
   )
