@@ -51,7 +51,7 @@ const PricingSection = () => {
 
   return (
     <motion.div
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-[black]"
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"
       initial={{ y: 20, opacity: 0 }}
       whileInView={{ y: 0, opacity: 1 }}
       viewport={{ once: true }}
