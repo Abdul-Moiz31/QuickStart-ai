@@ -11,7 +11,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white bg-opacity-90 shadow-md border-b-4 border-transparent rounded-b-lg border-gradient-purple backdrop-blur-sm transition-all">
+    <nav className="sticky top-0 z-50 bg-white  shadow-md border-b-4 border-transparent rounded-b-lg border-gradient-purple backdrop-blur-md transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
 

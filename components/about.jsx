@@ -5,7 +5,7 @@ import { Button } from "@nextui-org/button";
 
 export default function About() {
   return (
-    <div className="relative flex justify-center items-center">
+    <div className="relative flex justify-center items-center bg-white text-[gray]">
       <section id="about" className="max-w-screen-xl mx-auto px-4 py-20 gap-12 md:px-8 flex flex-col md:flex-row justify-center items-center">
         
         <motion.div

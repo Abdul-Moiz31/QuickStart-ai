@@ -5,7 +5,8 @@ import PlausibleProvider from "next-plausible";
 import { ReduxProvider } from "./redux-provider";
 import { Toaster } from "react-hot-toast";
 
-const inter = Inter({ subsets: ["latin"] });
+
+
 
 export const metadata = {
   title: "Quickstart",
@@ -20,7 +21,7 @@ export default function RootLayout({ children }) {
       <head>
         <PlausibleProvider domain={domain} customDomain={customDomain} />
       </head>
-      <body className={inter.className}>
+      <body >
         <ReduxProvider>
         <Providers>
         <Toaster position="top-center" />

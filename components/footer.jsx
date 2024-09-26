@@ -3,7 +3,7 @@ import { Button } from "@nextui-org/button";
 import { Github, Twitter } from "lucide-react";
 export default function Footer() {
   return (
-    <footer className="pt-24">
+    <footer className="pt-24 text-black">
       <div className="max-w-screen-xl mx-auto px-4 md:px-8">
         <div className="flex justify-between items-center py-10">
           <p className="text-sm font-light">
@@ -19,7 +19,7 @@ export default function Footer() {
           </p>
           <a href="https://github.com/Abdul-Moiz31/QuickStart-ai" target="_blank">
             <Button isIconOnly variant="light">
-              <Github size={24} />
+              <Github size={24} color="black"/>
             </Button>
           </a>
         </div>

@@ -57,7 +57,7 @@ export default function Faq() {
   ];
 
   return (
-    <section className="relative max-w-screen-xl mx-auto px-4 py-28 gap-12 md:px-8 flex flex-col justify-center items-center">
+    <section className="relative max-w-screen-xl mx-auto px-4 py-28 gap-12 md:px-8 flex flex-col justify-center items-center text-[black] w-[50%]">
       {/* Title Section */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
