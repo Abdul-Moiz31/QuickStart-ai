@@ -18,7 +18,7 @@ export default function Footer() {
             with ❤️
           </p>
           <a href="https://github.com/Abdul-Moiz31/QuickStart-ai" target="_blank">
-            <Button isIconOnly variant="light">
+            <Button isIconOnly variant="light ">
               <Github size={24} color="black"/>
             </Button>
           </a>
