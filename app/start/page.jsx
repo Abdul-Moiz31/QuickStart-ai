@@ -161,7 +161,7 @@ export default function UserAuth() {
           />
         </motion.div>
 
-        {/* Right Side: Sign up and sign in Form */}
+        {/* Right Side: Form */}
         <motion.div
           className="w-full lg:w-1/2 flex flex-col justify-center p-8 bg-white"
           initial={{ opacity: 0, y: 50 }}
