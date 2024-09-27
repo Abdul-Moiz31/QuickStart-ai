@@ -12,17 +12,24 @@ import Contact from "@/components/contact";
 export default function Home() {
   return (
     <main className="flex flex-col min-h-dvh bg-white">
-      <NavBar />
-      <Hero />
-      <About/>
-      <Feature/>
-      <Pricing/>
-      <Faq/>
-      <Contact/>
-      <Footer/>
-      
-      
-      
-    </main>
+  <NavBar />
+  <section id="about">
+    <About />
+  </section>
+  <section id="features">
+    <Feature />
+  </section>
+  <section id="pricing">
+    <Pricing />
+  </section>
+  <section id="faq">
+    <Faq />
+  </section>
+  <section id="contact">
+  <Contact />
+  </section>
+  <Footer />
+</main>
+
   );
 }
