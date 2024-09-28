@@ -148,7 +148,7 @@ export default function UserAuth() {
           <img
             src="sign.png"
             alt="signbot"
-            className="object-cover w-full h-full"
+            className="object-cover object-center w-full h-120%"
           />
         </motion.div>
 
