@@ -40,7 +40,7 @@ export default function UserAuth() {
     email: "",
     password: "",
   });
-  const [previewImage, setPreviewImage] = useState(null); // State to hold the image preview
+  const [previewImage, setPreviewImage] = useState(null); 
 
   useEffect(() => {
     if (user && user.role === "user") {
