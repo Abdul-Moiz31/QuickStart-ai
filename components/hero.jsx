@@ -51,7 +51,7 @@ export default function Hero() {
               className="mt-12 md:mt-0 md:mr-8"
             >
               <img
-                src="/aboutus.png"
+                src="/Cute.png"
                 alt="Descriptive Alt Text"
               />
             </motion.div>

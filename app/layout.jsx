@@ -19,6 +19,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        {/* add favicon here */}
+        <link rel="icon" href="/favicon-32x32.png"/>       
         <PlausibleProvider domain={domain} customDomain={customDomain} />
       </head>
       <body >
