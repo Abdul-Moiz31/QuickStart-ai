@@ -13,6 +13,9 @@ export default function Home() {
   return (
     <main className="flex flex-col min-h-dvh bg-white">
   <NavBar />
+  <section id="hero">
+    <Hero />
+  </section>
   <section id="about">
     <About />
   </section>
