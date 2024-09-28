@@ -5,7 +5,7 @@ import { sendContactUsMessage, clearState } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 
-export default function Component() {
+export default function ContactForm() {
   const dispatch = useDispatch();
   const { isContactUsMessageSent, error, loading } = useSelector(
     (state) => state.user
@@ -16,6 +16,7 @@ export default function Component() {
     subject: "",
     message: "",
   });
+
   useEffect(() => {
     if (isContactUsMessageSent) {
       toast.success("Message Sent Successfully");
@@ -25,7 +26,6 @@ export default function Component() {
         subject: "",
         message: "",
       });
-      // Dispatching clearState to reset the flag
       dispatch(clearState());
     }
 
@@ -34,12 +34,14 @@ export default function Component() {
       dispatch(clearState());
     }
   }, [isContactUsMessageSent, error, dispatch]);
+
   const handleChange = (e) => {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
   };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (
@@ -64,7 +66,7 @@ export default function Component() {
       transition={{ duration: 0.5 }}
       className="min-h-screen flex flex-col items-center justify-center bg-white bg-opacity-90 backdrop-blur-sm p-4"
     >
-      {/* Contact Us Heading outside the form box */}
+      {/* Heading outside the form box */}
       <motion.h1
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -96,7 +98,7 @@ export default function Component() {
         >
           Let's Build Your Own Chat Bot
         </motion.p>
-        <form>
+        <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <motion.div
               initial={{ x: -20, opacity: 0 }}
@@ -108,7 +110,10 @@ export default function Component() {
                 name="name"
                 onChange={handleChange}
                 placeholder="Name"
+                value={formData.name}
                 className={inputClasses}
+                aria-label="Name"
+                required
               />
             </motion.div>
 
@@ -122,7 +127,10 @@ export default function Component() {
                 name="email"
                 onChange={handleChange}
                 placeholder="Email"
+                value={formData.email}
                 className={inputClasses}
+                aria-label="Email"
+                required
               />
             </motion.div>
           </div>
@@ -137,7 +145,10 @@ export default function Component() {
               name="subject"
               onChange={handleChange}
               placeholder="Subject"
+              value={formData.subject}
               className={inputClasses}
+              aria-label="Subject"
+              required
             />
           </motion.div>
           <motion.div
@@ -150,7 +161,10 @@ export default function Component() {
               placeholder="Tell Us Something..."
               name="message"
               onChange={handleChange}
+              value={formData.message}
               className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-2xl text-gray-800 focus:outline-none focus:border-purple-500 h-32 resize-none"
+              aria-label="Message"
+              required
             ></textarea>
           </motion.div>
           <motion.div
@@ -161,10 +175,9 @@ export default function Component() {
           >
             <button
               type="submit"
-              onClick={handleSubmit}
               className="px-8 py-2 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white rounded-full hover:bg-gradient-to-l focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition-colors duration-300"
             >
-              {loading ? "Sending..." : "Send "}
+              {loading ? "Sending..." : "Send"}
             </button>
           </motion.div>
         </form>

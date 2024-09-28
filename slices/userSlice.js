@@ -282,7 +282,7 @@ const userReducer = createSlice({
       state.loading = false;
       state.isContactUsMessageSent = true;
     });
-    builder.addCase(sendContactUsMessage.rejected, (state) => {
+    builder.addCase(sendContactUsMessage.rejected, (state,action) => {
       state.loading = false;
       state.error = action?.payload?.message;
     });

@@ -51,7 +51,7 @@ const PricingSection = () => {
 
   return (
     <motion.div
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"
+      className="text-black max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"
       initial={{ y: 20, opacity: 0 }}
       whileInView={{ y: 0, opacity: 1 }}
       viewport={{ once: true }}
@@ -116,9 +116,9 @@ const PricingSection = () => {
             </div>
             <p className="text-sm mb-4">Billed annually.</p>
             <div className="flex items-center justify-between mb-4">
-              <button className="px-3 py-1 bg-gray-200 rounded-full">-</button>
+              <button className="px-3 py-1 bg-gray-200 rounded-full text-black">-</button>
               <span>1 USER</span>
-              <button className="px-3 py-1 bg-gray-200 rounded-full">+</button>
+              <button className="text-black px-3 py-1 bg-gray-200 rounded-full">+</button>
             </div>
             <ul className="space-y-2 mb-6">
               {plan.features.map((feature, i) => (

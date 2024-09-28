@@ -65,7 +65,7 @@ export default function Navbar() {
             <a
               href="#contact"
               variant="outline"
-              className="border-2 border-gradient-purple text-purple-600 hover:bg-gradient-purple-100 rounded-full transition-all ease-in-out duration-300"
+              className=" text-purple-600 hover:bg-gradient-purple-100 rounded-full transition-all ease-in-out duration-300"
             >
               CONTACT US
             </a>

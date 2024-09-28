@@ -57,14 +57,16 @@ export default function Faq() {
   ];
 
   return (
-    <section className="relative max-w-screen-xl mx-auto px-4 py-28 gap-12 md:px-8 flex flex-col justify-center items-center text-[black] w-[50%]">
+    <section className="relative max-w-screen-xl mx-auto px-4 py-28 gap-12 md:px-8 flex flex-col justify-center items-center text-[black] 
+    w-full md:w-[50%] sm:w-[100%]
+    ">
       {/* Title Section */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         whileInView={{ y: 0, opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 1, delay: 0.3 }}
-        className="flex flex-col gap-3 justify-center items-center"
+        className="flex flex-col gap-3 justify-center items-center bg-white"
       >
         <h4 className="text-3xl font-bold sm:text-4xl bg-gradient-to-b from-purple-500 via-purple-600 to-purple-700 bg-clip-text text-transparent">
           FAQ
