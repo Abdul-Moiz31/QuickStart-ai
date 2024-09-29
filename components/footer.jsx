@@ -40,7 +40,7 @@ export default function Footer() {
               </Button>
             </a>
             <a
-              href="https://www.npmjs.com/package/your-package-name"
+              href="https://www.npmjs.com/package/@quickstart-ai/chatbot"
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -1,24 +1,40 @@
 "use client"
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { ArrowLeft, Briefcase, Building, Clipboard, Eye, EyeOff, User, Upload } from "lucide-react"; // Import the Upload icon
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../Firebase/firebase"; // Import Firebase storage
+import { signUp, login, clearState,loadUser } from "@/slices/userSlice";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 export default function AuthForm() {
+  const dispatch = useDispatch();
+  const router = useRouter();
+  const { error, loading, isUserRegistered, isUserLogged, user } = useSelector(
+    (state) => state.user
+  );
   const [isSignUp, setIsSignUp] = useState(false);
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
+    picture: "",
     bussinessName: "",
     bussinessDescription: "",
     bussinessCategory: "",
   });
-  const [loading, setLoading] = useState(false);
+  const [loginData, setLoginData] = useState({
+    email: "",
+    password: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [file, setFile] = useState(null); // File state for image upload
   const [profileImageUrl, setProfileImageUrl] = useState("");
-
+  const toggleAuthMode = () => setIsSignUp(!isSignUp);
+  const [uploadProgress, setUploadProgress] = useState(0); // For tracking upload progress
+  const [uploadingImage, setUploadingImage] = useState(false); 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -27,54 +43,105 @@ export default function AuthForm() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
+  useEffect(() => {
+    if (user && user.role === "user") {
+      router.push("/user");
+    } else if (user && user.role === "admin") {
+      router.push("/admin");
+    }
+  }, [user, router]);
+  useEffect(() => {
+    if (isUserRegistered) {
+      toast.success("User registered successfully");
+      dispatch(clearState());
+      dispatch(loadUser());
+      // clear form data
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        picture: "",
+        bussinessName: "",
+        bussinessDescription: "",
+        bussinessCategory: "",
+      });
+      // emty the image preview
+      setProfileImageUrl("");
+    }
+    if (isUserLogged) {
+      toast.success("User logged in successfully");
+      dispatch(clearState());
+      dispatch(loadUser());
+      // clear form data
+      setLoginData({
+        email: "",
+        password: "",
+      });
+    }
+    if (error) {
+      // Show error message
+      console.log(error);
+      toast.error(error);
+      dispatch(clearState());
+    }
+  }, [isUserRegistered, isUserLogged, error, dispatch]);
+  const handleLoginChange = (e) => {
+    setLoginData({ ...loginData, [e.target.name]: e.target.value });
+  };
 
-    // Create a preview URL for the uploaded image
-    if (selectedFile) {
-      const previewUrl = URL.createObjectURL(selectedFile);
-      setProfileImageUrl(previewUrl);
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]; // Get the selected file
+  
+    if (file) {
+      const previewUrl = URL.createObjectURL(file); // Create a preview URL from the file
+      setProfileImageUrl(previewUrl); // Set the preview URL for the image
+  
+      setFormData({ ...formData, picture: file }); // Set the file to formData.picture
     }
   };
+  
 
-  const toggleAuthMode = () => {
-    setIsSignUp(!isSignUp);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      if (file) {
-        // Create a storage reference for the image
-        const storageRef = ref(storage, `profilePictures/${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            // Track upload progress if necessary
-          },
-          (error) => {
-            console.error("Upload failed:", error);
-          },
-          () => {
-            // Get the download URL once upload completes
-            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-              setProfileImageUrl(downloadURL);
-              console.log("File available at", downloadURL);
-            });
-          }
-        );
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-    }
-
-    setLoading(false);
+    dispatch(login(loginData));
   };
+
+  const handleSignUp = (e) => {
+    e.preventDefault();
+    setUploadingImage(true);
+    const storageRef = ref(storage, `users/${formData.email}`);
+    const uploadTask = uploadBytesResumable(storageRef, formData.picture);
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        console.log(`Upload is ${progress}% done`);
+        switch (snapshot.state) {
+          case "paused":
+            console.log("Upload is paused");
+            break;
+          case "running":
+            console.log("Upload is running");
+            break;
+        }
+      },
+      (error) => {
+        console.log(error);
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          console.log("File available at", downloadURL);
+          formData.picture = downloadURL;
+          dispatch(signUp(formData));
+          setUploadingImage(false);
+        });
+      }
+    );
+  };
+
+
 
   return (
     <div className="text-black min-h-screen flex items-center justify-center bg-gradient-to-r bg-white py-12 px-4 sm:px-6 lg:px-8">
@@ -99,8 +166,32 @@ export default function AuthForm() {
           transition={{ duration: 0.8 }}
           className="bg-white py-8 px-6 shadow rounded-lg"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form  className="space-y-6">
             <div className="rounded-md shadow-sm space-y-4">
+            {isSignUp && (
+                <>
+                  <div>
+                    <label htmlFor="name" className="sr-only">
+                      Name
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        required
+                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                        placeholder="Name"
+                        value={formData.name}
+                        onChange={handleChange}
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
               <div>
                 <label htmlFor="email-address" className="sr-only">Email address</label>
                 <div className="relative">
@@ -111,8 +202,8 @@ export default function AuthForm() {
                     required
                     className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
                     placeholder="Email address"
-                    value={formData.email}
-                    onChange={handleChange}
+                    value={isSignUp ? formData.email : loginData.email}
+                    onChange={isSignUp ? handleChange : handleLoginChange}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center cursor-pointer">
                     <User className="h-5 w-5 text-gray-400" />
@@ -130,8 +221,8 @@ export default function AuthForm() {
                     required
                     className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
                     placeholder="Password"
-                    value={formData.password}
-                    onChange={handleChange}
+                    value={isSignUp ? formData.password : loginData.password}
+                    onChange={isSignUp ? handleChange : handleLoginChange}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center cursor-pointer">
                     {showPassword ? (
@@ -209,7 +300,7 @@ export default function AuthForm() {
                         name="profilePicture"
                         type="file"
                         accept="image/*"
-                        onChange={handleFileChange}
+                        onChange={handleImageChange}
                         className="hidden"
                       />
                       <label htmlFor="profilePicture" className="cursor-pointer mt-1 w-full flex justify-center border-2 border-gray-300 border-dashed rounded-md py-2 text-gray-600">
@@ -220,6 +311,14 @@ export default function AuthForm() {
                     {profileImageUrl && (
                       <img src={profileImageUrl} alt="Profile Preview" className="mt-4 w-32 h-32 object-cover rounded-full" />
                     )}
+                    {uploadingImage && (
+                    <div className="w-full bg-gray-200 h-2 mt-2 rounded-lg">
+                      <div
+                        className="bg-purple-500 h-3 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  )}
                   </div>
                 </>
               )}
@@ -228,6 +327,7 @@ export default function AuthForm() {
                 <button
                   type="submit"
                   disabled={loading}
+                  onClick={isSignUp ? handleSignUp : handleLogin}
                   className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-full shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
                     loading ? "opacity-50 cursor-not-allowed" : ""
                   }`}
