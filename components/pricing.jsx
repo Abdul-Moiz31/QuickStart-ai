@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Check, Zap, Eye } from 'lucide-react'
 
 const PricingSection = () => {
   const [isAnnual, setIsAnnual] = useState(false)
+  const router = useRouter();
 
   const plans = [
     {
       name: 'Basic plan',
-      price: 10,
+      price: 0,
       icon: Zap,
       features: [
         '200 free credits',
@@ -48,6 +50,12 @@ const PricingSection = () => {
       ],
     },
   ]
+  const scrollToContact = () => {
+    const contactSection = document.getElementById('contact')
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
 
   return (
     <motion.div
@@ -134,6 +142,7 @@ const PricingSection = () => {
                   ? 'bg-white text-purple-600'
                   : 'bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 text-white'
               }`}
+              onClick={scrollToContact} 
             >
               Get started
             </button>
