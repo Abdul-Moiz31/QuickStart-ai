@@ -10,14 +10,14 @@ export default function KeyBenefitsSection() {
       className="bg-gradient-to-b from-gray-50 to-white text-black py-12 px-6 sm:px-10 lg:px-20 flex flex-col items-center gap-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.2 , delay: 0.2 }}
+      transition={{ duration: 1 , delay: 0.3 }}
     >
       {/* Header Section */}
       <motion.div
         className="text-center"
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
+        transition={{ duration: 1, delay: 0.3 }}
       >
         <div className="text-purple-600 text-sm font-semibold mb-2 uppercase tracking-wider">
           Key Features
