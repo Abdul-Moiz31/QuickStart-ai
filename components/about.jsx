@@ -10,9 +10,6 @@ export default function About() {
         id="about"
         className="max-w-screen-xl mx-auto px-4  gap-20 md:px-8 flex flex-col md:flex-row items-center"
       >
-        {/* Left section: Image with smooth fade-in */}
-       
-
         {/* Right section: Text with animation and better content */}
         <motion.div
           initial={{ x: 100, opacity: 0 }}
@@ -29,17 +26,29 @@ export default function About() {
           </h2>
 
           {/* Subheading with a more engaging message */}
-          <p className="text-lg text-gray-600 md:text-xl">
-            Revolutionize your customer support with our AI-powered live chat solution. QuickStart AI automates real-time
-            interactions, ensuring customers get instant, personalized assistance—no agents required!
-          </p>
+          <div className="flex justify-center items-center text-left mb-4">
+            <p className="text-lg contain-content text-gray-600 md:text-xl">
+              Revolutionize your customer support with our AI-powered live chat
+              solution. QuickStart AI automates real-time interactions, ensuring
+              customers get instant, personalized assistance—no agents required!
+            </p>
+          </div>
 
           {/* Highlight points */}
-          <ul className="text-gray-600 space-y-2 list-disc list-inside w-full text-left">
-            <li>Seamlessly integrates with any website through our simple npm package.</li>
+          <ul className="text-gray-600 space-y-2 list-disc list-inside w-full text-left pl-6">
+            <li>
+              Seamlessly integrates with any website through our simple npm
+              package.
+            </li>
             <li>Empowers businesses to provide 24/7 customer support.</li>
-            <li>Manage interactions and track customer engagement from a personalized dashboard.</li>
-            <li>Enhances customer satisfaction and reduces response time to seconds.</li>
+            <li>
+              Manage interactions and track customer engagement from a
+              personalized dashboard.
+            </li>
+            <li>
+              Enhances customer satisfaction and reduces response time to
+              seconds.
+            </li>
           </ul>
 
           {/* Call to action with better styling */}
@@ -57,6 +66,8 @@ export default function About() {
             </Button>
           </motion.div>
         </motion.div>
+
+        {/* Left section: Image with smooth fade-in */}
 
         <motion.div
           initial={{ x: -100, opacity: 0 }}

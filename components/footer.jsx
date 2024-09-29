@@ -31,7 +31,7 @@ export default function Footer() {
               </Button>
             </a>
             <a
-              href="https://linkedin.com/in/your-linkedin-profile"
+              href="https://www.linkedin.com/company/quickstart-ai/"
               target="_blank"
               rel="noopener noreferrer"
             >

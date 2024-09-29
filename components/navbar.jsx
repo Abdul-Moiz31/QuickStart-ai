@@ -131,7 +131,7 @@ export default function Navbar() {
                   CONTACT US
                 </a>
                 <Button
-                  onClick={() => router.push("/start")} // Use the initialized router
+                  onClick={() => router.push("/start")} 
                   className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
                 >
                   JOIN US
