@@ -32,28 +32,15 @@ export default function AuthForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [file, setFile] = useState(null); // File state for image upload
   const [profileImageUrl, setProfileImageUrl] = useState("");
-
+  const toggleAuthMode = () => setIsSignUp(!isSignUp);
+  const [uploadProgress, setUploadProgress] = useState(0); // For tracking upload progress
+  const [uploadingImage, setUploadingImage] = useState(false); 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
-
-    // Create a preview URL for the uploaded image
-    if (selectedFile) {
-      const previewUrl = URL.createObjectURL(selectedFile);
-      setProfileImageUrl(previewUrl);
-    }
-  };
-
-  const toggleAuthMode = () => {
-    setIsSignUp(!isSignUp);
   };
 
   useEffect(() => {
@@ -78,6 +65,8 @@ export default function AuthForm() {
         bussinessDescription: "",
         bussinessCategory: "",
       });
+      // emty the image preview
+      setProfileImageUrl("");
     }
     if (isUserLogged) {
       toast.success("User logged in successfully");
@@ -101,17 +90,16 @@ export default function AuthForm() {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (reader.readyState === 2) {
-        setFormData({ ...formData, picture: file });
-      }
-    };
-
-    reader.readAsDataURL(file);
+    const file = e.target.files[0]; // Get the selected file
+  
+    if (file) {
+      const previewUrl = URL.createObjectURL(file); // Create a preview URL from the file
+      setProfileImageUrl(previewUrl); // Set the preview URL for the image
+  
+      setFormData({ ...formData, picture: file }); // Set the file to formData.picture
+    }
   };
+  
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -120,6 +108,7 @@ export default function AuthForm() {
 
   const handleSignUp = (e) => {
     e.preventDefault();
+    setUploadingImage(true);
     const storageRef = ref(storage, `users/${formData.email}`);
     const uploadTask = uploadBytesResumable(storageRef, formData.picture);
     uploadTask.on(
@@ -127,6 +116,7 @@ export default function AuthForm() {
       (snapshot) => {
         const progress =
           (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
         console.log(`Upload is ${progress}% done`);
         switch (snapshot.state) {
           case "paused":
@@ -145,6 +135,7 @@ export default function AuthForm() {
           console.log("File available at", downloadURL);
           formData.picture = downloadURL;
           dispatch(signUp(formData));
+          setUploadingImage(false);
         });
       }
     );
@@ -320,6 +311,14 @@ export default function AuthForm() {
                     {profileImageUrl && (
                       <img src={profileImageUrl} alt="Profile Preview" className="mt-4 w-32 h-32 object-cover rounded-full" />
                     )}
+                    {uploadingImage && (
+                    <div className="w-full bg-gray-200 h-2 mt-2 rounded-lg">
+                      <div
+                        className="bg-purple-500 h-3 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  )}
                   </div>
                 </>
               )}
