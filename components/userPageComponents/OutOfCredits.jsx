@@ -39,7 +39,7 @@ const OutOfCredits = ({ onClose }) => {
           className="bg-blue-600 text-white py-2 px-4 rounded-full hover:bg-blue-700 transition-colors"
           onClick={() =>  
           
-            redirect("/") // redirect to add details page
+            redirect("/") 
           } 
         >
           Add Details
