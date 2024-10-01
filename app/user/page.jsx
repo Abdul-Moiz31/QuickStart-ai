@@ -18,9 +18,10 @@ export default function UserDashboard() {
   const dispatch = useDispatch();
   const { isLoggedOut, loading, user } = useSelector((state) => state.user);
   const [activeTab, setActiveTab] = useState("overview");
-  const [credits, setCredits] = useState(0);
-  const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(true);
+  const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(false);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+
+  // Define tabs
   const tabs = [
     "overview",
     "chats",
@@ -28,20 +29,24 @@ export default function UserDashboard() {
     "test chatbot",
     "token",
     "transactions",
+    "appearance", // New tab that will always appear as active
   ];
+
   const router = useRouter();
 
   const handleCloseModal = () => {
-    setIsOutOfCreditsOpen(false); // Close the modal
+    setIsOutOfCreditsOpen(false);
   };
 
-  // Check if the user is logged in when the component mounts
   useEffect(() => {
-    const isLoggedIn = true; // default to true for testing
+    const isLoggedIn = true;
     if (!isLoggedIn) {
-      router.push("/start"); // Redirect to /start if not logged in
+      router.push("/start");
     }
-  }, [router]);
+    if (user?.businessDetails?.length <= 5) {
+      setIsOutOfCreditsOpen(true); // Open the modal if details are less than 5
+    }
+  }, [user, router]);
 
   const toggleLogoutMenu = () => {
     setShowLogoutMenu((prev) => !prev);
@@ -57,7 +62,7 @@ export default function UserDashboard() {
 
   const handleLogout = () => {
     dispatch(logout());
-    toggleLogoutMenu(); // Close the menu on logout
+    toggleLogoutMenu();
   };
 
   return (
@@ -70,11 +75,17 @@ export default function UserDashboard() {
             <button
               key={tab}
               className={`text-md roboty-headings w-full text-left py-2 px-4 rounded ${
-                activeTab === tab ? "bg-blue-600" : "hover:bg-gray-800"
+                tab === "appearance"
+                  ? "bg-neon text-white" // Neon effect for Appearance tab
+                  : activeTab === tab
+                  ? "bg-blue-600"
+                  : "hover:bg-gray-800"
               }`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => tab !== "appearance" && setActiveTab(tab)} // Avoid changing the activeTab if clicking on "Appearance β"
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === "appearance"
+                ? "Appearance β" // Display the label "Appearance β"
+                : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </nav>
@@ -100,12 +111,12 @@ export default function UserDashboard() {
               </Avatar>
 
               {showLogoutMenu && (
-                <div className="absolute right-0 mt-2  text-white rounded-lg shadow-lg z-10 bg-red-700">
+                <div className="absolute right-0 mt-2 text-white rounded-lg shadow-lg z-10 bg-red-700">
                   <button
-                    className="flex items-center p-2 hover:bg-gray-700 w-full "
+                    className="flex items-center p-2 hover:bg-gray-700 w-full"
                     onClick={handleLogout}
                   >
-                    <LogOut className="h-4 w-4 mr-2 " color="white"/> Logout
+                    <LogOut className="h-4 w-4 mr-2" color="white" /> Logout
                   </button>
                 </div>
               )}
@@ -121,10 +132,7 @@ export default function UserDashboard() {
         {activeTab === "token" && <Token />}
         {activeTab === "transactions" && <Transactions />}
 
-        {/* Conditional rendering for the modal */}
-        {credits === 0 && isOutOfCreditsOpen && (
-          <OutOfCredits onClose={handleCloseModal} />
-        )}
+        {isOutOfCreditsOpen && <OutOfCredits onClose={handleCloseModal} />}
       </main>
     </div>
   );
