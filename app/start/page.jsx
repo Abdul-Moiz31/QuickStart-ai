@@ -153,7 +153,11 @@ export default function AuthForm() {
 
       <div className="max-w-md w-full space-y-8 shadow-xl">
         <div className="text-center">
-          <img src="/file.png" alt="Site Logo" className="h-20 w-auto mx-auto" />
+          <img 
+src="/file.png" 
+alt="Site Logo" 
+className="h-20 w-auto mx-auto cursor-pointer"
+onClick={() => router.push("/")} />
           <h2 className="mt-6 text-3xl font-bold text-purple-500">Welcome to QuickStart.AI</h2>
           <p className="mt-2 text-sm text-black">
             {isSignUp ? "Create an account to get started with Chatbot Integration" : "Sign in to your account"}
