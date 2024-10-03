@@ -29,9 +29,9 @@ const OutOfCredits = ({ onClose }) => {
 
         {/* Emoji and Message */}
         <div className="text-6xl mb-4">😓</div>
-        <h2 className="text-2xl font-bold mb-2">Out of Credits</h2>
+        <h2 className="text-2xl font-bold mb-2">Business details not sufficient </h2>
         <p className="mb-4">
-          Oops! It looks like you've run out of credits. Please add more credits to continue using our services.
+          Oops! It looks like your bussiness details are less than five. Details must be five or more than five
         </p>
 
         {/* Add Credits Button */}
@@ -39,10 +39,10 @@ const OutOfCredits = ({ onClose }) => {
           className="bg-blue-600 text-white py-2 px-4 rounded-full hover:bg-blue-700 transition-colors"
           onClick={() =>  
           
-            redirect("/#pricing") // {redirect} is a function from next/navigation
-          } // Navigate to /#pricing
+            redirect("/") 
+          } 
         >
-          Add Credits
+          Add Details
         </button>
       </div>
     </motion.div>

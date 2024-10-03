@@ -1,7 +1,7 @@
 # Quick Start - Ai
 
 
-![Preview](/public/preview1.png)
+![Preview](/public/Quick.png)
 
 ## Table of Contents
 

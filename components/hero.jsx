@@ -1,12 +1,14 @@
 "use client";
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ArrowRight, MapPin, Phone, Mail } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import CountUp from 'react-countup';
+import { FaUsers, FaCodeBranch, FaBusinessTime } from 'react-icons/fa'; // Importing icons
 
 // Motion variants for smooth animation
 const fadeInUp = {
-  hidden: { opacity: 1, y: 20 },
+  hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeInOut" } },
 };
 
@@ -54,38 +56,41 @@ export default function Hero() {
         </motion.div>
       </div>
 
-      {/* Contact Info Cards */}
-      <motion.div variants={staggerContainer} className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          {
-            icon: <MapPin className="h-6 w-6 text-purple-600" />,
-            title: "Pay Us a Visit",
-            description: "Union St, Seattle, WA 98101, United States",
-          },
-          {
-            icon: <Phone className="h-6 w-6 text-purple-600" />,
-            title: "Give Us a Call",
-            description: "(110) 1111-1010",
-          },
-          {
-            icon: <Mail className="h-6 w-6 text-purple-600" />,
-            title: "Send Us a Message",
-            description: "Contact@HydraVTech.com",
-          },
-        ].map(({ icon, title, description }, index) => (
-          <motion.div
-            key={index}
-            whileHover={{ scale: 1.05 }}
-            variants={fadeInUp}
-            className="flex items-center p-6 bg-white rounded-3xl shadow-lg transition-transform transform hover:shadow-xl"
-          >
-            {icon}
-            <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-800">{title}</h3>
-              <p className="mt-1 text-sm text-gray-600">{description}</p>
-            </div>
-          </motion.div>
-        ))}
+      {/* Counter Section with Icons */}
+      <motion.div variants={staggerContainer} className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 ">
+  {[ 
+    {
+      countEnd: 100,
+      label: "Users",
+      icon: <FaUsers className="text-purple-600 text-2xl mr-2" />, 
+    },
+    {
+      countEnd: 2000,
+      label: "npm Installs",
+      icon: <FaCodeBranch className="text-purple-600 text-2xl mr-2" />, 
+    },
+    {
+      countEnd: 500,
+      label: "Businesses Helped",
+      icon: <FaBusinessTime className="text-purple-600 text-2xl mr-2" />, 
+    },
+  ].map(({ countEnd, label, icon }, index) => (
+    <motion.div
+      key={index}
+      whileHover={{ scale: 1.05 }}
+      variants={fadeInUp}
+      className="flex items-center p-5 bg-white rounded-3xl shadow-lg transition-shadow transform hover:shadow-[0_0_15px_5px_rgba(129,90,233,0.5)] hover:bg-gradient-to-r from-purple-50 to-white duration-300"
+    >
+      {icon}
+      <div className="flex flex-col">
+        <h2 className="text-3xl font-bold text-purple-600">
+          <CountUp start={0} end={countEnd} duration={2.5} />
+          {label === "Users" ? "+" : ""}
+        </h2>
+        <p className="mt-2 text-md font-medium text-gray-800">{label}</p>
+      </div>
+    </motion.div>
+  ))}
       </motion.div>
     </motion.div>
   );
