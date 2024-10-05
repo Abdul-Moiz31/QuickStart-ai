@@ -1,3 +1,4 @@
+"use client"
 import Hero from "@/components/hero";
 import NavBar from "@/components/navbar";
 import Footer from "@/components/footer";
@@ -6,6 +7,7 @@ import Pricing from "@/components/pricing";
 import Faq from "@/components/faq";
 import Feature from "@/components/feature";
 import Contact from "@/components/contact";
+import { ChatBot } from "@quickstart-ai/chatbot";
 
 
 
@@ -32,6 +34,7 @@ export default function Home() {
   <Contact />
   </section>
   <Footer />
+  <ChatBot token="A1ED-D3BA1204-412FC0BA" />
 </main>
 
   );

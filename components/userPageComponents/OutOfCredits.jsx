@@ -4,7 +4,12 @@ import { X } from "lucide-react";
 // next-navigation
 import { redirect } from "next/navigation";
 
-const OutOfCredits = ({ onClose }) => {
+const OutOfCredits = ({ onClose,setActiveTab }) => {
+
+  const handleClose = () => {
+    onClose();
+    setActiveTab("business details")
+  }
 
 
   return (
@@ -21,7 +26,7 @@ const OutOfCredits = ({ onClose }) => {
       <div className="relative bg-white text-black rounded-lg p-8 shadow-xl max-w-sm text-center">
         {/* Close Icon */}
         <button
-          onClick={()=>onClose(false)}
+          onClick={()=>onClose()}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
         >
           <X className="w-6 h-6" />
@@ -37,10 +42,7 @@ const OutOfCredits = ({ onClose }) => {
         {/* Add Credits Button */}
         <button
           className="bg-blue-600 text-white py-2 px-4 rounded-full hover:bg-blue-700 transition-colors"
-          onClick={() =>  
-          
-            redirect("/") 
-          } 
+          onClick={()=>handleClose()} 
         >
           Add Details
         </button>

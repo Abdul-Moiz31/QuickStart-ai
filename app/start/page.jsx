@@ -8,6 +8,7 @@ import { signUp, login, clearState,loadUser } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { MdEmail } from "react-icons/md";
 
 export default function AuthForm() {
   const dispatch = useDispatch();
@@ -77,6 +78,13 @@ export default function AuthForm() {
         email: "",
         password: "",
       });
+
+      // redirect to user or admin page
+      if (user && user.role === "user") {
+        router.push("/user");
+      } else if (user && user.role === "admin") {
+        router.push("/admin");
+      }
     }
     if (error) {
       // Show error message
@@ -184,7 +192,7 @@ onClick={() => router.push("/")} />
                         name="name"
                         type="text"
                         required
-                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                        className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
                         placeholder="Name"
                         value={formData.name}
                         onChange={handleChange}
@@ -204,13 +212,13 @@ onClick={() => router.push("/")} />
                     name="email"
                     type="email"
                     required
-                    className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
+                    className="appearance-none rounded-full relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white "
                     placeholder="Email address"
                     value={isSignUp ? formData.email : loginData.email}
                     onChange={isSignUp ? handleChange : handleLoginChange}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center cursor-pointer">
-                    <User className="h-5 w-5 text-gray-400" />
+                    <MdEmail className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>

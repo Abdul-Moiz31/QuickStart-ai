@@ -107,13 +107,12 @@ const BusinessDetails = () => {
       Business Name: ${user.bussinessName || "N/A"},
       Business Category: ${user.bussinessCategory || "N/A"},
       Business Description: ${user.bussinessDescription || "N/A"},
-      Business Q&A: ${user.bussinessDetails?.map(item => `${item.question}: ${item.answer}`).join(", ")}
 
       return an array of questions containing the object of question and answer
     `;
   
     const prompt = `
-      Generate AI questions for the following business details from user perspective which a user can ask from a chatbot contains the details of business: ${businessDetails}.
+      Generate AI questions for the following business details from user perspective (end users) which a user can ask from a chatbot contains the details of business: ${businessDetails}.
     `;
   
     try {

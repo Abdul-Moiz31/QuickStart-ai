@@ -19,7 +19,7 @@ const staggerContainer = {
 
 export default function Hero() {
   return (
-    <motion.div initial="hidden" animate="visible" className="bg-gradient-to-r from-purple-500 to-purple-600">
+    <motion.div initial="hidden" animate="visible" className="bg-gradient-to-r from-purple-500 to-purple-600 pb-12">
       <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col lg:flex-row items-center">
         
         {/* Left Side */}
@@ -57,7 +57,7 @@ export default function Hero() {
       </div>
 
       {/* Counter Section with Icons */}
-      <motion.div variants={staggerContainer} className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 ">
+      <motion.div variants={staggerContainer} className=" grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5 px-10">
   {[ 
     {
       countEnd: 100,
@@ -74,12 +74,23 @@ export default function Hero() {
       label: "Businesses Helped",
       icon: <FaBusinessTime className="text-purple-600 text-2xl mr-2" />, 
     },
+    {
+      countEnd: 1000,
+      label: "Projects Completed",
+      icon: <FaCodeBranch className="text-purple-600 text-2xl mr-2" />,
+    },
+    {
+      countEnd: 1,
+      label: "Total Products",
+      icon: <FaUsers className="text-purple-600 text-2xl mr-2" />,
+    }
+
   ].map(({ countEnd, label, icon }, index) => (
     <motion.div
       key={index}
       whileHover={{ scale: 1.05 }}
       variants={fadeInUp}
-      className="flex items-center p-5 bg-white rounded-3xl shadow-lg transition-shadow transform hover:shadow-[0_0_15px_5px_rgba(129,90,233,0.5)] hover:bg-gradient-to-r from-purple-50 to-white duration-300"
+      className="flex items-center p-5 bg-white rounded-xl shadow-lg transition-shadow transform hover:shadow-[0_0_15px_5px_rgba(129,90,233,0.5)] hover:bg-gradient-to-r from-purple-50 to-white duration-300"
     >
       {icon}
       <div className="flex flex-col">

@@ -11,6 +11,7 @@ import Transactions from "@/components/userPageComponents/Transactions";
 import { useRouter } from "next/navigation";
 import { logout, clearState } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { MdSettings } from "react-icons/md"; 
 import toast from "react-hot-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -29,27 +30,25 @@ export default function UserDashboard() {
     "test chatbot",
     "token",
     "transactions",
-    "appearance", // New tab that will always appear as active
+    "appearance",
   ];
 
   const router = useRouter();
 
-  const handleCloseModal = () => {
-    setIsOutOfCreditsOpen(false);
-  };
-
   useEffect(() => {
-    const isLoggedIn = true;
+    const isLoggedIn = true; // Replace with actual login check
     if (!isLoggedIn) {
       router.push("/start");
     }
-    if (user?.businessDetails?.length <= 5) {
+    console.log("User", user);
+    if (user?.bussinessDetails?.length < 5) {
       setIsOutOfCreditsOpen(true); // Open the modal if details are less than 5
     }
   }, [user, router]);
 
-  const toggleLogoutMenu = () => {
-    setShowLogoutMenu((prev) => !prev);
+  const handleCloseModal = () => {
+    setIsOutOfCreditsOpen(false);
+    setActiveTab("business details");
   };
 
   useEffect(() => {
@@ -65,29 +64,39 @@ export default function UserDashboard() {
     toggleLogoutMenu();
   };
 
+  const toggleLogoutMenu = () => {
+    setShowLogoutMenu((prev) => !prev);
+  };
+
   return (
     <div className="flex min-h-screen bg-black text-white">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 p-4 h-screen fixed top-0 left-0">
         <h2 className="text-2xl font-bold mb-6">Quickstart User</h2>
         <nav className="space-y-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              className={`text-md roboty-headings w-full text-left py-2 px-4 rounded ${
-                tab === "appearance"
-                  ? "bg-neon text-white" // Neon effect for Appearance tab
-                  : activeTab === tab
-                  ? "bg-blue-600"
-                  : "hover:bg-gray-800"
-              }`}
-              onClick={() => tab !== "appearance" && setActiveTab(tab)} // Avoid changing the activeTab if clicking on "Appearance β"
-            >
-              {tab === "appearance"
-                ? "Appearance β" // Display the label "Appearance β"
-                : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+         
+{tabs.map((tab) => (
+  <button
+    key={tab}
+    className={`text-md roboty-headings w-full text-left py-2 px-4 rounded transition-all duration-300 
+      ${tab === "appearance" ? 
+        "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105" 
+        : activeTab === tab 
+        ? "bg-blue-600 text-white" 
+        : "hover:bg-gray-800 text-gray-300"
+      }`}
+    onClick={() => tab !== "appearance" && setActiveTab(tab)}
+  >
+    {tab === "appearance" ? (
+      <span className="flex items-center" onClick={()=>alert("This feature is currently under beta version")}>
+        <MdSettings className="mr-2 text-lg" /> 
+        Appearance <span className="ml-1 text-sm font-semibold">β</span> {/* Emphasized "β" */}
+      </span>
+    ) : (
+      tab.charAt(0).toUpperCase() + tab.slice(1)
+    )}
+  </button>
+))}
         </nav>
       </aside>
 
@@ -106,7 +115,7 @@ export default function UserDashboard() {
               onClick={toggleLogoutMenu}
             >
               <Avatar>
-                <AvatarImage src={user?.picture} alt={user?.bussinessName} />
+                <AvatarImage src={user?.picture} alt={user?.businessName} />
                 <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
               </Avatar>
 
@@ -132,7 +141,13 @@ export default function UserDashboard() {
         {activeTab === "token" && <Token />}
         {activeTab === "transactions" && <Transactions />}
 
-        {isOutOfCreditsOpen && <OutOfCredits onClose={handleCloseModal} />}
+        {/* Show OutOfCredits modal if business details are less than 5 */}
+        {isOutOfCreditsOpen && activeTab=="overview" && (
+          <OutOfCredits
+            onClose={handleCloseModal}
+            setActiveTab={setActiveTab}
+          />
+        )}
       </main>
     </div>
   );
