@@ -25,7 +25,7 @@ const PricingSection = () => {
     },
     {
       name: 'Business plan',
-      price: 20,
+      price: 10,
       icon: Eye,
       features: [
         '500 credits per month',
@@ -38,7 +38,7 @@ const PricingSection = () => {
     },
     {
       name: 'Enterprise plan',
-      price: 40,
+      price: 20,
       icon: Check,
       features: [
         'Unlimited credits',
