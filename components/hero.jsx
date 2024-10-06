@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CountUp from 'react-countup';
-import { FaUsers, FaCodeBranch, FaBusinessTime } from 'react-icons/fa'; // Importing icons
+import { FaUsers, FaCodeBranch, FaBusinessTime } from 'react-icons/fa'; 
 
 // Motion variants for smooth animation
 const fadeInUp = {
