@@ -14,7 +14,7 @@ const GoogleAnalytics = () => {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', 'G-H8QKCTT6KJ', {
+          gtag('config', 'G-1JC2XTV9MM', {
             page_path: window.location.pathname,
           });
         `}

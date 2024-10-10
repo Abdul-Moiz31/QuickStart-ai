@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/favicon-32x32.png"/>       
         <PlausibleProvider domain={domain} customDomain={customDomain} />
         {/* Google Analytics */}
-        <GoogleAnalytics gaId="G-H8QKCTT6KJ" />
+        <GoogleAnalytics gaId="G-1JC2XTV9MM" />
       </head>
       <body >
         <ReduxProvider>
