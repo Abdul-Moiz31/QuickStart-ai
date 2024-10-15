@@ -103,8 +103,8 @@ const TestChatbot = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 p-4 rounded-lg">
-      <ScrollArea className="flex-1 open-sans-text overflow-y-auto mb-2 p-4 bg-gray-800 rounded-lg">
+    <div className="flex flex-col h-full bg-[#F3F4F6] p-4 rounded-lg">
+      <ScrollArea className="flex-1 open-sans-text overflow-y-auto mb-2 p-4 bg-gray-200 rounded-xl ">
         {messages.map((chat, index) => (
           <div
             key={index}
@@ -114,7 +114,7 @@ const TestChatbot = () => {
           >
             <span
               className={`animate-appearance-in inline-block p-2 rounded-lg ${
-                chat.sender === "You" ? "bg-blue-500" : "bg-gray-500"
+                chat.sender === "You" ? "bg-gray-500" : "bg-[#9e45f1]"
               } text-white`}
             >
               {chat.message}
@@ -130,16 +130,16 @@ const TestChatbot = () => {
           value={messageInput}
           onChange={(e) => setMessageInput(e.target.value)}
           placeholder="Type your message..."
-          className="flex-1 p-2 rounded-lg bg-gray-700 text-white"
+          className="flex-1 p-2 rounded-lg bg-white text-gray-700 shadow-xl"
           disabled={loading} // Disable input while loading
           onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
         />
         <button
           onClick={handleSendMessage}
-          className="ml-2 bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"
+          className="ml-2 p-2 rounded-lg text-white bg-[#9e45f1] hover:bg-[#6c2794]"
           disabled={loading} // Disable button while loading
         >
-          <Send className="w-5 h-5" />
+          <Send className="w-5 h-5 " />
         </button>
       </div>
     </div>

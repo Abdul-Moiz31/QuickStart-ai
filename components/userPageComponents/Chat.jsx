@@ -42,35 +42,39 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-full roboty-headings">
+    <div className="flex  h-full roboty-headings shadow-xl">
       {/* Chat Sidebar */}
-      <ScrollArea className="w-1/4 bg-gray-900 p-4 rounded-lg h-[95%]">
+      <div className="w-1/4 bg-white   rounded-ss-xl rounded-es-xl p-4  h-[100%]">
         <h3 className="text-2xl font-bold mb-4">Recent Sessions</h3>
+        <ScrollArea className="h-[90%]">
         <ul>
           {sessions.map((user) => (
             <li
               key={user._id}
-              className={`cursor-pointer p-2 mb-2 rounded-lg ${
-                selectedUserId === user._id ? "bg-blue-600" : "hover:bg-gray-800"
+              className={`cursor-pointer p-2 mb-2 rounded-[7px]  ${
+                selectedUserId === user._id ? "bg-[#9e45f1]" : "hover:bg-[#a550f5]"
               }`}
               onClick={() => handleSelectUser(user._id)}
-            >
-              <div className="font-bold text-white">{user.username.toUpperCase()}</div>
-              <div className="text-gray-400 text-sm">{user.lastMessage || "No messages yet"}</div>
+            > 
+              <div className={`font-bold  ${selectedUserId===user._id?"text-white":"text-black"} `}>{user.username.toUpperCase()}</div>
+              <div className={`text-black text-sm ${selectedUserId===user._id?"text-white":"text-black"}`}>{user.lastMessage.slice(0,20)+ "... " || "No messages yet"}</div>
             </li>
           ))}
         </ul>
-      </ScrollArea>
+        </ScrollArea>
+      </div>
 
       {/* Chat Window */}
-      <div className="flex-1 bg-gray-800 ml-4 rounded-lg flex flex-col justify-between h-[95%]">
+      <div className="flex-1 pl-4 bg-white rounded-se-xl rounded-ee-xl flex flex-col justify-between h-[100%] ">
         {selectedUserId ? (
           <>
             {/* Scrollable Messages Area */}
-            <ScrollArea className="flex-1 overflow-y-auto mb-2 p-2 bg-gray-900 rounded-lg">
+            <div className="flex-1 ">
               <h3 className="roboty-headings text-2xl font-bold m-3">
                 Chat with {sessions.find(session => session._id === selectedUserId)?.username}
               </h3>
+              <ScrollArea className="  bg-[#E5E7EB] rounded-xl  py-3 w-[97%] h-[70vh] overflow-auto">
+
 
               {/* Loader for messages */}
               {messagesLoading ? (
@@ -81,10 +85,10 @@ const Chat = () => {
                 messages.length > 0 && messages.map((chat, index) => (
                   <div
                     key={index}
-                    className={`mb-4 ${chat.role === "user" ? "float-right text-right " : "text-left float-left"} w-[600px] mx-auto`}
+                    className={`mb-4 mx-4 ${chat.role === "user" ? "float-right text-right " : "text-left float-left"} w-[600px] mx-auto`}
                   >
                     <span
-                      className={`open-sans-text relative inline-block p-2 rounded-lg ${
+                      className={`open-sans-text relative inline-block p-2 ml-2 mr-2   rounded-lg ${
                         chat.role === "user" ? "bg-blue-500 right-0" : "bg-gray-500 "
                       } text-white`}
                     >
@@ -96,16 +100,14 @@ const Chat = () => {
 
               {/* Reference for scrolling to the bottom */}
               <div ref={messagesEndRef} />
-            </ScrollArea>
-
-            {/* Message Input */}
-            <div className="flex items-center p-2">
+              </ScrollArea>
+              <div className="flex items-center p-2">
               <input
                 type="text"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder="Type your message..."
-                className="flex-1 p-2 rounded-lg bg-gray-700 text-white"
+                className="flex-1 p-2 rounded-lg bg-white border-gray-700 text-white"
               />
               <button
                 onClick={handleSendMessage}
@@ -114,6 +116,10 @@ const Chat = () => {
                 <Send className="w-5 h-5" />
               </button>
             </div>
+            </div>
+
+            {/* Message Input */}
+            
           </>
         ) : (
           <p className="text-white mx-auto w-fit my-auto">

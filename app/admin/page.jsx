@@ -3,10 +3,13 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation"; 
 import { Bell, Plus, LogOut } from "lucide-react";
 import Overview from "@/components/adminPageComponents/Overview";
-
+import { logout, clearState,loadUser } from "@/slices/userSlice";
+import { useDispatch, useSelector } from "react-redux";
 export default function AdminDashboard() {
+  const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("overview");
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const { isLoggedOut, loading, user } = useSelector((state) => state.user);
   const [showModal, setShowModal] = useState(false); 
   const [newUser, setNewUser] = useState({
     name: "",
@@ -18,10 +21,15 @@ export default function AdminDashboard() {
   const router = useRouter(); // Updated to next/navigation
 
   // Check if the user is logged in when the component mounts
+  useEffect(()=>{
+    dispatch(loadUser());
+  })
+
   useEffect(() => {
     const isLoggedIn = true; // default to true for testing
-    if (!isLoggedIn) {
-      router.push("/start"); // Redirect to /start if not logged in
+    if (!user) {
+      router.push("/start");
+      clearState();
     }
   }, [router]);
 

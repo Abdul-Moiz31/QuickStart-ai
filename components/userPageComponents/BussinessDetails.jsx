@@ -145,16 +145,18 @@ const BusinessDetails = () => {
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-gray-900 to-black text-white p-6">
-      <Card className="bg-gray-800 w-full max-w-4xl shadow-lg rounded-lg relative z-10 transform transition-transform">
+    <div className="relative flex flex-col items-center justify-center min-h-screen text-gray-700">
+      <div className="bg-white w-full max-w-4xl  rounded-xl shadow-xl relative z-10 transform transition-transform">
         <CardHeader className="flex justify-between p-6">
-          <CardTitle className="text-2xl font-semibold">Company Details</CardTitle>
+         
+          <CardTitle className="text-3xl  font-semibold text-[#9e45f1]">Company Details</CardTitle>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <button className="p-2 text-gray-400 hover:text-gray-200 transition-all">
+              <button className="p-2 text-black hover:text-gray-400 transition-all">
                 <MdInfoOutline className="text-2xl" />
               </button>
             </AlertDialogTrigger>
+         
             <AlertDialogContent className="bg-gray-900 text-white rounded-lg p-6">
               <AlertDialogTitle className="text-lg font-semibold mb-2">
                 How to Provide Business Details
@@ -191,9 +193,9 @@ const BusinessDetails = () => {
                   onChange={handleChange}
                   required
                   placeholder="What is our Company Objective? 🚀"
-                  className="mt-2 block w-full border border-gray-600 bg-gray-900 text-white placeholder-gray-500 focus:ring focus:ring-blue-500"
+                  className="mt-2 block w-full border border-gray-200 bg-white text-gray-900 placeholder-[#9e45f1] focus:ring focus:ring-blue-500"
                 />
-                <FaRobot className="absolute right-3 top-3 text-xl text-gray-500" />
+                <FaRobot className="absolute right-3 top-3 text-xl text-[#9e45f1]" />
               </div>
             </div>
             <div>
@@ -209,9 +211,9 @@ const BusinessDetails = () => {
                   required
                   placeholder="Our objective is to provide the best services to our customers... 💼"
                   rows={4}
-                  className="mt-2 block w-full border border-gray-600 bg-gray-900 text-white placeholder-gray-500 focus:ring focus:ring-blue-500"
+                  className="mt-2 block w-full border border-gray-200 bg-white text-gray-900 placeholder-[#9e45f1]  "
                 />
-                <FaCommentDots className="absolute right-3 top-3 text-xl text-gray-500" />
+                <FaCommentDots className="absolute right-3 top-3 text-xl text-[#9e45f1]" />
               </div>
             </div>
 
@@ -237,7 +239,7 @@ const BusinessDetails = () => {
                 <h3 className="text-lg font-semibold">AI-Generated Questions</h3>
                 <div className="space-y-2">
                   {generatedQuestions.map((question, index) => (
-                    <div key={index} className="bg-gray-700 p-4 rounded-lg">
+                    <div key={index} className="bg-white shadow-xl p-4 rounded-lg">
                       <div
                         className="flex justify-between cursor-pointer"
                         onClick={() => handleDropdownToggle(index)}
@@ -255,7 +257,7 @@ const BusinessDetails = () => {
                       <Button
                         type="button"
                         onClick={() => handlePickQuestion(question)}
-                        className="mt-2 bg-blue-600 hover:bg-blue-700 rounded px-4 py-2 text-white hover:border-blue-700 hover:text-gray-200 hover:bg-transparent  " 
+                        className="mt-2 bg-[#9e45f1] hover:bg-[#6c2794] rounded-xl text-white  " 
                       >
                         Select
                       </Button>
@@ -266,12 +268,12 @@ const BusinessDetails = () => {
             )}
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full py-3 text-lg font-semibold bg-blue-600 hover:bg-blue-700">
+            <Button type="submit" className="w-full py-3 text-lg font-semibold bg-[#9e45f1] hover:bg-[#6c2794]  text-white">
               Submit
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </div>
 
             {/* Floating Carousel */}
             <div className="w-full max-w-4xl mt-8">
@@ -281,15 +283,15 @@ const BusinessDetails = () => {
               delay: 3000,
             }),
           ]}
-          className="h-[250px] rounded-lg overflow-hidden relative shadow-lg"
+          className="h-[250px] rounded-xl shadow-xl overflow-hidden relative  "
         >
           <CarouselContent>
             {user?.bussinessDetails?.map((item, index) => (
               <CarouselItem key={index}>
-                <div className="relative p-6 bg-gray-800 text-white rounded-lg shadow-lg transition-transform transform hover:scale-105">
-                  <Card className="h-full relative group">
+                <div className="relative p-6 bg-white text-gray-800 rounded-xl  transition-transform transform hover:scale-105">
+                  <div className="h-full relative group ">
                     <CardHeader className="flex flex-row align-middle gap-3">
-                      <FaRobot className="text-2xl text-gray-400" />
+                      <FaRobot className="text-2xl text-[#9e45f1]" />
                       <CardTitle className="text-lg">{item.question}</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-2">
@@ -300,7 +302,7 @@ const BusinessDetails = () => {
                         <AlertDialogTrigger asChild>
                           <button
                             onClick={() => handleDelete(index)}
-                            className="p-2 text-gray-400 hover:text-gray-200 transition-all"
+                            className="p-2 text-red-400 hover:text-red-200 transition-all"
                           >
                             <MdDeleteOutline className="text-2xl" />
                           </button>
@@ -323,7 +325,7 @@ const BusinessDetails = () => {
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
-                  </Card>
+                  </div>
                 </div>
               </CarouselItem>
             ))}
