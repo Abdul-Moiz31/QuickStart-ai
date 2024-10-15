@@ -49,10 +49,10 @@ export default function UserDashboard() {
 
   useEffect(() => {
     const isLoggedIn = true; // Replace with actual login check
-    // if (!user) {
-    //   router.push("/start");
-    //   clearState();
-    // }
+    if (!user) {
+      router.push("/start");
+      clearState();
+    }
     console.log("User", user);
     if (user?.bussinessDetails?.length < 5) {
       setIsOutOfCreditsOpen(true); // Open the modal if details are less than 5
