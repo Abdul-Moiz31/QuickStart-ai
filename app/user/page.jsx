@@ -55,7 +55,7 @@ export default function UserDashboard() {
     }
     console.log("User", user);
     if (user?.bussinessDetails?.length < 5) {
-      setIsOutOfCreditsOpen(true); // Open the modal if details are less than 5
+      setIsOutOfCreditsOpen(true); 
     }
   }, [user, router]);
 
