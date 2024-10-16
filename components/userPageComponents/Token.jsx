@@ -31,7 +31,7 @@ const Token = () => {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">
-      <h3 className="text-xl font-bold mb-4 text-blue-800">API Token</h3>
+      <h3 className="text-xl font-bold mb-4 text-black-500">API Token</h3>
       <p className="mb-4 text-gray-700">
         Use this token to integrate our chat service into your website:
       </p>

@@ -149,7 +149,7 @@ const BusinessDetails = () => {
       <div className="bg-white w-full max-w-4xl  rounded-xl shadow-xl relative z-10 transform transition-transform">
         <CardHeader className="flex justify-between p-6">
          
-          <CardTitle className="text-3xl  font-semibold text-[#9e45f1]">Company Details</CardTitle>
+          <CardTitle className="text-2xl  font-semibold text-black-500">Company Details</CardTitle>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <button className="p-2 text-black hover:text-gray-400 transition-all">
@@ -283,12 +283,12 @@ const BusinessDetails = () => {
               delay: 3000,
             }),
           ]}
-          className="h-[250px] rounded-xl shadow-xl overflow-hidden relative  "
+          className=" rounded-xl shadow-xl overflow-hidden relative  "
         >
           <CarouselContent>
             {user?.bussinessDetails?.map((item, index) => (
               <CarouselItem key={index}>
-                <div className="relative p-6 bg-white text-gray-800 rounded-xl  transition-transform transform hover:scale-105">
+                <div className="relative p-6 bg-white text-gray-800 rounded-xl  transition-transform transform hover:scale-105 max-h-[35vh] min-h-[35vh]">
                   <div className="h-full relative group ">
                     <CardHeader className="flex flex-row align-middle gap-3">
                       <FaRobot className="text-2xl text-[#9e45f1]" />
