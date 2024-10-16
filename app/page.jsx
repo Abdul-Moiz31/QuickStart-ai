@@ -8,6 +8,7 @@ import Faq from "@/components/faq";
 import Feature from "@/components/feature";
 import Contact from "@/components/contact";
 import { ChatBot } from "@quickstart-ai/chatbot";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 
 
@@ -34,6 +35,7 @@ export default function Home() {
   <Contact />
   </section>
   <Footer />
+  <GoogleAnalytics gaId="G-1JC2XTV9MM" />
   <ChatBot token="A1ED-D3BA1204-412FC0BA" />
 </main>
 
