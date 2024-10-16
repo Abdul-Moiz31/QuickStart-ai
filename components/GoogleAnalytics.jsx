@@ -5,7 +5,7 @@ const GoogleAnalytics = () => {
   return (
     <>
       <Script
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         src="https://www.googletagmanager.com/gtag/js?id=G-7RRTHD0B78"
       />
       
