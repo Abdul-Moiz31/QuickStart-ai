@@ -36,7 +36,9 @@ export default function Home() {
   </section>
   <Footer />
 {/*   <GoogleAnalytics gaId="G-1JC2XTV9MM" /> */}
-  <ChatBot token="A1ED-D3BA1204-412FC0BA" />
+    <ChatBot token="A1ED-D3BA1204-412FC0BA"
+      theme="secondary"
+    />
 </main>
 
   );

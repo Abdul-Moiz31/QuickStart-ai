@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation"; // Import from next/navigation
+import { useSelector } from "react-redux";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const router = useRouter(); // Use the router from next/navigation
+  const router = useRouter();
+  const { isLoggedOut, loading, user } = useSelector((state) => state.user);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -25,7 +27,7 @@ export default function Navbar() {
               width={70}
               height={70}
               className="cursor-pointer"
-              onClick={() => router.push("/")} // Use the initialized router
+              onClick={() => router.push("/")}
             />
             <span className="ml-1 text-3xl font-bold text-purple-600">
               QuickStart
@@ -58,7 +60,6 @@ export default function Navbar() {
             >
               FAQ
             </a>
-
             <a
               href="https://www.npmjs.com/package/@quickstart-ai/chatbot"
               className="border-transparent text-gray-700 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
@@ -71,17 +72,28 @@ export default function Navbar() {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             <a
               href="#contact"
-              variant="outline"
               className=" text-purple-600 hover:bg-gradient-purple-100 rounded-full transition-all ease-in-out duration-300"
             >
               CONTACT US
             </a>
-            <Button
-              onClick={() => router.push("/start")} // Use the initialized router
-              className="ml-4 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
-            >
-              JOIN US
-            </Button>
+            {/* Display the proper button based on login status */}
+            {loading ? (
+              <div className="ml-2 w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+            ) : user ? (
+              <Button
+                onClick={() => router.push("/user")}
+                className="ml-2 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
+              >
+                DASHBOARD
+              </Button>
+            ) : (
+              <Button
+                onClick={() => router.push("/start")}
+                className="ml-2 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
+              >
+                JOIN US
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu Toggle Button */}
@@ -90,11 +102,7 @@ export default function Navbar() {
               onClick={toggleMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-800 focus:outline-none"
             >
-              {isOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
@@ -138,17 +146,27 @@ export default function Navbar() {
               <div className="mt-4 space-y-1">
                 <a
                   href="#contact"
-                  variant="outline"
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600"
                 >
                   CONTACT US
                 </a>
-                <Button
-                  onClick={() => router.push("/start")} 
-                  className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
-                >
-                  JOIN US
-                </Button>
+                {loading ? (
+                  <div className="w-full h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                ) : user ? (
+                  <Button
+                    onClick={() => router.push("/user")}
+                    className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
+                  >
+                    DASHBOARD
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => router.push("/start")}
+                    className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white hover:bg-gradient-to-l rounded-full transition-all ease-in-out duration-300"
+                  >
+                    JOIN US
+                  </Button>
+                )}
               </div>
             </div>
           </div>

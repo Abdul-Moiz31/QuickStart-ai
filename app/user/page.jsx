@@ -28,6 +28,7 @@ import Link from "next/link";
 export default function UserDashboard() {
   const dispatch = useDispatch();
   const { isLoggedOut, loading, user } = useSelector((state) => state.user);
+
   const [activeTab, setActiveTab] = useState("overview");
   const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(false);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
@@ -50,7 +51,7 @@ export default function UserDashboard() {
   }, [dispatch]);
 
   useEffect(() => {
-    const isLoggedIn = true; // Replace with actual login check
+   // const isLoggedIn = true; // Replace with actual login check
     if (!user) {
       router.push("/start");
       clearState();
@@ -109,9 +110,14 @@ export default function UserDashboard() {
           ? "bg-[#9E45F1] text-white"
           : "hover:bg-gray-200 text-gray-700"
       }`}
-      onClick={() =>
-        tab.name !== "appearance" && setActiveTab(tab.name)
-      }
+      onClick={() => {
+        if (tab.name !== "appearance") {
+          setActiveTab(tab.name);
+          setIsSidebarOpen(false); // Close the sidebar after clicking a tab
+        }
+      }}
+      
+
     >
       {/* Update the icon color based on the activeTab */}
       <span className={`mr-3 text-2xl ${activeTab === tab.name ? "text-white" : "text-gray-600"}`}>
