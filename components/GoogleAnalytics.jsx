@@ -6,7 +6,7 @@ const GoogleAnalytics = () => {
     <>
       <Script
         strategy="lazyOnload"
-        src="https://www.googletagmanager.com/gtag/js?id=G-H8QKCTT6KJ"
+        src="https://www.googletagmanager.com/gtag/js?id=G-1JC2XTV9MM"
       />
       
       <Script id="google-analytics" strategy="lazyOnload">
