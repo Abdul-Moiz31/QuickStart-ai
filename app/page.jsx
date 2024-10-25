@@ -35,7 +35,7 @@ export default function Home() {
   <Contact />
   </section>
   <Footer />
-    <ChatBot token="A1ED-D3BA1204-412FC0BA"
+    <ChatBot token="A1ED-B33C4EFA-70CD3C04"
       theme="secondary"
     />
 </main>
