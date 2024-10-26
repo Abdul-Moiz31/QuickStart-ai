@@ -1,7 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
-// next-navigation
 import { redirect } from "next/navigation";
 
 const OutOfCredits = ({ onClose,setActiveTab }) => {
