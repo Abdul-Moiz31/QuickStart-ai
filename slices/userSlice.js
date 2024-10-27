@@ -114,7 +114,7 @@ export const deleteBusinessDetails = createAsyncThunk(
   "user/deleteBusinessDetails",
   async (id, { rejectWithValue, fulfillWithValue }) => {
     try {
-      const { data } = await axios.delete(`${baseurl}/user/bussinessDetails/${id}`, {
+      const { data } = await axios.delete(`${baseurl}/user/businessDetails/${id}`, {
         withCredentials: true,
       });
       return fulfillWithValue(data);
@@ -180,6 +180,22 @@ export const getAllMessages = createAsyncThunk(
     }
   }
 );
+
+// get bussiness Details 
+
+export const getBussinessDetails=createAsyncThunk(
+  "get/bussiness-details",
+  async(_, {rejectWithValue, fulfillWithValue})=>{
+    try{
+      const {data}=await axios.get(`${baseurl}/user/bussinessDetails`,{
+        withCredentials:true,
+      });
+      return fulfillWithValue(data);
+    }catch(error){
+      return rejectWithValue(error.response.data);
+    }
+  }
+)
 
 
 
@@ -251,8 +267,9 @@ const userReducer = createSlice({
       state.error = action?.payload?.message;
     });
     // add business details
-    builder.addCase(addBusinessDetails.pending, (state) => {
+    builder.addCase(addBusinessDetails.pending, (state,action) => {
       state.loading = true;
+      state.isBusinessDetailsAdded = false;
     });
     builder.addCase(addBusinessDetails.fulfilled, (state) => {
       state.loading = false;
@@ -261,16 +278,18 @@ const userReducer = createSlice({
     builder.addCase(addBusinessDetails.rejected, (state) => {
       state.loading = false;
       state.error = action?.payload?.message;
+      state.isBusinessDetailsAdded = false;
     });
     // delete business details
     builder.addCase(deleteBusinessDetails.pending, (state) => {
       state.loading = true;
+      state.isBusinessDetailsDeleted = false;
     });
     builder.addCase(deleteBusinessDetails.fulfilled, (state) => {
       state.loading = false;
       state.isBusinessDetailsDeleted = true;
     });
-    builder.addCase(deleteBusinessDetails.rejected, (state) => {
+    builder.addCase(deleteBusinessDetails.rejected, (state,action) => {
       state.loading = false;
       state.error = action?.payload?.message;
     });
@@ -329,6 +348,19 @@ const userReducer = createSlice({
     });
     builder.addCase(logout.rejected, (state) => {
       state.loading = false;
+    });
+
+    // get bussiness details
+    builder.addCase(getBussinessDetails.pending,(state)=>{
+      state.loading=true;
+    });
+    builder.addCase(getBussinessDetails.fulfilled,(state,action)=>{
+      state.loading=false;
+      // replace all user.bussinessDetails with action.payload
+      state.user.bussinessDetails=action.payload;
+    });
+    builder.addCase(getBussinessDetails.rejected,(state)=>{
+      state.loading=false;
     });
 
 

@@ -1,10 +1,19 @@
-"use client"
+"use client";
 import { motion } from "framer-motion";
-import { useState,useEffect } from "react";
-import { ArrowLeft, Briefcase, Building, Clipboard, Eye, EyeOff, User, Upload } from "lucide-react"; // Import the Upload icon
+import { useState, useEffect } from "react";
+import {
+  ArrowLeft,
+  Briefcase,
+  Building,
+  Clipboard,
+  Eye,
+  EyeOff,
+  User,
+  Upload,
+} from "lucide-react"; // Import the Upload icon
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../Firebase/firebase"; // Import Firebase storage
-import { signUp, login, clearState,loadUser } from "@/slices/userSlice";
+import { signUp, login, clearState, loadUser } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -35,7 +44,7 @@ export default function AuthForm() {
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const toggleAuthMode = () => setIsSignUp(!isSignUp);
   const [uploadProgress, setUploadProgress] = useState(0); // For tracking upload progress
-  const [uploadingImage, setUploadingImage] = useState(false); 
+  const [uploadingImage, setUploadingImage] = useState(false);
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -45,12 +54,11 @@ export default function AuthForm() {
   };
 
   useEffect(() => {
-    if (user && user.role === "user") {
-      router.push("/user");
-    } else if (user && user.role === "admin") {
-      router.push("/admin");
+    if(user){
+      router.push("/user")
     }
   }, [user, router]);
+
   useEffect(() => {
     if (isUserRegistered) {
       toast.success("User registered successfully");
@@ -99,15 +107,14 @@ export default function AuthForm() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]; // Get the selected file
-  
+
     if (file) {
       const previewUrl = URL.createObjectURL(file); // Create a preview URL from the file
       setProfileImageUrl(previewUrl); // Set the preview URL for the image
-  
+
       setFormData({ ...formData, picture: file }); // Set the file to formData.picture
     }
   };
-  
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -124,7 +131,7 @@ export default function AuthForm() {
       (snapshot) => {
         const progress =
           (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
+        setUploadProgress(progress);
         console.log(`Upload is ${progress}% done`);
         switch (snapshot.state) {
           case "paused":
@@ -149,26 +156,36 @@ export default function AuthForm() {
     );
   };
 
-
+  useEffect(() => {
+    dispatch(loadUser());
+  },[])
 
   return (
     <div className="text-black min-h-screen flex items-center justify-center bg-gradient-to-r bg-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="absolute top-5 left-5">
-        <button className="flex items-center" onClick={() => window.location.href = "/"}>
+        <button
+          className="flex items-center"
+          onClick={() => (window.location.href = "/")}
+        >
           <ArrowLeft className="mr-2 h-8 w-8 text-purple-600 font-extrabold " />
         </button>
       </div>
 
       <div className="max-w-md w-full space-y-8 shadow-xl">
         <div className="text-center">
-          <img 
-src="/file.png" 
-alt="Site Logo" 
-className="h-20 w-auto mx-auto cursor-pointer"
-onClick={() => router.push("/")} />
-          <h2 className="mt-6 text-3xl font-bold text-purple-500">Welcome to QuickStart.AI</h2>
+          <img
+            src="/file.png"
+            alt="Site Logo"
+            className="h-20 w-auto mx-auto cursor-pointer"
+            onClick={() => router.push("/")}
+          />
+          <h2 className="mt-6 text-3xl font-bold text-purple-500">
+            Welcome to QuickStart.AI
+          </h2>
           <p className="mt-2 text-sm text-black">
-            {isSignUp ? "Create an account to get started with Chatbot Integration" : "Sign in to your account"}
+            {isSignUp
+              ? "Create an account to get started with Chatbot Integration"
+              : "Sign in to your account"}
           </p>
         </div>
 
@@ -178,9 +195,9 @@ onClick={() => router.push("/")} />
           transition={{ duration: 0.8 }}
           className="bg-white py-8 px-6 shadow rounded-lg"
         >
-          <form  className="space-y-6">
+          <form className="space-y-6">
             <div className="rounded-md shadow-sm space-y-4">
-            {isSignUp && (
+              {isSignUp && (
                 <>
                   <div>
                     <label htmlFor="name" className="sr-only">
@@ -205,7 +222,9 @@ onClick={() => router.push("/")} />
                 </>
               )}
               <div>
-                <label htmlFor="email-address" className="sr-only">Email address</label>
+                <label htmlFor="email-address" className="sr-only">
+                  Email address
+                </label>
                 <div className="relative">
                   <input
                     id="email-address"
@@ -224,7 +243,9 @@ onClick={() => router.push("/")} />
               </div>
 
               <div>
-                <label htmlFor="password" className="sr-only">Password</label>
+                <label htmlFor="password" className="sr-only">
+                  Password
+                </label>
                 <div className="relative">
                   <input
                     id="password"
@@ -238,9 +259,15 @@ onClick={() => router.push("/")} />
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center cursor-pointer">
                     {showPassword ? (
-                      <EyeOff onClick={togglePasswordVisibility} className="h-5 w-5 text-gray-400" />
+                      <EyeOff
+                        onClick={togglePasswordVisibility}
+                        className="h-5 w-5 text-gray-400"
+                      />
                     ) : (
-                      <Eye onClick={togglePasswordVisibility} className="h-5 w-5 text-gray-400" />
+                      <Eye
+                        onClick={togglePasswordVisibility}
+                        className="h-5 w-5 text-gray-400"
+                      />
                     )}
                   </div>
                 </div>
@@ -249,7 +276,9 @@ onClick={() => router.push("/")} />
               {isSignUp && (
                 <>
                   <div>
-                    <label htmlFor="businessName" className="sr-only">Business Name</label>
+                    <label htmlFor="businessName" className="sr-only">
+                      Business Name
+                    </label>
                     <div className="relative">
                       <input
                         id="businessName"
@@ -268,7 +297,9 @@ onClick={() => router.push("/")} />
                   </div>
 
                   <div>
-                    <label htmlFor="businessDescription" className="sr-only">Business Description</label>
+                    <label htmlFor="businessDescription" className="sr-only">
+                      Business Description
+                    </label>
                     <div className="relative">
                       <textarea
                         id="businessDescription"
@@ -286,7 +317,9 @@ onClick={() => router.push("/")} />
                   </div>
 
                   <div>
-                    <label htmlFor="businessCategory" className="sr-only">Business Category</label>
+                    <label htmlFor="businessCategory" className="sr-only">
+                      Business Category
+                    </label>
                     <div className="relative">
                       <input
                         id="businessCategory"
@@ -305,7 +338,12 @@ onClick={() => router.push("/")} />
                   </div>
 
                   <div>
-                    <label htmlFor="profilePicture" className="block text-sm font-medium text-gray-700">Profile Picture</label>
+                    <label
+                      htmlFor="profilePicture"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Profile Picture
+                    </label>
                     <div className="mt-1 flex items-center">
                       <input
                         id="profilePicture"
@@ -315,22 +353,29 @@ onClick={() => router.push("/")} />
                         onChange={handleImageChange}
                         className="hidden"
                       />
-                      <label htmlFor="profilePicture" className="cursor-pointer mt-1 w-full flex justify-center border-2 border-gray-300 border-dashed rounded-md py-2 text-gray-600">
+                      <label
+                        htmlFor="profilePicture"
+                        className="cursor-pointer mt-1 w-full flex justify-center border-2 border-gray-300 border-dashed rounded-md py-2 text-gray-600"
+                      >
                         <Upload className="mr-2 h-5 w-5 text-gray-400" />
                         Upload Profile Picture
                       </label>
                     </div>
                     {profileImageUrl && (
-                      <img src={profileImageUrl} alt="Profile Preview" className="mt-4 w-32 h-32 object-cover rounded-full" />
+                      <img
+                        src={profileImageUrl}
+                        alt="Profile Preview"
+                        className="mt-4 w-32 h-32 object-cover rounded-full"
+                      />
                     )}
                     {uploadingImage && (
-                    <div className="w-full bg-gray-200 h-2 mt-2 rounded-lg">
-                      <div
-                        className="bg-purple-500 h-3 rounded-full"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
-                  )}
+                      <div className="w-full bg-gray-200 h-2 mt-2 rounded-lg">
+                        <div
+                          className="bg-purple-500 h-3 rounded-full"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -344,7 +389,11 @@ onClick={() => router.push("/")} />
                     loading ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 >
-                  {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
+                  {loading
+                    ? "Loading..."
+                    : isSignUp
+                    ? "Create Account"
+                    : "Sign In"}
                 </button>
               </div>
             </div>
@@ -353,7 +402,10 @@ onClick={() => router.push("/")} />
           <div className="flex items-center justify-center mt-6">
             <p className="text-sm text-gray-600">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}
-              <button onClick={toggleAuthMode} className="font-medium text-purple-500 hover:text-purple-600 ml-2">
+              <button
+                onClick={toggleAuthMode}
+                className="font-medium text-purple-500 hover:text-purple-600 ml-2"
+              >
                 {isSignUp ? "Sign In" : "Sign Up"}
               </button>
             </p>

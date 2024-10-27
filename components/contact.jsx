@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { sendContactUsMessage, clearState } from "@/slices/userSlice";
+import { sendContactUsMessage, clearState } from "slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 
