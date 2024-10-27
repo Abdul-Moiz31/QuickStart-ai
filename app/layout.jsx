@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import PlausibleProvider from "next-plausible";
 import { ReduxProvider } from "./redux-provider";
 import { Toaster } from "react-hot-toast";
+import GoogleAnalytics from 'components/GoogleAnalytics';
 
 
 
@@ -22,6 +23,8 @@ export default function RootLayout({ children }) {
         {/* add favicon here */}
         <link rel="icon" href="/favicon-32x32.png"/>       
         <PlausibleProvider domain={domain} customDomain={customDomain} />
+        {/* Google Analytics */}
+        <GoogleAnalytics gaId="G-7RRTHD0B78" />
       </head>
       <body >
         <ReduxProvider>

@@ -1,128 +1,119 @@
-import { Send } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useDispatch, useSelector } from "react-redux";
-import { getAllSessions, getAllMessages } from "@/slices/userSlice";
-import Loader from "@/components/Loader/index"; // Import your Loader component
+'use client'
 
-const Chat = () => {
-  const dispatch = useDispatch();
-  const { sessions } = useSelector((state) => state.user);
-  const { messages, loading: messagesLoading } = useSelector((state) => state.user); // Assuming loading is part of user state
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [messageInput, setMessageInput] = useState("");
+import { Send } from "lucide-react"
+import React, { useState, useEffect, useRef } from "react"
+import { ScrollArea } from "components/ui/scroll-area"
+import { useDispatch, useSelector } from "react-redux"
+import { getAllSessions, getAllMessages } from "@/slices/userSlice"
+import Loader from "components/Loader"
+import { Button } from "components/ui/button"
+import { Input } from "components/ui/input"
+
+export default function Chat() {
+  const dispatch = useDispatch()
+  const { sessions } = useSelector((state) => state.user)
+  const { messages, loading: messagesLoading } = useSelector((state) => state.user)
+  const [selectedUserId, setSelectedUserId] = useState(null)
+  const [messageInput, setMessageInput] = useState("")
   
-  // Ref for scrolling to the bottom
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef(null)
 
   useEffect(() => {
-    dispatch(getAllSessions());
-  }, [dispatch]);
+    dispatch(getAllSessions())
+  }, [dispatch])
 
   useEffect(() => {
-    // Scroll to the bottom of the messages area whenever messages change
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
-  }, [messages]); // Depend on messages to trigger scroll
+  }, [messages])
 
   const handleSelectUser = (userId) => {
-    setSelectedUserId(userId);
-    dispatch(getAllMessages(userId)); // Fetch messages when a user is selected
-  };
+    setSelectedUserId(userId)
+    dispatch(getAllMessages(userId))
+  }
 
   const handleSendMessage = () => {
-    console.log("Sending message:", messageInput);
-    // Add logic to send the message
-    setMessageInput(""); // Clear the input after sending
-  };
-
-  const getUserMessages = (userId) => {
-    return sessions.find((session) => session._id === userId)?.messages || [];
-  };
+    alert("This Feature is under development")
+    setMessageInput("")
+  }
 
   return (
-    <div className="flex h-full roboty-headings">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] shadow-xl bg-white rounded-xl overflow-hidden">
       {/* Chat Sidebar */}
-      <ScrollArea className="w-1/4 bg-gray-900 p-4 rounded-lg h-[95%]">
-        <h3 className="text-2xl font-bold mb-4">Recent Sessions</h3>
-        <ul>
-          {sessions.map((user) => (
-            <li
-              key={user._id}
-              className={`cursor-pointer p-2 mb-2 rounded-lg ${
-                selectedUserId === user._id ? "bg-blue-600" : "hover:bg-gray-800"
-              }`}
-              onClick={() => handleSelectUser(user._id)}
-            >
-              <div className="font-bold text-white">{user.username.toUpperCase()}</div>
-              <div className="text-gray-400 text-sm">{user.lastMessage || "No messages yet"}</div>
-            </li>
-          ))}
-        </ul>
-      </ScrollArea>
+      <div className="w-full md:w-1/4 bg-white p-4 border-r border-gray-200">
+        <h3 className="text-2xl font-bold mb-4 roboty-headings">Recent Sessions</h3>
+        <ScrollArea className="h-[calc(100vh-10rem)]">
+          <ul className="space-y-2">
+            {sessions.map((user) => (
+              <li
+                key={user._id}
+                className={`cursor-pointer p-3 rounded-xl transition-colors  ${
+                  selectedUserId === user._id ? "bg-[#9e45f1] text-white" : "hover:bg-[#a550f5] hover:text-white "
+                }`}
+                onClick={() => handleSelectUser(user._id)}
+              > 
+                <div className="font-bold">{user.username.toUpperCase()}</div>
+                <div className="text-sm truncate">{user.lastMessage || "No messages yet"}</div>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
+      </div>
 
       {/* Chat Window */}
-      <div className="flex-1 bg-gray-800 ml-4 rounded-lg flex flex-col justify-between h-[95%]">
+      <div className="flex-1 flex flex-col h-full">
         {selectedUserId ? (
           <>
-            {/* Scrollable Messages Area */}
-            <ScrollArea className="flex-1 overflow-y-auto mb-2 p-2 bg-gray-900 rounded-lg">
-              <h3 className="roboty-headings text-2xl font-bold m-3">
-                Chat with {sessions.find(session => session._id === selectedUserId)?.username}
-              </h3>
-
-              {/* Loader for messages */}
+            <h3 className="roboty-headings text-2xl font-bold p-4 border-b border-gray-200">
+              Chat with {sessions.find(session => session._id === selectedUserId)?.username}
+            </h3>
+            <ScrollArea className="flex-1 p-4 bg-gray-100">
               {messagesLoading ? (
                 <div className="flex justify-center items-center h-full">
-                  <Loader /> {/* Display your loader component */}
+                  <Loader />
                 </div>
               ) : (
-                messages.length > 0 && messages.map((chat, index) => (
-                  <div
-                    key={index}
-                    className={`mb-4 ${chat.role === "user" ? "float-right text-right " : "text-left float-left"} w-[600px] mx-auto`}
-                  >
-                    <span
-                      className={`open-sans-text relative inline-block p-2 rounded-lg ${
-                        chat.role === "user" ? "bg-blue-500 right-0" : "bg-gray-500 "
-                      } text-white`}
+                <div className="space-y-4">
+                  {messages.map((chat, index) => (
+                    <div
+                      key={index}
+                      className={`flex ${chat.role === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      {chat.message}
-                    </span>
-                  </div>
-                ))
+                      <div
+                        className={`max-w-[75%] p-3 rounded-lg ${
+                          chat.role === "user" ? "bg-[#9e45f1] text-white" : "bg-white text-gray-800"
+                        }`}
+                      >
+                        {chat.message}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
               )}
-
-              {/* Reference for scrolling to the bottom */}
-              <div ref={messagesEndRef} />
             </ScrollArea>
-
-            {/* Message Input */}
-            <div className="flex items-center p-2">
-              <input
-                type="text"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 p-2 rounded-lg bg-gray-700 text-white"
-              />
-              <button
-                onClick={handleSendMessage}
-                className="ml-2 bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"
-              >
-                <Send className="w-5 h-5" />
-              </button>
+            <div className="p-4 border-t border-gray-200">
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1"
+                />
+                <Button onClick={handleSendMessage} className="bg-[#9e45f1] hover:bg-[#a550f5]">
+                  <Send className="w-5 h-5 text-white" />
+                </Button>
+              </div>
             </div>
           </>
         ) : (
-          <p className="text-white mx-auto w-fit my-auto">
+          <div className="flex items-center justify-center h-full text-gray-500">
             Select a user to view their chat.
-          </p>
+          </div>
         )}
       </div>
     </div>
-  );
-};
-
-export default Chat;
+  )
+}
