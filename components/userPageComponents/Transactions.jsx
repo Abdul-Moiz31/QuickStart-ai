@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
   TableCaption,
-} from "@/components/ui/table";
+} from "components/ui/table";
 import { useSelector } from "react-redux";
 
 const Transactions = () => {

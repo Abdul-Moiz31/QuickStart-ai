@@ -2,12 +2,12 @@
 
 import { Send } from "lucide-react"
 import React, { useState, useEffect, useRef } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from "components/ui/scroll-area"
 import { useDispatch, useSelector } from "react-redux"
 import { getAllSessions, getAllMessages } from "@/slices/userSlice"
-import Loader from "@/components/Loader"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import Loader from "components/Loader"
+import { Button } from "components/ui/button"
+import { Input } from "components/ui/input"
 
 export default function Chat() {
   const dispatch = useDispatch()
@@ -34,7 +34,7 @@ export default function Chat() {
   }
 
   const handleSendMessage = () => {
-    console.log("Sending message:", messageInput)
+    alert("This Feature is under development")
     setMessageInput("")
   }
 
@@ -48,7 +48,7 @@ export default function Chat() {
             {sessions.map((user) => (
               <li
                 key={user._id}
-                className={`cursor-pointer p-3 rounded-xl transition-colors ${
+                className={`cursor-pointer p-3 rounded-xl transition-colors  ${
                   selectedUserId === user._id ? "bg-[#9e45f1] text-white" : "hover:bg-[#a550f5] hover:text-white "
                 }`}
                 onClick={() => handleSelectUser(user._id)}

@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import PlausibleProvider from "next-plausible";
 import { ReduxProvider } from "./redux-provider";
 import { Toaster } from "react-hot-toast";
-import GoogleAnalytics from '@/components/GoogleAnalytics';
+import GoogleAnalytics from 'components/GoogleAnalytics';
 
 
 

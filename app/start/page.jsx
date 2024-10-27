@@ -54,12 +54,11 @@ export default function AuthForm() {
   };
 
   useEffect(() => {
-    if (user && user.role === "user") {
-      router.push("/user");
-    } else if (user && user.role === "admin") {
-      router.push("/admin");
+    if(user){
+      router.push("/user")
     }
   }, [user, router]);
+
   useEffect(() => {
     if (isUserRegistered) {
       toast.success("User registered successfully");
@@ -156,6 +155,10 @@ export default function AuthForm() {
       }
     );
   };
+
+  useEffect(() => {
+    dispatch(loadUser());
+  },[])
 
   return (
     <div className="text-black min-h-screen flex items-center justify-center bg-gradient-to-r bg-white py-12 px-4 sm:px-6 lg:px-8">

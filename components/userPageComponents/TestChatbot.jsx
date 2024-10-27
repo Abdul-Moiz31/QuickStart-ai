@@ -97,13 +97,13 @@ const TestChatbot = () => {
         {messages.map((chat, index) => (
           <div
             key={index}
-            className={`mb-4 max-w-[90%] ${
+            className={`mb-4 max-w-[90%]   ${
               chat.sender === "You" ? "ml-auto text-right" : "mr-auto text-left"
             }`}
           >
             <span
               className={`inline-block p-2 rounded-lg ${
-                chat.sender === "You" ? "bg-gray-400 text-black" : "bg-purple-500 text-white"
+                chat.sender != "You" ? "bg-gray-100 text-black" : "bg-purple-600 text-white"
               } `}
             >
               {chat.message}

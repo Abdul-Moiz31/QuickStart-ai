@@ -47,6 +47,8 @@
         "tailwindcss-animate": "^1.0.7"
     },
     "devDependencies": {
+        "@types/estree": "^1.0.6",
+        "@types/node": "^22.8.1",
         "autoprefixer": "^10.0.1",
         "babel-eslint": "^10.1.0",
         "eslint": "^8.57.0",

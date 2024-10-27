@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation"; 
 import { Bell, Plus, LogOut } from "lucide-react";
-import Overview from "@/components/adminPageComponents/Overview";
+import Overview from "components/adminPageComponents/Overview";
 import { logout, clearState,loadUser } from "@/slices/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 export default function AdminDashboard() {
