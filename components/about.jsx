@@ -59,7 +59,6 @@ export default function About() {
             className="mt-8"
           >
             <Button
-              onClick={() => alert("Learn more coming soon!")}
               className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:bg-gradient-to-l text-white px-8 py-3 rounded-full text-lg transition duration-300 shadow-lg hover:shadow-xl"
             >
               Explore More

@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
   TableCaption,
-} from "@/components/ui/table";
+} from "components/ui/table";
 import { useSelector } from "react-redux";
 
 const Transactions = () => {
@@ -18,7 +18,7 @@ const Transactions = () => {
       <TableCaption>A list of your recent transactions.</TableCaption>
 
       {/* Table header */}
-      <TableHeader className="bg-blue-500 ">
+      <TableHeader className="bg-purple-500 ">
         <TableRow className="px-2">
           <TableHead className="text-white roboty-headings text-[17px]">
             Date
@@ -59,7 +59,7 @@ const Transactions = () => {
           {/* Transaction type (e.g., credit) */}
           <TableCell className="open-sans-text">0</TableCell>{" "}
           {/* Credits before the transaction */}
-          <TableCell className="open-sans-text">100</TableCell>{" "}
+          <TableCell className="open-sans-text">250</TableCell>{" "}
           {/* Credits after the transaction */}
           <TableCell className="open-sans-text text-right">$0</TableCell>{" "}
           {/* Transaction amount */}

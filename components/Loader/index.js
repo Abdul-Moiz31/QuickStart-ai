@@ -7,7 +7,7 @@ const Loader = () => {
       <style jsx>{`
         .loader {
           border: 4px solid rgba(255, 255, 255, 0.3); /* Light border */
-          border-left-color: #fff; /* Main color for the spinning effect */
+          border-left-color: #9e45f1; /* Main color for the spinning effect */
           border-radius: 50%;
           width: 40px; /* Size of the loader */
           height: 40px; /* Size of the loader */
