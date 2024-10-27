@@ -153,7 +153,6 @@ const BusinessDetails = () => {
   useEffect(() => {
     if (isBusinessDetailsAdded || isBusinessDetailsDeleted) {
       dispatch(loadUser());
-      // Reset the flags after loading user data to avoid re-triggering.
       dispatch(clearState());
     }
   }, [isBusinessDetailsAdded, isBusinessDetailsDeleted, dispatch]);
