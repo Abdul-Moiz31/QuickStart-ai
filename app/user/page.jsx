@@ -42,7 +42,7 @@ export default function UserDashboard() {
     { name: "test chatbot", icon: <MessageSquare /> },
     { name: "token", icon: <Coins /> },
     { name: "transactions", icon: <CreditCard /> },
-    { name: "appearance", icon: <Settings /> },
+    { name: "appearance", icon: <Settings className="text-white" /> },
   ];
 
   const router = useRouter();
@@ -131,7 +131,6 @@ export default function UserDashboard() {
                       alert("This feature is currently under beta version")
                     }
                   >
-                    <Settings className="mr-2 text-2xl" />
                     Appearance{" "}
                     <span className="ml-1 text-sm font-semibold">β</span>
                   </span>
