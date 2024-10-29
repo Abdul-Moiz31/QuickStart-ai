@@ -124,9 +124,9 @@ const PricingSection = () => {
             </div>
             <p className="text-sm mb-4">Billed annually.</p>
             <div className="flex items-center justify-between mb-4">
-              <button className="px-3 py-1 bg-gray-200 rounded-full text-black">-</button>
+              {/* <button className="px-3 py-1 bg-gray-200 rounded-full text-black">-</button> */}
               <span>1 USER</span>
-              <button className="text-black px-3 py-1 bg-gray-200 rounded-full">+</button>
+              {/* <button className="text-black px-3 py-1 bg-gray-200 rounded-full">+</button> */}
             </div>
             <ul className="space-y-2 mb-6">
               {plan.features.map((feature, i) => (
