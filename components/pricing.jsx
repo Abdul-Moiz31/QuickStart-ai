@@ -65,7 +65,6 @@ const PricingSection = () => {
       viewport={{ once: true }}
       transition={{ duration: 1, delay: 0.3 }}
     >
-      {/* Pricing Section Title with Matching Style */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         whileInView={{ y: 0, opacity: 1 }}
