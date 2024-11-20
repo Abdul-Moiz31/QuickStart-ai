@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI("AIzaSyA24-UkGZQEIYZT2XNh4kQqFQ88v5vfml4");
+const genAI = new GoogleGenerativeAI("AIzaSyDqvqSwzQ8h8BChvNlUAw0Vdh_iblU2jqc");
 const model = genAI.getGenerativeModel({
   model: "gemini-1.5-flash",
   generationConfig: { responseMimeType: "application/json" },

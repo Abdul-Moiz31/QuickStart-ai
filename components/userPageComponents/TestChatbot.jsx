@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { systemPrompt } from "./prompt";
 import { useSelector } from "react-redux";
 
-const genAI = new GoogleGenerativeAI("AIzaSyA24-UkGZQEIYZT2XNh4kQqFQ88v5vfml4");
+const genAI = new GoogleGenerativeAI("AIzaSyDqvqSwzQ8h8BChvNlUAw0Vdh_iblU2jqc");
 
 const TestChatbot = () => {
   const [messages, setMessages] = useState([
