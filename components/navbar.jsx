@@ -73,7 +73,7 @@ export default function Navbar() {
             {/* Tools Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="border-transparent text-gray-700 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1  border-b-2 text-sm font-medium  h-[100%] shadow-none ">
+                <Button className="border-transparent text-gray-700 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1  border-b-2 text-sm font-medium  h-[100%] pt-3 shadow-none ">
                   Tools
                 </Button>
               </DropdownMenuTrigger>
