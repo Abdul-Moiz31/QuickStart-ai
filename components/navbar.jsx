@@ -3,8 +3,17 @@ import React, { useState } from "react";
 import { Button } from "components/ui/button";
 import { Menu, X } from "lucide-react";
 import Image from "next/image";
-import { useRouter } from "next/navigation"; // Import from next/navigation
+import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
+import { FaUpwork } from "react-icons/fa6";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,6 +69,31 @@ export default function Navbar() {
             >
               FAQ
             </a>
+
+            {/* Tools Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="border-transparent text-gray-700 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1  border-b-2 text-sm font-medium  h-[100%] pt-3 shadow-none ">
+                  Tools
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-white shadow-lg rounded-lg border border-gray-200 w-64 mt-2 p-2"
+              >
+                <DropdownMenuItem
+                  
+                  className="flex  items-center px-3 py-2 text-sm text-purple-500 rounded-md hover:bg-purple-500 hover:text-purple-600 cursor-pointer font-semibold focus:text-purple-600 
+                  "
+                  onClick={() => router.push("/proposal-writer")}
+                >
+                  
+                  <FaUpwork className="text-2xl mt-1"/>
+                  Upwork Proposal Writer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <a
               href="https://www.npmjs.com/package/@quickstart-ai/chatbot"
               className="border-transparent text-gray-700 hover:border-purple-500 hover:text-purple-600 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
@@ -102,7 +136,11 @@ export default function Navbar() {
               onClick={toggleMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-800 focus:outline-none"
             >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
