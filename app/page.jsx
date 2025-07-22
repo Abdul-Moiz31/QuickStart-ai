@@ -7,6 +7,7 @@ import Pricing from "@/components/pricing";
 import Faq from "@/components/faq";
 import Feature from "@/components/feature";
 import Contact from "@/components/contact";
+import FloatingNav from "@/components/FloatingNav";
 import { ChatBot } from "@quickstart-ai/chatbot";
 import { useEffect } from "react";
 import { loadUser } from "@/slices/userSlice";
@@ -46,6 +47,7 @@ export default function Home() {
   <Contact />
   </section>
   <Footer />
+  <FloatingNav />
     <ChatBot token="A1ED-F16095A7-345D7979"
       theme="secondary"
       wantToShowSuggestions={true}
