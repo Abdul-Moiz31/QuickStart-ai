@@ -14,13 +14,7 @@ import {
   Delete,
   Trash2,
 } from "lucide-react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI("AIzaSyD53FP_NKO8bhiwvklbyu76mtNzwgdnESY");
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
-  generationConfig: { responseMimeType: "application/json" },
-});
+import { generateJSONContent } from "@/lib/pollinations";
 
 import { Card, CardHeader, CardTitle, CardContent } from "components/ui/card";
 import { Button } from "components/ui/button";
@@ -106,24 +100,53 @@ const BusinessDetails = () => {
     const businessDetails = `
       Business Name: ${user.bussinessName || "N/A"},
       Business Category: ${user.bussinessCategory || "N/A"},
-      Business Description: ${user.bussinessDescription || "N/A"},
-
-      return an array of questions containing the object of question and answer
+      Business Description: ${user.bussinessDescription || "N/A"}
     `;
 
-    const prompt = `
-      Generate AI questions for the following business details from user perspective (end users) which a user can ask from a chatbot contains the details of business: ${businessDetails}.
-    `;
+    const prompt = `Generate AI questions for the following business details from user perspective (end users) which a user can ask from a chatbot about the business: ${businessDetails}.
+
+Please return an array of questions in JSON format. Each question should be an object with "question" and "answer" properties. The questions should be things customers would typically ask about this type of business. Format: [{"question": "What are your business hours?", "answer": "We are open Monday to Friday 9 AM to 6 PM"}]`;
 
     try {
-      const result = await model.generateContent(prompt);
-      const questions = JSON.parse(
-        result.response.candidates[0].content.parts[0].text
-      );
-      setGeneratedQuestions(questions);
+      const questions = await generateJSONContent(prompt);
+      
+      // Ensure we have an array
+      if (Array.isArray(questions)) {
+        setGeneratedQuestions(questions);
+      } else if (questions.content && Array.isArray(questions.content)) {
+        setGeneratedQuestions(questions.content);
+      } else {
+        // Fallback: create some default questions
+        setGeneratedQuestions([
+          {
+            question: "What services do you offer?",
+            answer: `We specialize in ${user.bussinessCategory || "various services"} and provide comprehensive solutions.`
+          },
+          {
+            question: "How can I contact you?",
+            answer: "You can reach us through our contact form or customer support."
+          },
+          {
+            question: "What makes your business unique?",
+            answer: user.bussinessDescription || "We are committed to providing excellent service to our customers."
+          }
+        ]);
+      }
     } catch (error) {
       console.error("Error generating AI questions:", error);
       toast.error("An error occurred while generating AI questions.");
+      
+      // Provide fallback questions
+      setGeneratedQuestions([
+        {
+          question: "What services do you offer?",
+          answer: `We specialize in ${user.bussinessCategory || "various services"} and provide comprehensive solutions.`
+        },
+        {
+          question: "How can I contact you?",
+          answer: "You can reach us through our contact form or customer support."
+        }
+      ]);
     }
 
     setLoading(false);
