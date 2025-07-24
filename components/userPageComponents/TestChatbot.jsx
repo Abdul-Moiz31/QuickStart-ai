@@ -1,11 +1,9 @@
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { Send } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentStream } from "@/lib/pollinations";
 import { systemPrompt } from "./prompt";
 import { useSelector } from "react-redux";
-
-const genAI = new GoogleGenerativeAI("AIzaSyD53FP_NKO8bhiwvklbyu76mtNzwgdnESY");
 
 const TestChatbot = () => {
   const [messages, setMessages] = useState([
@@ -42,24 +40,16 @@ const TestChatbot = () => {
       });
 
       try {
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        // Construct the full prompt with business context
+        const fullPrompt = `${systemPrompt}
 
-        const result = await model.generateContentStream({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: systemPrompt },
-                { text: businessDetails },
-                {
-                  text:
-                    newMessages[newMessages.length - 2]?.message || "",
-                },
-                { text: messageInput },
-              ],
-            },
-          ],
-        });
+Business Details: ${businessDetails}
+
+Previous Message: ${newMessages[newMessages.length - 2]?.message || ""}
+
+User's Message: ${messageInput}
+
+Please provide a helpful response:`;
 
         const botMessageIndex = newMessages.length;
         setMessages((prevMessages) => [
@@ -67,10 +57,8 @@ const TestChatbot = () => {
           { sender: "Bot", message: "Typing..." }, // Placeholder while bot is typing
         ]);
 
-        // Collect response chunks
-        let content = "";
-        for await (const chunk of result.stream) {
-          content += chunk.text();
+        // Use streaming for real-time updates
+        await generateContentStream(fullPrompt, (content) => {
           setMessages((prevMessages) =>
             prevMessages.map((msg, index) =>
               index === botMessageIndex
@@ -78,7 +66,7 @@ const TestChatbot = () => {
                 : msg
             )
           );
-        }
+        });
       } catch (error) {
         console.error("Error fetching response:", error);
         setMessages((prevMessages) => [

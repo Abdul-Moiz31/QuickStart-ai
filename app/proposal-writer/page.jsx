@@ -10,11 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Briefcase, User, FileText, Copy, X } from 'lucide-react'
 import { motion, AnimatePresence } from "framer-motion"
 import Navbar from "@/components/navbar"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { generateContent } from "@/lib/pollinations"
 import { prompt } from "./prompt"
-
-
-const genAI = new GoogleGenerativeAI("AIzaSyAAUKB6qgTIonRWHEyFQ2hNgGz7syXDunQ");
 
 
 export default function ProposalWriter() {
@@ -27,29 +24,21 @@ export default function ProposalWriter() {
   const generateProposal = async() => {
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        // Construct the full prompt with context
+        const fullPrompt = `${prompt}
 
-        const result = await model.generateContent({
-          contents: [
-            {
-                role: "user",
-                parts: [
-                    {text:prompt},
-                    {text:"Job Decsription: "},
-                  { text: jobDescription },
-                  { text: "Profile Description: " },
-                  { text: profileDescription },
-                ],
-            },
-            ],                
-        });
+Job Description: ${jobDescription}
 
-        setGeneratedProposal(result.response.candidates[0].content.parts[0].text);
+Profile Description: ${profileDescription}
+
+Please generate a professional proposal based on the above information.`;
+
+        const result = await generateContent(fullPrompt);
+        setGeneratedProposal(result);
     } catch (error) {
         console.error(error);
+        setGeneratedProposal("Sorry, there was an error generating the proposal. Please try again.");
     }
-
-
 
     console.log("Generating proposal..." )
     setIsModalOpen(true)
