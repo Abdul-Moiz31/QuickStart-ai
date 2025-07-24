@@ -34,6 +34,23 @@ This journey of problem identification and idea generation at Headstarter ultima
 -> User-Friendly Dashboard: Provides an intuitive interface for managing chats, viewing analytics, and handling customer queries efficiently.<br/>
 -> Integrations: Compatible with various third-party services and APIs for seamless functionality.<br/>
 
+## AI Integration
+
+🚀 **Now powered by Pollinations AI** - This application has been upgraded to use Pollinations AI instead of Google's Gemini, providing:
+
+- **✅ Free unlimited usage** - No API keys or credits required
+- **✅ No rate limits** - Generate as much content as needed  
+- **✅ Intelligent fallbacks** - Local response generation when the service is unavailable
+- **✅ Multiple AI endpoints** - Automatic failover between different Pollinations endpoints
+- **✅ Zero cost** - No subscription fees or pay-per-use charges
+
+### AI Features:
+1. **Proposal Writer**: Generate professional proposals based on job descriptions and profiles
+2. **Smart Chatbot**: Context-aware customer support responses  
+3. **Business Question Generator**: Auto-generate relevant FAQ questions for your business
+
+The system automatically falls back to intelligent local generation if the external AI service is unavailable, ensuring your application always works reliably.
+
 ## Getting Started
 
 To get started with this template, follow these steps:
