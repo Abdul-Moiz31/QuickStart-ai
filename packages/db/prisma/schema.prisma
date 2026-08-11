@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PlanTier {
+  free
+  pro
+  enterprise
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum SourceType {
+  text
+  faq
+  url
+  file
+}
+
+model User {
+  id                   String    @id @default(uuid()) @db.Uuid
+  name                 String
+  email                String    @unique
+  passwordHash         String
+  role                 Role      @default(USER)
+  onboardingCompleted  Boolean   @default(true)
+  businessName         String?
+  businessWebsite      String?
+  businessIndustry     String?
+  businessDescription  String?   @db.Text
+  onboardingQuestions  Json?
+  onboardingAnswers    Json?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  projects             Project[]
+}
+
+model Project {
+  id              String          @id @default(uuid()) @db.Uuid
+  ownerId         String          @db.Uuid
+  owner           User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name            String
+  description     String          @default("")
+  category        String          @default("")
+  systemPrompt    String          @default("")
+  widgetTheme     String          @default("primary")
+  widgetPosition  String          @default("right")
+  primaryColor    String          @default("#0A0A0A")
+  welcomeMessage  String          @default("Hi — how can I help?")
+  toolsWebSearch  Boolean         @default(false)
+  toolsHumanHandoff Boolean       @default(true)
+  toolsLeadCapture  Boolean       @default(false)
+  allowedOrigins  String[]        @default([])
+  plan            PlanTier        @default(free)
+  credits         Int             @default(200)
+  /** Live chatbot (widget) only allowed when true — requires 7+ Q&A and passing eval. */
+  chatbotEnabled  Boolean         @default(false)
+  evalPassedAt    DateTime?
+  /** BYOK: platform | openrouter | openai | google | anthropic | xai */
+  llmProvider     String          @default("platform")
+  useOwnLlmKey    Boolean         @default(false)
+  llmApiKeyEnc    String?         @db.Text
+  llmModel        String?
+  llmBaseUrl      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  credentials     ApiCredential[]
+  documents       KnowledgeDocument[]
+  usageEvents     UsageEvent[]
+  evalDatasets    EvalDataset[]
+  evalRuns        EvalRun[]
+  projectEvents   ProjectEvent[]
+  webhookEndpoints WebhookEndpoint[]
+  integrationConnections IntegrationConnection[]
+  eventRules      EventRule[]
+
+  @@index([ownerId])
+}
+
+model ProjectEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @db.Uuid
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type            String
+  name            String
+  description     String   @default("")
+  source          String
+  sessionId       String?
+  idempotencyKey  String?  @unique
+  payload         Json     @default("{}")
+  createdAt       DateTime @default(now())
+  deliveries      WebhookDelivery[]
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([projectId, type, createdAt(sort: Desc)])
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  label       String   @default("Webhook")
+  description String   @default("")
+  url         String
+  secretEnc   String   @db.Text
+  events      String[] @default([])
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deliveries  WebhookDelivery[]
+
+  @@index([projectId])
+}
+
+model IntegrationConnection {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider    String
+  label       String   @default("Slack")
+  description String   @default("")
+  configEnc   String   @db.Text
+  events      String[] @default([])
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deliveries  WebhookDelivery[]
+
+  @@index([projectId, provider])
+}
+
+model WebhookDelivery {
+  id            String   @id @default(uuid()) @db.Uuid
+  eventId       String   @db.Uuid
+  event         ProjectEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  endpointId    String?  @db.Uuid
+  endpoint      WebhookEndpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
+  integrationId String?  @db.Uuid
+  integration   IntegrationConnection? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  status        String   @default("pending")
+  attempts      Int      @default(0)
+  lastError     String?
+  responseCode  Int?
+  nextRetryAt   DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([eventId])
+  @@index([status, nextRetryAt])
+}
+
+model EventRule {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name         String
+  description  String   @default("")
+  eventType    String
+  enabled      Boolean  @default(true)
+  triggers     Json     @default("{}")
+  destinations Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId, enabled])
+}
+
+model ApiCredential {
+  id               String    @id @default(uuid()) @db.Uuid
+  projectId        String    @db.Uuid
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId         String    @unique
+  clientSecretHash String
+  label            String    @default("default")
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+model KnowledgeDocument {
+  id          String         @id @default(uuid()) @db.Uuid
+  projectId   String         @db.Uuid
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  sourceType  SourceType     @default(text)
+  rawContent  String
+  status      DocumentStatus @default(PENDING)
+  error       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  chunks      KnowledgeChunk[]
+
+  @@index([projectId])
+}
+
+model KnowledgeChunk {
+  id         String            @id @default(uuid()) @db.Uuid
+  documentId String            @db.Uuid
+  document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  projectId  String            @db.Uuid
+  content    String
+  chunkIndex Int
+  tokenCount Int               @default(0)
+  // embedding stored via raw SQL / Unsupported until Prisma vector is stable in all envs
+  metadata   Json              @default("{}")
+  createdAt  DateTime          @default(now())
+
+  @@index([projectId])
+  @@index([documentId])
+}
+
+model UsageEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind      String
+  units     Int      @default(1)
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model EvalDataset {
+  id        String        @id @default(uuid()) @db.Uuid
+  projectId String        @db.Uuid
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  items     EvalItem[]
+  createdAt DateTime      @default(now())
+  runs      EvalRun[]
+}
+
+model EvalItem {
+  id        String      @id @default(uuid()) @db.Uuid
+  datasetId String      @db.Uuid
+  dataset   EvalDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  question  String
+  expected  String
+  metadata  Json        @default("{}")
+}
+
+model EvalRun {
+  id        String      @id @default(uuid()) @db.Uuid
+  projectId String      @db.Uuid
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  datasetId String      @db.Uuid
+  dataset   EvalDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  status    String      @default("pending")
+  metrics   Json        @default("{}")
+  createdAt DateTime    @default(now())
+  finishedAt DateTime?
+}
+
+model OAuthClient {
+  id               String   @id @default(uuid()) @db.Uuid
+  clientId         String   @unique
+  clientSecretHash String?
+  redirectUris     String[]
+  clientName       String?
+  grantTypes       String[] @default(["authorization_code", "refresh_token"])
+  tokenEndpointAuthMethod String @default("none")
+  createdAt        DateTime @default(now())
+}
+
+model OAuthAuthorizationCode {
+  id            String   @id @default(uuid()) @db.Uuid
+  code          String   @unique
+  clientId      String
+  userId        String   @db.Uuid
+  projectId     String   @db.Uuid
+  codeChallenge String
+  redirectUri   String
+  scopes        String[]
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([clientId])
+  @@index([userId])
+}
+
+model OAuthAccessToken {
+  id          String   @id @default(uuid()) @db.Uuid
+  tokenHash   String   @unique
+  refreshHash String?  @unique
+  clientId    String
+  userId      String   @db.Uuid
+  projectId   String   @db.Uuid
+  scopes      String[]
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([projectId])
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "quickstart-ai": {
+      "command": "node",
+      "args": ["/absolute/path/to/quickstart-ai/packages/mcp-server/dist/index.js"],
+      "env": {
+        "QUICKSTART_API_URL": "http://localhost:3100",
+        "QUICKSTART_API_TOKEN": "paste-jwt-from-login",
+        "QUICKSTART_PROJECT_ID": "optional-project-uuid"
+      }
+    }
+  }
+}

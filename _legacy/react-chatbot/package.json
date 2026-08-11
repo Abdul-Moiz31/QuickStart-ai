@@ -1,0 +1,106 @@
+{
+  "name": "@quickstart-ai/chatbot",
+  "private": false,
+  "version": "0.0.77",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "contributors": [
+    {
+      "name": "Abdul Moiz",
+      "email": "abdulmoiz3140@gmail.com",
+      "url": "https://github.com/Abdul-Moiz31/"
+    },
+    {
+      "name": "Aqib Nawab",
+      "email": "aqibnawab1100@gmail.com",
+      "url": "https://github.com/AQIB-NAWAB"
+    },
+    {
+      "name": "Muhammad Ahsan",
+      "email": "am1816609@gmail.com",
+      "url": "https://github.com/Ahsan7714"
+    },
+    {
+      "name": "Sheikh Zulkifal",
+      "email": "aqibnawab1100@gmail.com",
+      "url": "https://github.com/sheikh-Zulkifal"
+    }
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "bundle": "tsup src/index.js",
+    "pub": "git add . && git commit -m \"update\" && npm version patch && npm run bundle && npm publish"
+  },
+  "dependencies": {
+    "all-contributors-cli": "^6.26.1",
+    "axios": "^1.7.7",
+    "prop-types": "^15.8.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^5.3.0",
+    "styled-components": "^6.1.12",
+    "tsup": "^8.2.4"
+  },
+  "devDependencies": {
+    "@types/babel__generator": "^7.6.8",
+    "@types/babel__template": "^7.4.4",
+    "@types/babel__traverse": "^7.20.6",
+    "@types/node": "^22.5.4",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "postcss": "^8.4.42",
+    "tailwindcss": "^3.4.10",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.2.0"
+  },
+  "author": "Aqib Nawab",
+  "license": "MIT",
+  "description": "Chatbot React",
+  "homepage": "https://quickstart-ai.me",
+  "keywords": [
+    "chatbot",
+    "react",
+    "typescript",
+    "npm",
+    "AI chatbot",
+    "react component",
+    "customer support",
+    "chatbot integration",
+    "business chatbot",
+    "customer service",
+    "automated responses",
+    "react hooks",
+    "styled-components",
+    "tailwindcss",
+    "vite",
+    "open source",
+    "AI",
+    "react chatbot",
+    "frontend",
+    "react development",
+    "react library",
+    "react chatbot component",
+    "react chatbot ui",
+    "react chatbot widget",
+    "simple installtion chatbot",
+    "chatbot for website",
+    "token based chatbot",
+    "chatbot for business",
+    "chatbot for customer service",
+    "chatbot for customer support",
+    "chatbot for customer interaction",
+    "script chatbot"
+  ]
+}

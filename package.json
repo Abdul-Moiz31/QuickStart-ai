@@ -1,0 +1,35 @@
+{
+  "name": "quickstart-ai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "QuickStart AI — production chatbot platform monorepo",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "eval": "pnpm --filter @quickstart-ai/eval start",
+    "db:generate": "pnpm --filter @quickstart-ai/db generate",
+    "db:migrate": "pnpm --filter @quickstart-ai/db migrate:dev",
+    "db:push": "dotenv -e .env -o -- pnpm --filter @quickstart-ai/db push",
+    "db:ensure": "dotenv -e .env -o -- pnpm --filter @quickstart-ai/db ensure:vector",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "typecheck": "turbo run typecheck",
+    "seed:demo": "dotenv -e .env -o -- tsx scripts/seed-demo-account.ts",
+    "mcp": "dotenv -e .env -o -- pnpm --filter @quickstart-ai/mcp-server start",
+    "mcp:tunnel": "tsx scripts/mcp-tunnel.ts",
+    "mcp:test": "tsx scripts/test-mcp.ts",
+    "mcp:verify": "tsx scripts/mcp-verify-setup.ts"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@quickstart-ai/widget-vanilla",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist/widget.js",
+  "scripts": {
+    "build": "esbuild src/widget.ts --bundle --minify --format=iife --global-name=QuickStartWidget --outfile=dist/widget.js",
+    "dev": "esbuild src/widget.ts --bundle --format=iife --global-name=QuickStartWidget --outfile=dist/widget.js --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'ok'"
+  },
+  "dependencies": {
+    "@quickstart-ai/widget-core": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "seededAt": "2026-07-22T17:11:45.232Z",
+  "apiUrl": "http://localhost:3100",
+  "webUrl": "http://localhost:3000",
+  "account": {
+    "email": "quickstart@gmail.com",
+    "password": "password",
+    "name": "QuickStart Demo",
+    "userId": "f97af895-ef4f-4310-b9bc-ad998a33ce67"
+  },
+  "project": {
+    "id": "6c4508d6-5324-4180-9a61-d1432cc062cb",
+    "name": "QuickStart AI Website Bot"
+  },
+  "embed": {
+    "clientId": "qs_ttw7y2rj2fjokf7v5ngz96oy",
+    "clientSecret": "qss_xsBuI8XqMQm_tDeXHCl7_B4iILrC1j4V"
+  },
+  "envSnippet": {
+    "NEXT_PUBLIC_DEMO_CLIENT_ID": "qs_ttw7y2rj2fjokf7v5ngz96oy",
+    "NEXT_PUBLIC_API_URL": "http://localhost:3100"
+  },
+  "business": {
+    "businessName": "QuickStart AI",
+    "businessWebsite": "https://quickstart.ai",
+    "businessIndustry": "SaaS / AI chatbots",
+    "businessDescription": "QuickStart AI helps businesses add an embeddable support chatbot to their website. Customers train it on FAQs and documents from a simple dashboard, then install it with one line of code on React or any site.",
+    "businessLocation": "San Francisco, CA",
+    "supportEmail": "quickstart@gmail.com"
+  },
+  "onboarding": {
+    "questions": [
+      "What products or services do you offer?",
+      "Who is your ideal customer?",
+      "What are your business hours and timezone?",
+      "What are your most common customer questions?",
+      "How does pricing work (plans, trials, billing)?",
+      "What is your refund or cancellation policy?",
+      "How can customers contact support?",
+      "Do you offer demos, onboarding, or setup help?",
+      "What integrations or tools do you support?",
+      "Are there any limitations or known issues customers should know?",
+      "What makes your business different from competitors?",
+      "Where should the chatbot send leads or urgent requests?"
+    ],
+    "answers": [
+      "We offer an embeddable AI chatbot platform: a dashboard to add knowledge (FAQs, docs), appearance settings, eval tools, and a widget for React or vanilla JS sites.",
+      "SaaS founders, support teams, and developers who want website chat without building RAG infrastructure from scratch.",
+      "Support is async Monday–Friday, 9am–6pm Pacific. The chatbot answers 24/7 from your knowledge base.",
+      "How to install the widget, how to add FAQs, pricing/credits, whether data is private, and how eval/readiness works.",
+      "Free tier includes one project and starter credits. Pro adds more projects and higher limits. Billing is monthly; see the dashboard pricing page.",
+      "Cancel anytime from billing settings. No long-term contracts on self-serve plans. Refunds handled case-by-case within 14 days.",
+      "Email quickstart@gmail.com or use the in-app chatbot. Enterprise customers get a dedicated success channel.",
+      "Yes — guided onboarding in the dashboard creates your first project, credentials, and seed FAQ automatically.",
+      "React widget, HTML script tag, REST API with client_id. Works with Next.js, Vite, and static sites.",
+      "Shared LLM keys on the free tier may rate-limit; bring your own OpenRouter/OpenAI key in Settings for production traffic.",
+      "Fast setup, clay/white dashboard UX, real eval against your FAQs, and encrypted BYOK — not a generic chatbot template.",
+      "Collect name + email in the widget, then route urgent issues to support@quickstart.ai or your CRM webhook."
+    ]
+  },
+  "extraFaqs": [
+    {
+      "title": "Install widget",
+      "question": "How do I install the chatbot on my website?",
+      "answer": "Copy your client_id from Settings → Embed credentials. Use the React ChatBot component or the HTML script snippet from the Embed page. Set apiUrl to your QuickStart API (e.g. http://localhost:3100 in dev)."
+    },
+    {
+      "title": "Knowledge requirements",
+      "question": "How many FAQs do I need before the chatbot works well?",
+      "answer": "The chatbot works immediately, but we recommend at least 7 Q&A pairs and a passing eval score for production. Add FAQs under Knowledge → Add knowledge."
+    },
+    {
+      "title": "Dashboard login",
+      "question": "How do I log into the QuickStart AI dashboard?",
+      "answer": "Go to /login and sign in with your account email and password. New users register at /register and complete onboarding for their first project."
+    },
+    {
+      "title": "Bring your own key",
+      "question": "Can I use my own OpenAI or OpenRouter API key?",
+      "answer": "Yes. Open Settings → Bring your own key, choose a provider (OpenRouter recommended), pick a preset model, and paste your API key. Keys are encrypted at rest."
+    },
+    {
+      "title": "Data privacy",
+      "question": "Is my business knowledge kept private?",
+      "answer": "Yes. Knowledge is scoped to your project. API keys are encrypted. Use embed credentials only in your site; never expose client_secret in the browser."
+    },
+    {
+      "title": "Eval purpose",
+      "question": "What does the Eval page do?",
+      "answer": "Eval runs your chatbot against your FAQ knowledge and scores readiness across categories. It is advisory — your widget stays live while you improve answers."
+    },
+    {
+      "title": "Supported file types",
+      "question": "What file types can I upload to Knowledge?",
+      "answer": "You can upload .txt, .md, .csv, and .json files, or paste free text. FAQs can be added one question at a time from the Add knowledge menu."
+    }
+  ],
+  "loginUrl": "http://localhost:3000/login",
+  "dashboardUrl": "http://localhost:3000/dashboard/projects/6c4508d6-5324-4180-9a61-d1432cc062cb/knowledge"
+}
