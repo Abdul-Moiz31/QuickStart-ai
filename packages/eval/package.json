@@ -1,0 +1,29 @@
+{
+  "name": "@quickstart-ai/eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "quickstart-eval": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'ok'",
+    "test": "node --import tsx src/cli.ts --fixture"
+  },
+  "dependencies": {
+    "@quickstart-ai/db": "workspace:*",
+    "@quickstart-ai/rag": "workspace:*",
+    "@quickstart-ai/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

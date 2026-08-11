@@ -1,0 +1,52 @@
+{
+  "projectName": "react-chatbot",
+  "projectOwner": "AQIB-NAWAB",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "none",
+  "contributors": [
+    {
+      "login": "AQIB-NAWAB",
+      "name": "Aqib Nawab",
+      "avatar_url": "https://avatars.githubusercontent.com/u/115807186?v=4",
+      "profile": "https://portfolio-aqib-nine.vercel.app/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Abdul-Moiz31",
+      "name": "Abdul Moiz ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/115508605?v=4",
+      "profile": "https://github.com/Abdul-Moiz31",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Ahsan7714",
+      "name": "AHSAN ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/115989038?v=4",
+      "profile": "https://github.com/Ahsan7714",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "sheikh-Zulkifal",
+      "name": "Zulkifal",
+      "avatar_url": "https://avatars.githubusercontent.com/u/126913851?v=4",
+      "profile": "https://github.com/sheikh-Zulkifal",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "linkToUsage": true
+}

@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: #f7f5f1;
+  color: #0a0a0a;
+}
+
+@layer components {
+  .qs-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-tight transition duration-300;
+  }
+  .qs-btn-primary {
+    @apply qs-btn bg-ink text-porcelain hover:bg-inkHover;
+  }
+  .qs-btn-ghost {
+    @apply qs-btn border border-ink/15 text-ink hover:border-ink/40 hover:bg-ink/[0.03];
+  }
+  .qs-field {
+    @apply w-full rounded-xl border border-ink/10 bg-porcelain px-4 py-3 text-sm text-ink outline-none transition placeholder:text-mute/70 focus:border-ink/40;
+  }
+  .qs-panel {
+    @apply rounded-2xl border border-ink/[0.08] bg-porcelain;
+  }
+  .qs-rule {
+    @apply h-px w-full bg-ink/[0.08];
+  }
+  /* Stylish navy code panels (Install / docs) */
+  .qs-code-frame {
+    @apply overflow-hidden rounded-2xl border border-[#1e3a5f]/40 shadow-[0_20px_50px_rgba(11,27,51,0.18)];
+    background: #0b1b33;
+  }
+  .qs-code-bar {
+    @apply flex items-center justify-between border-b border-white/10 px-4 py-2.5;
+    background: #102445;
+  }
+  .qs-code-body {
+    @apply overflow-x-auto p-5 font-mono text-[12px] leading-[1.75] sm:text-[13px];
+    background: #0b1b33;
+    color: #c8d6e5;
+  }
+  .qs-code-kw {
+    color: #7dd3fc;
+  }
+  .qs-code-str {
+    color: #86efac;
+  }
+  .qs-code-tag {
+    color: #93c5fd;
+  }
+  .qs-code-attr {
+    color: #fcd34d;
+  }
+  .qs-code-punct {
+    color: #94a3b8;
+  }
+
+  .qs-chat-md {
+    @apply text-sm leading-relaxed;
+  }
+  .qs-chat-md p {
+    @apply mb-2 last:mb-0;
+  }
+  .qs-chat-md ul,
+  .qs-chat-md ol {
+    @apply my-2 space-y-1 pl-5;
+  }
+  .qs-chat-md ul {
+    @apply list-disc;
+  }
+  .qs-chat-md ol {
+    @apply list-decimal;
+  }
+  .qs-chat-md li {
+    @apply pl-0.5;
+  }
+  .qs-chat-md strong {
+    @apply font-semibold;
+  }
+  .qs-chat-md a {
+    @apply underline underline-offset-2 opacity-90;
+  }
+  .qs-chat-md code {
+    @apply rounded bg-ink/[0.06] px-1 py-0.5 font-mono text-[0.85em];
+  }
+  .qs-chat-md pre {
+    @apply my-2 overflow-x-auto rounded-lg bg-ink/[0.05] p-3;
+  }
+  .qs-chat-md pre code {
+    @apply bg-transparent p-0;
+  }
+  .qs-chat-md-invert strong,
+  .qs-chat-md-invert a {
+    @apply text-white;
+  }
+  .qs-chat-md-invert code {
+    @apply bg-white/15;
+  }
+}
+
+@keyframes qs-chat-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
