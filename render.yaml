@@ -26,7 +26,10 @@ services:
       - key: API_HOST
         value: 0.0.0.0
       - key: API_PORT
-        value: 10000
+        fromService:
+          type: web
+          name: quickstart-api
+          property: port
       - key: COOKIE_SECURE
         value: "true"
       - key: COOKIE_SAME_SITE
