@@ -7,7 +7,7 @@ config({ path: resolve(root, ".env") });
 config({ path: resolve(root, ".env.local") });
 
 export const env = {
-  port: Number(process.env.API_PORT ?? 3100),
+  port: Number(process.env.PORT ?? process.env.API_PORT ?? 3100),
   host: process.env.API_HOST ?? "0.0.0.0",
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
