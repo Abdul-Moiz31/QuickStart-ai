@@ -3,8 +3,6 @@ node_modules
 dist
 .next
 .turbo
-.env
-.env.local
 .env.*.local
 .env.tunnel
 *.log
@@ -23,3 +21,4 @@ server.cert
 .idea
 .vscode/*
 !.vscode/extensions.json
+config.bat
