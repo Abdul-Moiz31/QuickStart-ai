@@ -1,0 +1,8 @@
+_legacy
+.opencode
+.bin
+node_modules
+.git
+*.log
+.env
+.env.*

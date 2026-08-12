@@ -1,0 +1,96 @@
+# Render Blueprint — QuickStart AI API + Worker
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: quickstart-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: >-
+      npm install -g pnpm@9.15.0 &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @quickstart-ai/shared build &&
+      pnpm --filter @quickstart-ai/db build &&
+      pnpm --filter @quickstart-ai/rag build &&
+      pnpm --filter @quickstart-ai/events build &&
+      pnpm --filter @quickstart-ai/eval build &&
+      pnpm --filter @quickstart-ai/mcp-server build &&
+      pnpm --filter @quickstart-ai/api build &&
+      pnpm --filter @quickstart-ai/db generate
+    startCommand: node apps/api/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 10000
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: DATABASE_URL
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: WEB_APP_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+  - type: worker
+    name: quickstart-worker
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: >-
+      npm install -g pnpm@9.15.0 &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @quickstart-ai/shared build &&
+      pnpm --filter @quickstart-ai/db build &&
+      pnpm --filter @quickstart-ai/rag build &&
+      pnpm --filter @quickstart-ai/events build &&
+      pnpm --filter @quickstart-ai/worker build &&
+      pnpm --filter @quickstart-ai/db generate
+    startCommand: node apps/worker/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromService:
+          name: quickstart-api
+          type: web
+          envVarKey: DATABASE_URL
+      - key: MONGODB_URI
+        fromService:
+          name: quickstart-api
+          type: web
+          envVarKey: MONGODB_URI
+      - key: REDIS_URL
+        fromService:
+          name: quickstart-api
+          type: web
+          envVarKey: REDIS_URL
+      - key: ENCRYPTION_KEY
+        fromService:
+          name: quickstart-api
+          type: web
+          envVarKey: ENCRYPTION_KEY
+      - key: OPENROUTER_API_KEY
+        fromService:
+          name: quickstart-api
+          type: web
+          envVarKey: OPENROUTER_API_KEY
