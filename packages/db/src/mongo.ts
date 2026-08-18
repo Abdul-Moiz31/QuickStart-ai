@@ -49,3 +49,7 @@ export async function connectMongo(uri = process.env.MONGODB_URI) {
   }
   return mongoReady;
 }
+
+export function isMongoReady(): boolean {
+  return mongoose.connection.readyState === 1;
+}

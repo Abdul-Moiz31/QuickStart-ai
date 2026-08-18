@@ -1,15 +1,24 @@
 import type { FastifyInstance } from "fastify";
 import { connectMongo, getChatSessionModel, prisma } from "@quickstart-ai/db";
 import {
+  type AgentStreamPreamble,
   createChatClient,
   createEmbeddingsClient,
   getCachedAnswer,
   pushSessionMemory,
   runAgenticRag,
+  runAgenticRagStream,
   setCachedAnswer,
 } from "@quickstart-ai/rag";
 import { collectAndEmitChatEvents } from "@quickstart-ai/events";
-import { chatMessageSchema, createSessionSchema, NotFoundError } from "@quickstart-ai/shared";
+import {
+  AppError,
+  chatMessageSchema,
+  createSessionSchema,
+  NotFoundError,
+  PLAN_LIMITS,
+  type PlanTier,
+} from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
 import { getProjectLlmRuntime } from "../project-llm.js";
 import { getRedis } from "../redis.js";
@@ -81,6 +90,26 @@ export async function chatRoutes(app: FastifyInstance) {
     });
     if (!project) throw new NotFoundError("Project not found");
 
+    // Enforce daily message limit based on the project's plan
+    const planKey = (project.plan ?? "free") as PlanTier;
+    const dailyLimit = PLAN_LIMITS[planKey].messagesPerDay;
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const todayCount = await prisma.usageEvent.count({
+      where: {
+        projectId: project.id,
+        kind: "chat_message",
+        createdAt: { gte: startOfToday },
+      },
+    });
+    if (todayCount >= dailyLimit) {
+      throw new AppError(
+        `Daily limit of ${dailyLimit} messages reached for your ${planKey} plan. Upgrade or wait until tomorrow.`,
+        429,
+        "PLAN_LIMIT_EXCEEDED",
+      );
+    }
+
     await connectMongo();
     const Session = getChatSessionModel();
     let sessionId = body.sessionId;
@@ -151,33 +180,111 @@ export async function chatRoutes(app: FastifyInstance) {
     const userMsgCount = session.messages.filter((m) => m.role === "user").length;
     const isFirstUserMessage = userMsgCount === 0;
 
-    let result;
-    try {
-      result = await runAgenticRag({
-        projectId: project.id,
-        projectName: project.name,
-        systemPrompt: project.systemPrompt || undefined,
-        query: body.message,
-        history,
-        embeddings,
-        chat,
-        toolsWebSearch: project.toolsWebSearch,
-        toolsHumanHandoff: project.toolsHumanHandoff,
-        toolsLeadCapture: project.toolsLeadCapture,
-        businessWebsite: project.owner?.businessWebsite ?? undefined,
-        visitorName: session.visitorName,
-        visitorEmail: session.visitorEmail,
-      });
-    } catch (err) {
-      const message = userFacingChatError(err);
-      req.log.error({ err }, "chat RAG failed");
-      if (body.stream) {
-        reply.header("Content-Type", "text/event-stream");
-        reply.header("Cache-Control", "no-cache");
-        reply.raw.write(`data: ${JSON.stringify({ type: "meta", sessionId })}\n\n`);
+    const ragOpts = {
+      projectId: project.id,
+      projectName: project.name,
+      systemPrompt: project.systemPrompt || undefined,
+      query: body.message,
+      history,
+      embeddings,
+      chat,
+      toolsWebSearch: project.toolsWebSearch,
+      toolsHumanHandoff: project.toolsHumanHandoff,
+      toolsLeadCapture: project.toolsLeadCapture,
+      businessWebsite: project.owner?.businessWebsite ?? undefined,
+      visitorName: session.visitorName,
+      visitorEmail: session.visitorEmail,
+    };
+
+    // ── Streaming path ────────────────────────────────────────────────────────
+    if (body.stream) {
+      reply.header("Content-Type", "text/event-stream");
+      reply.header("Cache-Control", "no-cache");
+      reply.raw.write(`data: ${JSON.stringify({ type: "meta", sessionId })}\n\n`);
+
+      let accumulatedAnswer = "";
+      let preamble!: AgentStreamPreamble;
+
+      try {
+        const gen = runAgenticRagStream(ragOpts);
+        let next = await gen.next();
+        while (!next.done) {
+          accumulatedAnswer += next.value;
+          reply.raw.write(`data: ${JSON.stringify({ type: "token", content: next.value })}\n\n`);
+          next = await gen.next();
+        }
+        preamble = next.value;
+      } catch (err) {
+        const message = userFacingChatError(err);
+        req.log.error({ err }, "chat RAG stream failed");
         streamError(reply, message);
         return;
       }
+
+      session.messages.push({ role: "user", content: body.message });
+      session.messages.push({
+        role: "assistant",
+        content: accumulatedAnswer,
+        meta: {
+          confidence: preamble.confidence,
+          toolsUsed: preamble.toolsUsed,
+          events: preamble.eventsEmitted.map((e) => e.type),
+        },
+      });
+      await session.save();
+
+      void collectAndEmitChatEvents({
+        projectId: project.id,
+        sessionId,
+        visitor: { name: session.visitorName, email: session.visitorEmail },
+        userMessage: body.message,
+        assistantAnswer: accumulatedAnswer,
+        confidence: preamble.confidence,
+        toolsUsed: preamble.toolsUsed,
+        chunkCount: preamble.chunks.length,
+        isFirstUserMessage,
+        agentEvents: preamble.eventsEmitted.map((e) => ({
+          type: e.type,
+          name: e.name,
+          description: e.description,
+          source: "tool" as const,
+          sessionId,
+          payload: e.payload,
+        })),
+        redisUrl: env.redisUrl,
+        webAppUrl: env.webAppUrl,
+      }).catch((err) => req.log.error({ err }, "event emit failed"));
+
+      try {
+        if (preamble.confidence !== "low") {
+          await setCachedAnswer(redis, project.id, body.message, accumulatedAnswer);
+        }
+        await pushSessionMemory(redis, sessionId, `U:${body.message}\nA:${accumulatedAnswer}`);
+      } catch {
+        // ignore cache errors
+      }
+
+      await prisma.usageEvent.create({
+        data: {
+          projectId: project.id,
+          kind: "chat_message",
+          units: 1,
+          meta: { confidence: preamble.confidence, toolsUsed: preamble.toolsUsed },
+        },
+      });
+
+      reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: preamble.toolsUsed })}\n\n`);
+      reply.raw.end();
+      return;
+    }
+
+    // ── Non-streaming path ────────────────────────────────────────────────────
+    let result;
+    try {
+      result = await runAgenticRag(ragOpts);
+    } catch (err) {
+      const message = userFacingChatError(err);
+      req.log.error({ err }, "chat RAG failed");
       return reply.status(503).send({
         success: false,
         code: "CHAT_FAILED",
@@ -237,19 +344,6 @@ export async function chatRoutes(app: FastifyInstance) {
         meta: { confidence: result.confidence, toolsUsed: result.toolsUsed },
       },
     });
-
-    if (body.stream) {
-      reply.header("Content-Type", "text/event-stream");
-      reply.header("Cache-Control", "no-cache");
-      reply.raw.write(`data: ${JSON.stringify({ type: "meta", sessionId, confidence: result.confidence })}\n\n`);
-      const parts = result.answer.match(/\S+\s*|\s+/g) ?? [result.answer];
-      for (const part of parts) {
-        reply.raw.write(`data: ${JSON.stringify({ type: "token", content: part })}\n\n`);
-      }
-      reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: result.toolsUsed })}\n\n`);
-      reply.raw.end();
-      return;
-    }
 
     return {
       success: true,

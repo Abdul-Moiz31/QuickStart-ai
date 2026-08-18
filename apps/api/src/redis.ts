@@ -20,7 +20,11 @@ export async function assertRateLimit(
     try {
       await r.connect();
     } catch {
-      // fail open in local if redis down
+      if (process.env.NODE_ENV === "production") {
+        // Fail CLOSED in production — a Redis outage must not open the flood gates
+        return { allowed: false, remaining: 0 };
+      }
+      // Fail open in dev/test so a missing Redis doesn't block local work
       return { allowed: true, remaining: limit };
     }
   }

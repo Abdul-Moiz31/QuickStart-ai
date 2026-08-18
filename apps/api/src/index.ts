@@ -4,7 +4,7 @@ import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import { ZodError } from "zod";
-import { connectMongo, ensurePgvector, prisma } from "@quickstart-ai/db";
+import { connectMongo, ensurePgvector, isMongoReady, prisma } from "@quickstart-ai/db";
 import { AppError } from "@quickstart-ai/shared";
 import { env } from "./env.js";
 import { assertRateLimit, getRedis } from "./redis.js";
@@ -25,6 +25,7 @@ async function main() {
     bodyLimit: 1_000_000,
     requestIdHeader: "x-request-id",
     genReqId: () => crypto.randomUUID(),
+    requestTimeout: 120_000,
   });
 
   await app.register(helmet, { contentSecurityPolicy: false });
@@ -71,11 +72,24 @@ async function main() {
     });
   });
 
-  app.get("/health", async () => ({
-    status: "ok",
-    service: "quickstart-api",
-    time: new Date().toISOString(),
-  }));
+  app.get("/health", async (_req, reply) => {
+    const [pg, rd, mg] = await Promise.allSettled([
+      prisma.$queryRaw`SELECT 1`,
+      getRedis().ping(),
+      isMongoReady()
+        ? Promise.resolve()
+        : Promise.reject(new Error("MongoDB not connected")),
+    ]);
+    const services = {
+      postgres: pg.status === "fulfilled" ? "ok" : "error",
+      redis: rd.status === "fulfilled" ? "ok" : "error",
+      mongo: mg.status === "fulfilled" ? "ok" : "error",
+    };
+    const degraded = Object.values(services).some((s) => s === "error");
+    return reply
+      .status(degraded ? 503 : 200)
+      .send({ status: degraded ? "degraded" : "ok", services });
+  });
 
   app.get("/", async () => ({
     name: "QuickStart AI API",

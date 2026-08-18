@@ -199,15 +199,15 @@ export async function storeChunkEmbeddings(
   chunkIds: string[],
   embeddings: number[][],
 ): Promise<void> {
-  for (let i = 0; i < chunkIds.length; i++) {
-    const id = chunkIds[i];
-    const emb = embeddings[i];
-    if (!id || !emb) continue;
-    const vector = toVectorLiteral(emb);
-    await prisma.$executeRawUnsafe(
-      `UPDATE "KnowledgeChunk" SET embedding = $1::vector WHERE id = $2::uuid`,
-      vector,
-      id,
-    );
-  }
+  await Promise.all(
+    chunkIds.map((id, i) => {
+      const emb = embeddings[i];
+      if (!id || !emb) return Promise.resolve();
+      return prisma.$executeRawUnsafe(
+        `UPDATE "KnowledgeChunk" SET embedding = $1::vector WHERE id = $2::uuid`,
+        toVectorLiteral(emb),
+        id,
+      );
+    }),
+  );
 }
