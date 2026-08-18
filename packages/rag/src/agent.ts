@@ -160,7 +160,13 @@ function computeConfidence(chunks: RetrievedChunk[]): AgentResult["confidence"] 
   return avgScore >= 0.55 ? "high" : avgScore >= 0.3 ? "medium" : "low";
 }
 
-async function runToolLoop(opts: {
+interface ToolLoopPrelude {
+  toolsUsed: string[];
+  eventsEmitted: ToolEventPayload[];
+  answerMessages: LLMMessage[];
+}
+
+async function runToolLoopPrelude(opts: {
   tools: AgentTool[];
   chat: ChatClient;
   systemPrompt: string;
@@ -169,7 +175,7 @@ async function runToolLoop(opts: {
   knowledge: string;
   confidence: AgentResult["confidence"];
   modelChainRotate?: number;
-}): Promise<{ answer: string; toolsUsed: string[]; eventsEmitted: ToolEventPayload[] }> {
+}): Promise<ToolLoopPrelude> {
   const toolsUsed: string[] = ["search_knowledge"];
   const eventsEmitted: ToolEventPayload[] = [];
   const toolCatalog = opts.tools
@@ -245,6 +251,21 @@ async function runToolLoop(opts: {
     ...opts.history.slice(-8),
     { role: "user", content: opts.query },
   ];
+
+  return { toolsUsed, eventsEmitted, answerMessages };
+}
+
+async function runToolLoop(opts: {
+  tools: AgentTool[];
+  chat: ChatClient;
+  systemPrompt: string;
+  query: string;
+  history: LLMMessage[];
+  knowledge: string;
+  confidence: AgentResult["confidence"];
+  modelChainRotate?: number;
+}): Promise<{ answer: string; toolsUsed: string[]; eventsEmitted: ToolEventPayload[] }> {
+  const { toolsUsed, eventsEmitted, answerMessages } = await runToolLoopPrelude(opts);
 
   const answer = await opts.chat.chat(answerMessages, {
     temperature: 0.2,
@@ -332,5 +353,103 @@ export async function runAgenticRag(opts: {
     toolsUsed,
     confidence,
     eventsEmitted: [...eventsEmitted, ...loopEvents],
+  };
+}
+
+export interface AgentStreamPreamble {
+  chunks: RetrievedChunk[];
+  toolsUsed: string[];
+  confidence: AgentResult["confidence"];
+  eventsEmitted: ToolEventPayload[];
+}
+
+type AgentRagOpts = Parameters<typeof runAgenticRag>[0];
+
+/**
+ * Streaming variant of runAgenticRag. Yields real LLM tokens from the final
+ * answer step and returns a preamble with metadata on completion. The
+ * retrieval + planning phase runs to completion first (cannot be streamed),
+ * then the answer generation streams token-by-token.
+ */
+export async function* runAgenticRagStream(
+  opts: AgentRagOpts,
+): AsyncGenerator<string, AgentStreamPreamble, undefined> {
+  const { chunks: rawChunks } = await hybridRetrieve({
+    projectId: opts.projectId,
+    query: opts.query,
+    embeddings: opts.embeddings,
+    chat: opts.chat,
+    useHyde: opts.useHyde ?? true,
+    topK: 20,
+  });
+
+  const chunks = await rerankChunks(opts.query, rawChunks, opts.chat, 8);
+
+  const tools = buildAgentTools({
+    projectId: opts.projectId,
+    projectName: opts.projectName,
+    businessHours: opts.businessHours,
+    businessWebsite: opts.businessWebsite,
+    chunks,
+    toolsWebSearch: opts.toolsWebSearch,
+    toolsHumanHandoff: opts.toolsHumanHandoff,
+    toolsLeadCapture: opts.toolsLeadCapture,
+    visitorName: opts.visitorName,
+    visitorEmail: opts.visitorEmail,
+    userMessage: opts.query,
+  });
+
+  const knowledgeResult = await tools[0]!.execute({});
+  const knowledge = knowledgeResult.output;
+  const confidence = computeConfidence(chunks);
+  const preEventsEmitted: ToolEventPayload[] = [];
+
+  if (confidence === "low" && chunks.length === 0) {
+    const escalate = tools.find((t) => t.name === "escalate_to_human");
+    if (escalate) {
+      const esc = await escalate.execute({ reason: "insufficient knowledge base coverage" });
+      if (esc.event) preEventsEmitted.push(esc.event);
+    }
+  }
+
+  const system =
+    opts.systemPrompt ||
+    `You are QuickStart AI, a helpful customer support agent for ${opts.projectName}.`;
+
+  const { toolsUsed, eventsEmitted: loopEvents, answerMessages } = await runToolLoopPrelude({
+    tools,
+    chat: opts.chat,
+    systemPrompt: system,
+    query: opts.query,
+    history: opts.history,
+    knowledge,
+    confidence,
+    modelChainRotate: opts.modelChainRotate,
+  });
+
+  // Stream the final answer token-by-token; fall back to completed response if
+  // the chat client doesn't support streaming (e.g. stub/test clients).
+  if (opts.chat.chatStream) {
+    for await (const token of opts.chat.chatStream(answerMessages, {
+      temperature: 0.2,
+      maxTokens: 700,
+      modelChainRotate: opts.modelChainRotate,
+    })) {
+      yield token;
+    }
+  } else {
+    const answer = await opts.chat.chat(answerMessages, {
+      temperature: 0.2,
+      maxTokens: 700,
+      modelChainRotate: opts.modelChainRotate,
+    });
+    yield answer;
+  }
+
+  return {
+    chunks,
+    toolsUsed,
+    confidence,
+    eventsEmitted: [...preEventsEmitted, ...loopEvents],
   };
 }

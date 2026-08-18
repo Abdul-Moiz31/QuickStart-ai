@@ -6,6 +6,7 @@ import { QUEUE_NAMES } from "@quickstart-ai/shared";
 export function startEventsWorkers(redisUrl: string) {
   const retryQueue = new Queue(QUEUE_NAMES.EVENTS_RETRY, {
     connection: { url: redisUrl },
+    defaultJobOptions: { removeOnComplete: 500, removeOnFail: 100 },
   });
 
   const eventsWorker = new Worker(
@@ -21,7 +22,7 @@ export function startEventsWorkers(redisUrl: string) {
       for (const d of failed) {
         if (!d.nextRetryAt) continue;
         const delay = Math.max(0, d.nextRetryAt.getTime() - Date.now());
-        await retryQueue.add("retry-delivery", { deliveryId: d.id }, { delay });
+        await retryQueue.add("retry-delivery", { deliveryId: d.id }, { delay, removeOnComplete: 500, removeOnFail: 100 });
       }
     },
     { connection: { url: redisUrl }, concurrency: 10 },
@@ -38,7 +39,7 @@ export function startEventsWorkers(redisUrl: string) {
       });
       if (delivery?.status === "retrying" && delivery.nextRetryAt) {
         const delay = Math.max(0, delivery.nextRetryAt.getTime() - Date.now());
-        await retryQueue.add("retry-delivery", { deliveryId }, { delay });
+        await retryQueue.add("retry-delivery", { deliveryId }, { delay, removeOnComplete: 500, removeOnFail: 100 });
       }
     },
     { connection: { url: redisUrl }, concurrency: 5 },

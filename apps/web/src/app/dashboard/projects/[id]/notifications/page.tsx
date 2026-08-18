@@ -38,6 +38,19 @@ interface EventRuleRow {
   description: string;
 }
 
+interface DeliveryRow {
+  id: string;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  responseCode: number | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  event: { id: string; type: string; name: string; createdAt: string };
+  endpoint: { id: string; label: string } | null;
+  integration: { id: string; label: string; provider: string } | null;
+}
+
 const CONNECTION_OPTIONS: Array<{ kind: ConnectionKind; label: string; hint: string }> = [
   { kind: "slack", label: "Slack", hint: "Post to a channel" },
   { kind: "discord", label: "Discord", hint: "Post to a server channel" },
@@ -70,6 +83,7 @@ export default function NotificationsPage() {
   const [webhooks, setWebhooks] = useState<WebhookRow[]>([]);
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [rules, setRules] = useState<EventRuleRow[]>([]);
+  const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState<ConnectionKind>(null);
@@ -86,16 +100,18 @@ export default function NotificationsPage() {
   const load = useCallback(async () => {
     const token = getStoredToken();
     if (!token) return;
-    const [cat, wh, integ, rl] = await Promise.all([
+    const [cat, wh, integ, rl, dlv] = await Promise.all([
       api<{ catalog: CatalogEntry[] }>(`/api/v1/projects/${id}/integrations/catalog`, { token }),
       api<{ webhooks: WebhookRow[] }>(`/api/v1/projects/${id}/webhooks`, { token }),
       api<{ integrations: IntegrationRow[] }>(`/api/v1/projects/${id}/integrations`, { token }),
       api<{ rules: EventRuleRow[] }>(`/api/v1/projects/${id}/event-rules`, { token }),
+      api<{ deliveries: DeliveryRow[] }>(`/api/v1/projects/${id}/deliveries?limit=25`, { token }),
     ]);
     setCatalog(cat.catalog);
     setWebhooks(wh.webhooks);
     setIntegrations(integ.integrations);
     setRules(rl.rules);
+    setDeliveries(dlv.deliveries);
   }, [id]);
 
   useEffect(() => {
@@ -282,6 +298,50 @@ export default function NotificationsPage() {
             </>
           )}
         </DashPanel>
+
+        {deliveries.length > 0 && (
+          <DashPanel>
+            <p className="font-medium text-ink">Delivery log</p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-ink/[0.06] text-left">
+                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Event</th>
+                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Destination</th>
+                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Status</th>
+                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Attempts</th>
+                    <th className="pb-2 font-mono text-[10px] uppercase tracking-wide text-mute">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deliveries.map((d) => {
+                    const s = d.status.toUpperCase();
+                    const badge =
+                      s === "SUCCESS"
+                        ? "bg-black text-white"
+                        : s === "FAILED"
+                          ? "border border-ink/20 text-ink"
+                          : "bg-ink/10 text-mute";
+                    const dest = d.endpoint?.label ?? d.integration?.label ?? "—";
+                    return (
+                      <tr key={d.id} className="border-b border-ink/[0.04] last:border-0">
+                        <td className="py-2.5 pr-4 font-mono text-xs text-mute">{d.event.type}</td>
+                        <td className="py-2.5 pr-4 text-xs text-ink">{dest}</td>
+                        <td className="py-2.5 pr-4">
+                          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${badge}`}>{s}</span>
+                        </td>
+                        <td className="py-2.5 pr-4 text-xs text-mute">{d.attempts}</td>
+                        <td className="py-2.5 text-xs text-mute">
+                          {new Date(d.createdAt).toLocaleTimeString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </DashPanel>
+        )}
 
         {hasConnections && (
           <DashPanel>
