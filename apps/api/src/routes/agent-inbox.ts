@@ -10,6 +10,7 @@ import {
   sessionChannel,
 } from "../realtime.js";
 import { streamChannels } from "../sse.js";
+import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
 
 const agentMessageSchema = z.object({
   content: z.string().min(1).max(4000),
@@ -57,9 +58,18 @@ export async function agentInboxRoutes(app: FastifyInstance) {
       .limit(100)
       .lean();
 
+    // Drop rows nobody is working any more before showing the queue, so the badge
+    // and the list cannot advertise work that has already timed out.
+    const stale = sessions.filter((s) => isHandoffStale(s));
+    for (const s of stale) {
+      await releaseStaleHandoff(Session, String(s._id), s.projectId);
+    }
+    const staleIds = new Set(stale.map((s) => String(s._id)));
+    const live = sessions.filter((s) => !staleIds.has(String(s._id)));
+
     return {
       success: true,
-      sessions: sessions.map((s) => {
+      sessions: live.map((s) => {
         const lastMessage = s.messages?.[s.messages.length - 1];
         return {
           id: String(s._id),

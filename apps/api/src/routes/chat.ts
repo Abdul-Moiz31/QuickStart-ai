@@ -24,6 +24,7 @@ import { requireClient } from "../auth.js";
 import { getProjectLlmRuntime } from "../project-llm.js";
 import { getRedis } from "../redis.js";
 import { publishInboxEvent } from "../realtime.js";
+import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
 import { env } from "../env.js";
 
 function streamError(reply: { raw: NodeJS.WritableStream }, message: string) {
@@ -190,6 +191,15 @@ export async function chatRoutes(app: FastifyInstance) {
     // the inbox, and answer nothing. This sits above the cache lookup deliberately —
     // the answer cache is keyed by project and question, not by session, so a cache
     // hit populated by a different visitor would otherwise talk over the agent.
+    if (session.humanActive && isHandoffStale(session)) {
+      // Nobody has worked this conversation for a while. Hand it back rather than
+      // leaving the visitor with a widget that never answers again.
+      await releaseStaleHandoff(Session, sessionId, project.id);
+      session.humanActive = false;
+      session.humanPending = false;
+      session.agentId = undefined;
+    }
+
     if (session.humanActive) {
       session.messages.push({ role: "user", content: body.message });
       await session.save();
