@@ -366,6 +366,7 @@ export async function chatRoutes(app: FastifyInstance) {
         confidence: preamble.confidence,
         toolsUsed: preamble.toolsUsed,
         chunkCount: preamble.chunks.length,
+        topScore: topChunkScore(preamble.chunks),
         isFirstUserMessage,
         agentEvents: preamble.eventsEmitted.map((e) => ({
           type: e.type,
@@ -457,6 +458,7 @@ export async function chatRoutes(app: FastifyInstance) {
       confidence: result.confidence,
       toolsUsed: result.toolsUsed,
       chunkCount: result.chunks.length,
+      topScore: topChunkScore(result.chunks),
       isFirstUserMessage,
       agentEvents: result.eventsEmitted.map((e) => ({
         type: e.type,

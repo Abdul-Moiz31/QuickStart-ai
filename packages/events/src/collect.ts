@@ -27,6 +27,7 @@ export async function collectAndEmitChatEvents(
       userMessage: ctx.userMessage,
       confidence: ctx.confidence,
       chunkCount: ctx.chunkCount,
+      topScore: ctx.topScore,
       sessionId: ctx.sessionId,
     }),
   );
