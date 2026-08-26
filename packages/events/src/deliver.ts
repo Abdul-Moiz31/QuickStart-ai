@@ -1,4 +1,5 @@
 import { prisma } from "@quickstart-ai/db";
+import { BUILTIN_EVENT_TYPES } from "@quickstart-ai/shared";
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
 import { buildEventEnvelope } from "./payload.js";
 import { formatSlackMessage, postToSlack } from "./deliver/slack.js";
@@ -25,6 +26,28 @@ function eventMatchesSubscription(subscribed: string[], type: string): boolean {
   return subscribed.includes(type);
 }
 
+/**
+ * Dashboard links included with every delivered event.
+ *
+ * Handoff events also carry an inbox link: the notification is the moment somebody
+ * decides whether to step in, and the conversation view has no reply box.
+ */
+function dashboardLinks(
+  projectId: string,
+  sessionId: string | null,
+  type: string,
+): { conversation_url?: string; inbox_url?: string } {
+  if (!sessionId) return {};
+  const webAppUrl = (process.env.WEB_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const base = `${webAppUrl}/dashboard/projects/${projectId}`;
+  return {
+    conversation_url: `${base}/conversations?session=${sessionId}`,
+    ...(type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF
+      ? { inbox_url: `${base}/inbox?session=${sessionId}` }
+      : {}),
+  };
+}
+
 export async function deliverProjectEvent(eventId: string): Promise<void> {
   const event = await prisma.projectEvent.findUnique({
     where: { id: eventId },
@@ -32,10 +55,7 @@ export async function deliverProjectEvent(eventId: string): Promise<void> {
   });
   if (!event) return;
 
-  const webAppUrl = (process.env.WEB_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
-  const conversationUrl = event.sessionId
-    ? `${webAppUrl}/dashboard/projects/${event.projectId}/conversations?session=${event.sessionId}`
-    : undefined;
+  const links = dashboardLinks(event.projectId, event.sessionId, event.type);
 
   const payload = event.payload as Record<string, unknown>;
   const envelope = buildEventEnvelope({
@@ -49,7 +69,7 @@ export async function deliverProjectEvent(eventId: string): Promise<void> {
       ...payload,
       session_id: event.sessionId,
       project_name: event.project.name,
-      conversation_url: conversationUrl,
+      ...links,
       visitor: payload.visitor ?? undefined,
     },
   });
@@ -145,7 +165,6 @@ export async function retryDelivery(deliveryId: string): Promise<void> {
   if (!delivery?.event) return;
 
   const event = delivery.event;
-  const webAppUrl = (process.env.WEB_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const payload = event.payload as Record<string, unknown>;
   const envelope = buildEventEnvelope({
     id: event.id,
@@ -158,9 +177,7 @@ export async function retryDelivery(deliveryId: string): Promise<void> {
       ...payload,
       session_id: event.sessionId,
       project_name: event.project.name,
-      conversation_url: event.sessionId
-        ? `${webAppUrl}/dashboard/projects/${event.projectId}/conversations?session=${event.sessionId}`
-        : undefined,
+      ...dashboardLinks(event.projectId, event.sessionId, event.type),
     },
   });
 
