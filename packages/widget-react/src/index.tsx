@@ -290,7 +290,11 @@ export function ChatBot({
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "Hello! How can I assist you today?" },
   ]);
+  const [humanActive, setHumanActive] = useState(false);
+  const [agentTyping, setAgentTyping] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const agentTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingPing = useRef(0);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -323,6 +327,65 @@ export function ChatBot({
     if (primaryColorProp) setResolvedPrimary(primaryColorProp);
   }, [primaryColorProp]);
 
+  // Live channel for the session: agent replies and handoff status. Opened once a
+  // session exists and torn down with it, so a closed widget holds no connection.
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const reconcile = () => {
+      client
+        .getSessionMessages(sessionId)
+        .then((res) => {
+          setHumanActive(res.humanActive);
+          setMessages(res.messages.map((m) => ({ role: m.role, content: m.content })));
+        })
+        .catch(() => {
+          // Keep whatever is on screen; the next event or reconnect tries again.
+        });
+    };
+
+    const unsubscribe = client.subscribeToSession(
+      sessionId,
+      (event) => {
+        if (event.type === "connected") {
+          setHumanActive(event.humanActive);
+          return;
+        }
+        if (event.type === "human_active") {
+          setHumanActive(true);
+          // A bot answer may have been mid-flight when the agent took over. It was
+          // never persisted as delivered, so drop the half-rendered bubble.
+          setMessages((m) => m.filter((msg) => !msg.streaming));
+          setLoading(false);
+          return;
+        }
+        if (event.type === "human_released") {
+          setHumanActive(false);
+          setAgentTyping(false);
+          return;
+        }
+        if (event.type === "agent_typing") {
+          setAgentTyping(true);
+          if (agentTypingTimer.current) clearTimeout(agentTypingTimer.current);
+          agentTypingTimer.current = setTimeout(() => setAgentTyping(false), 4000);
+          return;
+        }
+        if (event.type === "agent_message") {
+          setAgentTyping(false);
+          setMessages((m) => [...m, { role: "agent", content: event.content }]);
+        }
+      },
+      // Anything published while the stream was down is gone; the transcript is the
+      // only way back to a correct view.
+      reconcile,
+    );
+
+    return () => {
+      unsubscribe();
+      if (agentTypingTimer.current) clearTimeout(agentTypingTimer.current);
+    };
+  }, [client, sessionId]);
+
   useEffect(() => {
     if (!open) return;
     const mq = window.matchMedia("(max-width: 480px)");
@@ -354,15 +417,36 @@ export function ChatBot({
     }
   };
 
+  /**
+   * Tells the inbox the visitor is typing.
+   *
+   * Only while a human is actually reading, and at most once every 4 seconds: this
+   * is an HTTP call per ping, and an unthrottled one would eat the per-IP rate
+   * limit that the visitor's actual messages depend on.
+   */
+  const notifyTyping = () => {
+    if (!humanActive || !sessionId) return;
+    const now = Date.now();
+    if (now - lastTypingPing.current < 4000) return;
+    lastTypingPing.current = now;
+    void client.notifyVisitorTyping(sessionId).catch(() => {
+      // Presence is cosmetic; never surface a failure to the visitor.
+    });
+  };
+
   const send = async () => {
     if (!input.trim() || loading || !sessionId) return;
     const text = input.trim();
     setInput("");
-    setMessages((m) => [
-      ...m,
-      { role: "user", content: text },
-      { role: "assistant", content: "", streaming: true },
-    ]);
+    setMessages((m) =>
+      humanActive
+        ? [...m, { role: "user", content: text }]
+        : [
+            ...m,
+            { role: "user", content: text },
+            { role: "assistant", content: "", streaming: true },
+          ],
+    );
     setLoading(true);
 
     try {
@@ -520,6 +604,21 @@ export function ChatBot({
               className="qs-widget-messages"
               style={{ background: surface.messages.bg }}
             >
+              {humanActive && (
+                <div
+                  style={{
+                    alignSelf: "center",
+                    padding: "4px 10px",
+                    borderRadius: 9999,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: "rgba(10,10,10,0.06)",
+                    color: "rgba(10,10,10,0.62)",
+                  }}
+                >
+                  You&rsquo;re connected to a support agent
+                </div>
+              )}
               {messages.map((m, i) => {
                 const isStreamingEmpty =
                   m.role === "assistant" && m.streaming && !m.content.trim();
@@ -551,14 +650,36 @@ export function ChatBot({
                               background: surface.user.bg,
                               color: surface.user.text,
                             }
-                          : {
-                              borderRadius: 16,
-                              borderTopLeftRadius: 4,
-                              background: surface.assistant.bg,
-                              color: surface.assistant.text,
-                            }),
+                          : m.role === "agent"
+                            ? {
+                                borderRadius: 16,
+                                borderTopLeftRadius: 4,
+                                background: "#ffffff",
+                                color: surface.assistant.text,
+                                border: `1px solid ${surface.accent.bg}`,
+                              }
+                            : {
+                                borderRadius: 16,
+                                borderTopLeftRadius: 4,
+                                background: surface.assistant.bg,
+                                color: surface.assistant.text,
+                              }),
                       }}
                     >
+                      {m.role === "agent" && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: 0.3,
+                            textTransform: "uppercase",
+                            marginBottom: 3,
+                            color: surface.accent.bg,
+                          }}
+                        >
+                          Support Team
+                        </div>
+                      )}
                       {m.role === "assistant" ? (
                         <MarkdownContent content={m.content} />
                       ) : (
@@ -568,13 +689,21 @@ export function ChatBot({
                   </div>
                 );
               })}
+              {agentTyping && (
+                <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                  <TypingIndicator bg={surface.assistant.bg} />
+                </div>
+              )}
               <div ref={endRef} />
             </div>
 
             <div className="qs-widget-input-row">
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  notifyTyping();
+                }}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
                 placeholder="Type a message…"
                 disabled={loading}

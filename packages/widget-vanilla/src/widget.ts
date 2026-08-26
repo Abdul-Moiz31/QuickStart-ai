@@ -44,6 +44,7 @@ export function mountQuickStartChat(opts: MountOptions) {
 
   let open = false;
   let sessionId = "";
+  let unsubscribe: (() => void) | null = null;
   let loading = false;
 
   const toggle = el("button", { type: "button", "aria-label": "Open chat" }, ["💬"]);
@@ -156,21 +157,36 @@ export function mountQuickStartChat(opts: MountOptions) {
   panel.append(header, form, body, composer);
   host.append(toggle, panel);
 
-  function addBubble(role: "user" | "assistant", content: string) {
+  function addBubble(role: "user" | "assistant" | "agent", content: string) {
     const wrap = el("div");
     wrap.style.display = "flex";
     wrap.style.justifyContent = role === "user" ? "flex-end" : "flex-start";
     wrap.style.marginBottom = "10px";
-    const bubble = el("div", { text: content });
+    const bubble = el("div");
     Object.assign(bubble.style, {
       maxWidth: "80%",
       padding: "10px 12px",
       borderRadius: "14px",
-      background: role === "user" ? colors.bg : "#e2e8f0",
+      background: role === "user" ? colors.bg : role === "agent" ? "#ffffff" : "#e2e8f0",
       color: role === "user" ? colors.text : "#0f172a",
       fontSize: "14px",
       lineHeight: "1.45",
     });
+    // A human reply must not look like the bot's, or the handoff is invisible.
+    if (role === "agent") {
+      bubble.style.border = `1px solid ${colors.bg}`;
+      const label = el("div", { text: "Support Team" });
+      Object.assign(label.style, {
+        fontSize: "10px",
+        fontWeight: "700",
+        letterSpacing: "0.3px",
+        textTransform: "uppercase",
+        marginBottom: "3px",
+        color: colors.bg,
+      });
+      bubble.append(label);
+    }
+    bubble.append(document.createTextNode(content));
     wrap.append(bubble);
     body.append(wrap);
     body.scrollTop = body.scrollHeight;
@@ -192,6 +208,7 @@ export function mountQuickStartChat(opts: MountOptions) {
       form.style.display = "none";
       composer.style.display = "flex";
       addBubble("assistant", "Hello! How can I assist you today?");
+      subscribe();
     } catch (e) {
       console.error(e);
       alert("Could not start chat");
@@ -209,7 +226,9 @@ export function mountQuickStartChat(opts: MountOptions) {
     loading = true;
     try {
       const res = await client.sendMessage(sessionId, text);
-      addBubble("assistant", res.answer);
+      // No answer comes back while a human holds the session; their reply arrives
+      // on the live channel instead.
+      if (res.answer) addBubble("assistant", res.answer);
     } catch (e) {
       console.error(e);
       addBubble("assistant", "Sorry, something went wrong.");
@@ -218,12 +237,37 @@ export function mountQuickStartChat(opts: MountOptions) {
     }
   }
 
+  /** Live channel: agent replies and handoff status pushed from the inbox. */
+  function subscribe() {
+    if (!sessionId || unsubscribe) return;
+    unsubscribe = client.subscribeToSession(sessionId, (event) => {
+      if (event.type === "agent_message") {
+        addBubble("agent", event.content);
+        return;
+      }
+      if (event.type === "human_active") {
+        addBubble("assistant", "You're now connected to a support agent.");
+        return;
+      }
+      if (event.type === "human_released") {
+        addBubble("assistant", "You're back with the assistant.");
+      }
+    });
+  }
+
   sendBtn.onclick = () => void send();
   msgInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") void send();
   });
 
-  return { destroy: () => { toggle.remove(); panel.remove(); } };
+  return {
+    destroy: () => {
+      unsubscribe?.();
+      unsubscribe = null;
+      toggle.remove();
+      panel.remove();
+    },
+  };
 }
 
 function autoMount() {
