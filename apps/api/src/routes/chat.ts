@@ -110,6 +110,35 @@ export async function chatRoutes(app: FastifyInstance) {
     };
   });
 
+  /**
+   * Transcript for one session, used by the widget to reconcile after its live
+   * stream reconnects. Redis pub/sub has no replay, so anything published while the
+   * connection was down is only recoverable from here.
+   */
+  app.get("/api/v1/chat/sessions/:sessionId/messages", async (req) => {
+    await requireClient(req, { touch: false });
+    const { sessionId } = req.params as { sessionId: string };
+    await connectMongo();
+    const Session = getChatSessionModel();
+    const session = await Session.findById(sessionId)
+      .select("projectId humanActive messages")
+      .lean();
+    if (!session || session.projectId !== req.projectId) {
+      throw new NotFoundError("Session not found");
+    }
+    return {
+      success: true,
+      humanActive: Boolean(session.humanActive),
+      messages: (session.messages ?? [])
+        // System and tool turns are internal plumbing and never shown to a visitor.
+        .filter((m) => m.role !== "system" && m.role !== "tool")
+        // A superseded bot answer was never delivered; replaying it here would put it
+        // on screen after the fact.
+        .filter((m) => !(m.meta as { suppressed?: boolean } | undefined)?.suppressed)
+        .map((m) => ({ role: m.role, content: m.content })),
+    };
+  });
+
   app.post("/api/v1/chat/message", async (req, reply) => {
     await requireClient(req);
     const body = chatMessageSchema.parse(req.body);
