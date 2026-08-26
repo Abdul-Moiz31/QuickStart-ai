@@ -5,6 +5,7 @@ export function formatSlackMessage(envelope: EventEnvelope): Record<string, unkn
   const data = envelope.data;
   const visitor = (data.visitor as { name?: string; email?: string }) ?? {};
   const conversationUrl = data.conversation_url as string | undefined;
+  const inboxUrl = data.inbox_url as string | undefined;
 
   const blocks: Record<string, unknown>[] = [
     {
@@ -31,17 +32,27 @@ export function formatSlackMessage(envelope: EventEnvelope): Record<string, unkn
     blocks.push({ type: "section", fields });
   }
 
-  if (conversationUrl) {
-    blocks.push({
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "View conversation" },
-          url: conversationUrl,
-        },
-      ],
+  // The handoff notification is where someone decides whether to step in, so it
+  // leads with the action that lets them: replying. The read-only conversation
+  // view stays available beside it.
+  const actions: Record<string, unknown>[] = [];
+  if (inboxUrl) {
+    actions.push({
+      type: "button",
+      style: "primary",
+      text: { type: "plain_text", text: "Reply in inbox" },
+      url: inboxUrl,
     });
+  }
+  if (conversationUrl) {
+    actions.push({
+      type: "button",
+      text: { type: "plain_text", text: "View conversation" },
+      url: conversationUrl,
+    });
+  }
+  if (actions.length) {
+    blocks.push({ type: "actions", elements: actions });
   }
 
   const emoji =
