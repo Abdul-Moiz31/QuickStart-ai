@@ -24,3 +24,6 @@ server.cert
 !.vscode/extensions.json
 config.bat
 fixtures/*.live.json
+
+# Local engineering write-ups, one per feature. Notes for us, not for the repo.
+stories/
