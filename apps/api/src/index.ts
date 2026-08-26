@@ -13,6 +13,7 @@ import { projectRoutes } from "./routes/projects.js";
 import { knowledgeRoutes } from "./routes/knowledge.js";
 import { chatRoutes } from "./routes/chat.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { agentInboxRoutes } from "./routes/agent-inbox.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { integrationsRoutes } from "./routes/integrations.js";
 import { projectIntegrationsRoutes } from "./routes/project-integrations.js";
@@ -103,6 +104,7 @@ async function main() {
   await knowledgeRoutes(app);
   await chatRoutes(app);
   await dashboardRoutes(app);
+  await agentInboxRoutes(app);
   await integrationsRoutes(app);
   await projectIntegrationsRoutes(app);
   await mcpOAuthRoutes(app);
