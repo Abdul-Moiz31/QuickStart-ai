@@ -23,21 +23,17 @@ _legacy/         cloned QuickStart repos (reference only)
 ## Quick start
 
 ```bash
-cp .env.example .env
-pnpm install
-pnpm docker:up
-# Host ports (remapped if local 5432/6379 are busy):
-#   Postgres 5433 → container 5432
-#   Redis    6380 → container 6379
-#   Mongo    27017
-pnpm db:generate
-pnpm db:push
-pnpm db:ensure
-
-pnpm --filter @quickstart-ai/api dev      # :3100
-pnpm --filter @quickstart-ai/worker dev   # BullMQ
-pnpm --filter @quickstart-ai/web dev      # :3000
+pnpm bootstrap   # copies .env, installs deps, starts Postgres/Mongo/Redis, syncs the DB
+pnpm dev         # runs api (:3100), worker, and web (:3000), rebuilding on any change
 ```
+
+Fill in `OPENROUTER_API_KEY` in `.env` before using chat.
+
+`pnpm dev` runs `turbo watch`, so editing any package — an app or a shared library like `rag`/`db`/`shared` — automatically rebuilds it and restarts whatever depends on it. No manual `pnpm build` step.
+
+Host ports (remapped if local 5432/6379 are busy): Postgres 5433 → container 5432, Redis 6380 → container 6379, Mongo 27017.
+
+To run a single app on its own: `pnpm --filter @quickstart-ai/api dev`.
 
 ## Widgets
 
