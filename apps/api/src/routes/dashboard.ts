@@ -24,7 +24,12 @@ import { requireAuth } from "../auth.js";
 import { getProjectLlmRuntime } from "../project-llm.js";
 import { env } from "../env.js";
 import { getRedis } from "../redis.js";
-import { collectGapCandidates, periodToSince } from "../knowledge-gaps.js";
+import {
+  collectGapCandidates,
+  GAP_CACHE_PERIODS,
+  gapCacheKey,
+  periodToSince,
+} from "../knowledge-gaps.js";
 import { groupAndResolve } from "../knowledge-gap-grouping.js";
 
 const playgroundMessageSchema = z.object({
@@ -35,6 +40,7 @@ const playgroundMessageSchema = z.object({
 const MAX_EVAL_CASES = 15;
 const MAX_GAP_GROUPS = 20;
 const GAP_CACHE_TTL_SECONDS = 600;
+const GAP_PERIODS: string[] = [...GAP_CACHE_PERIODS];
 
 async function loadKnowledgeQaCases(projectId: string): Promise<{
   pairs: { question: string; answer: string }[];
@@ -433,7 +439,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/knowledge-gaps", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const { period = "30d" } = req.query as { period?: string };
+    // Validated rather than passed through: it lands in a Redis key and is echoed
+    // back in the response, and periodToSince silently coerces anything unknown.
+    const rawPeriod = (req.query as { period?: string }).period ?? "30d";
+    const period = GAP_PERIODS.includes(rawPeriod) ? rawPeriod : "30d";
     const project = await prisma.project.findFirst({
       where: { id, ownerId: req.user!.id },
     });
@@ -442,7 +451,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     // Each uncached build costs an embedding batch plus a vector search per group,
     // and the sidebar is not polling this, so a short cache is enough to keep
     // repeat visits and period toggles cheap.
-    const cacheKey = `gaps:${id}:${period}`;
+    const cacheKey = gapCacheKey(id, period);
     const redis = getRedis();
     try {
       if (redis.status !== "ready") await redis.connect();
@@ -453,7 +462,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     }
 
     await connectMongo();
-    const candidates = await collectGapCandidates({
+    const { candidates, analysedAnswers } = await collectGapCandidates({
       projectId: id,
       since: periodToSince(period),
     });
@@ -470,7 +479,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       period,
       // Separating these lets the UI distinguish "your bot is doing fine" from
       // "nobody has talked to your bot yet", which need different empty states.
-      analysedAnswers: candidates.length,
+      analysedAnswers,
       resolvedCount: resolved,
       gaps: groups.map((g) => ({
         question: g.question,

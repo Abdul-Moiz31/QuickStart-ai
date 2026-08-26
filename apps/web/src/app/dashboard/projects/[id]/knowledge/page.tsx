@@ -55,11 +55,11 @@ type FaqRow = KnowledgeQaPair & {
 };
 
 function formatWhen(value: string): string {
-  try {
-    return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  } catch {
-    return "recently";
-  }
+  const d = new Date(value);
+  // An unparseable date yields NaN rather than throwing, so a try/catch here would
+  // never fire and the row would read "Invalid Date".
+  if (Number.isNaN(d.getTime())) return "recently";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 type AddMode = "faq" | "text" | "file" | null;
@@ -191,7 +191,10 @@ export default function KnowledgePage() {
   // so it is fetched only when the tab is actually opened rather than on page load.
   const loadGaps = useCallback(async () => {
     const token = getStoredToken();
-    if (!token) return;
+    if (!token) {
+      setGapsLoaded(true);
+      return;
+    }
     const res = await api<{ gaps: GapRow[]; analysedAnswers: number }>(
       `/api/v1/projects/${id}/knowledge-gaps?period=30d`,
       { token },
@@ -207,7 +210,12 @@ export default function KnowledgePage() {
 
   useEffect(() => {
     if (tab !== "gaps") return;
-    loadGaps().catch((e) => setMsg(e instanceof Error ? e.message : "Failed to load gaps"));
+    loadGaps().catch((e) => {
+      // Mark the fetch as settled even when it failed, or the tab sits on
+      // "Checking recent conversations…" forever.
+      setGapsLoaded(true);
+      setMsg(e instanceof Error ? e.message : "Failed to load gaps");
+    });
   }, [tab, loadGaps]);
 
   useEffect(() => {

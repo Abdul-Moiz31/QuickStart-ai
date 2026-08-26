@@ -5,6 +5,14 @@ import type { GapCandidate } from "./knowledge-gaps.js";
 /** Questions closer than this are treated as the same underlying gap. */
 const SIMILARITY_THRESHOLD = 0.85;
 
+/**
+ * Ceiling on questions sent to the embeddings API in one request.
+ *
+ * Providers reject oversized batches outright, which would take the whole page
+ * down rather than degrade it. The newest candidates are the ones worth keeping.
+ */
+const MAX_EMBED_BATCH = 512;
+
 export interface GapGroup {
   question: string;
   sessionCount: number;
@@ -102,25 +110,32 @@ export async function groupAndResolve(opts: {
   const { projectId, candidates, embeddings, limit } = opts;
   if (!candidates.length) return { groups: [], resolved: 0 };
 
+  // Newest first, then bounded: an unbounded batch is a request the provider can
+  // reject, and older questions are the least useful to surface anyway.
+  const ordered = [...candidates].sort((a, b) => b.askedAt.getTime() - a.askedAt.getTime());
+  const batch = ordered.slice(0, MAX_EMBED_BATCH);
+
   let vectors: number[][] = [];
   try {
-    vectors = await embeddings.embed(candidates.map((c) => c.question));
+    vectors = await embeddings.embed(batch.map((c) => c.question));
   } catch {
     // Fall back to one group per distinct phrasing rather than failing the page.
     vectors = [];
   }
 
   const clusters = vectors.length
-    ? clusterByEmbedding(candidates, vectors)
-    : groupByExactText(candidates);
+    ? clusterByEmbedding(batch, vectors)
+    : groupByExactText(batch);
 
   clusters.sort((a, b) => b.members.length - a.members.length);
-  const considered = clusters.slice(0, limit);
 
   const groups: GapGroup[] = [];
   let resolved = 0;
 
-  for (const cluster of considered) {
+  // Resolution runs before the cap, not after: filtering a capped slice would let
+  // already-answered clusters occupy result slots and hide real gaps beneath them.
+  for (const cluster of clusters) {
+    if (groups.length >= limit) break;
     const seedVector = vectors[cluster.indices[0]!];
 
     if (seedVector) {
