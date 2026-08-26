@@ -24,6 +24,8 @@ import { requireAuth } from "../auth.js";
 import { getProjectLlmRuntime } from "../project-llm.js";
 import { env } from "../env.js";
 import { getRedis } from "../redis.js";
+import { collectGapCandidates, periodToSince } from "../knowledge-gaps.js";
+import { groupAndResolve } from "../knowledge-gap-grouping.js";
 
 const playgroundMessageSchema = z.object({
   message: z.string().min(1).max(4000),
@@ -31,6 +33,8 @@ const playgroundMessageSchema = z.object({
 });
 
 const MAX_EVAL_CASES = 15;
+const MAX_GAP_GROUPS = 20;
+const GAP_CACHE_TTL_SECONDS = 600;
 
 async function loadKnowledgeQaCases(projectId: string): Promise<{
   pairs: { question: string; answer: string }[];
@@ -417,6 +421,74 @@ export async function dashboardRoutes(app: FastifyInstance) {
         usage: events,
       },
     };
+  });
+
+  /**
+   * Questions the knowledge base answered badly, grouped and ranked.
+   *
+   * Read from sessions rather than ProjectEvent: the knowledge.gap event only fired
+   * when retrieval returned zero chunks, which cannot happen once a project has any
+   * knowledge, so that table is empty.
+   */
+  app.get("/api/v1/projects/:id/knowledge-gaps", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    const { period = "30d" } = req.query as { period?: string };
+    const project = await prisma.project.findFirst({
+      where: { id, ownerId: req.user!.id },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    // Each uncached build costs an embedding batch plus a vector search per group,
+    // and the sidebar is not polling this, so a short cache is enough to keep
+    // repeat visits and period toggles cheap.
+    const cacheKey = `gaps:${id}:${period}`;
+    const redis = getRedis();
+    try {
+      if (redis.status !== "ready") await redis.connect();
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch {
+      // Cache is an optimisation; fall through and compute.
+    }
+
+    await connectMongo();
+    const candidates = await collectGapCandidates({
+      projectId: id,
+      since: periodToSince(period),
+    });
+
+    const { groups, resolved } = await groupAndResolve({
+      projectId: id,
+      candidates,
+      embeddings: createEmbeddingsClient(getProjectLlmRuntime(project)),
+      limit: MAX_GAP_GROUPS,
+    });
+
+    const payload = {
+      success: true,
+      period,
+      // Separating these lets the UI distinguish "your bot is doing fine" from
+      // "nobody has talked to your bot yet", which need different empty states.
+      analysedAnswers: candidates.length,
+      resolvedCount: resolved,
+      gaps: groups.map((g) => ({
+        question: g.question,
+        sessionCount: g.sessionCount,
+        lastAskedAt: g.lastAskedAt,
+        sessionIds: g.sessionIds.slice(0, 5),
+        precision: g.precision,
+        topScore: g.worstTopScore,
+      })),
+    };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(payload), "EX", GAP_CACHE_TTL_SECONDS);
+    } catch {
+      // ignore cache write failures
+    }
+
+    return payload;
   });
 
   app.get("/api/v1/projects/:id/eval/status", async (req) => {
