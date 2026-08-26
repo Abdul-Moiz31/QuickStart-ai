@@ -4,7 +4,6 @@ dist
 .next
 .turbo
 .env
-.env.local
 .env.*.local
 .env.tunnel
 *.log
@@ -23,3 +22,5 @@ server.cert
 .idea
 .vscode/*
 !.vscode/extensions.json
+fixtures/*.live.json
+.env.local

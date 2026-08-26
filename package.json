@@ -6,7 +6,8 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo watch dev",
+    "bootstrap": "bash scripts/setup.sh",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "eval": "pnpm --filter @quickstart-ai/eval start",

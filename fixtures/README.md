@@ -7,7 +7,7 @@ Used to seed a full demo tenant for local widget testing.
 | File | Purpose |
 |------|---------|
 | `quickstart-demo-account.json` | Static template — credentials, onboarding Q&A, extra FAQs |
-| `quickstart-demo-account.live.json` | Generated after seed — real `clientId`, project id, env snippet |
+| `quickstart-demo-account.live.json` | Generated after seed — real `clientId`, project id, env snippet. Gitignored: contains a live `clientSecret` and is machine-local |
 
 ## Seed (requires API `:3100`, Postgres, Redis, worker)
 
