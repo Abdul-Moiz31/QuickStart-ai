@@ -249,13 +249,7 @@ export class QuickStartClient {
     if (buffer.trim()) flushLine(buffer.trim());
   }
 
-  /**
-   * Full message history for one session.
-   *
-   * Used to reconcile after the live stream reconnects: pub/sub has no replay, so
-   * anything published while the connection was down is only recoverable from the
-   * stored transcript.
-   */
+  /** Reconciles after a reconnect: pub/sub has no replay, so gaps are only recoverable here. */
   async getSessionMessages(sessionId: string) {
     const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/messages`);
     url.searchParams.set("clientId", this.opts.clientId);
@@ -269,12 +263,9 @@ export class QuickStartClient {
   }
 
   /**
-   * Subscribes to the session's live channel.
-   *
-   * EventSource rather than a fetch reader: it reconnects on its own after a drop,
-   * which is the common case on mobile. It cannot send headers, so the client id
-   * travels in the query string — requireClient accepts that form and the id is
-   * public anyway.
+   * EventSource rather than a fetch reader: it reconnects on its own after a drop.
+   * It cannot send headers, so the client id travels in the query string —
+   * requireClient accepts that form and the id is public.
    */
   subscribeToSession(
     sessionId: string,
@@ -288,8 +279,7 @@ export class QuickStartClient {
     let sawOpen = false;
 
     source.onopen = () => {
-      // The first open is the initial connection; later ones are recoveries, and
-      // anything published in between was missed.
+      // Only later opens are recoveries; the first is the initial connection.
       if (sawOpen) onReconnect?.();
       sawOpen = true;
     };

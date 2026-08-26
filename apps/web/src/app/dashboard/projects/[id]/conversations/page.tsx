@@ -19,7 +19,7 @@ import {
   plainChatPreviewWords,
 } from "@/components/dashboard/ChatMessageContent";
 
-type ChatMsg = { role: "user" | "assistant"; content: string };
+type ChatMsg = { role: "user" | "assistant" | "agent"; content: string };
 type SessionRow = {
   id: string;
   visitorName: string;
@@ -56,11 +56,14 @@ function ChatBubble({
   content,
   visitorLabel,
 }: {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "agent";
   content: string;
   visitorLabel: string;
 }) {
   const isUser = role === "user";
+  // A human reply during a handoff. Shown apart from the bot so the transcript
+  // makes it obvious where a person took over.
+  const isAgent = role === "agent";
 
   return (
     <div className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}>
@@ -70,15 +73,22 @@ function ChatBubble({
         }`}
         aria-hidden
       >
-        {isUser ? initials(visitorLabel) : "QS"}
+        {isUser ? initials(visitorLabel) : isAgent ? "YOU" : "QS"}
       </span>
       <div
         className={`max-w-[min(100%,540px)] px-4 py-3 ${
           isUser
             ? "rounded-full bg-ink text-white"
-            : "rounded-2xl rounded-tl-md border border-ink/[0.08] bg-[#e2e8f0] text-ink shadow-[0_1px_2px_rgba(10,10,10,0.04)]"
+            : isAgent
+              ? "rounded-2xl rounded-tl-md border border-ink/30 bg-white text-ink shadow-[0_1px_2px_rgba(10,10,10,0.04)]"
+              : "rounded-2xl rounded-tl-md border border-ink/[0.08] bg-[#e2e8f0] text-ink shadow-[0_1px_2px_rgba(10,10,10,0.04)]"
         }`}
       >
+        {isAgent && (
+          <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/50">
+            Support agent
+          </span>
+        )}
         {isUser ? (
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
         ) : (
@@ -144,7 +154,8 @@ export default function ConversationsPage() {
         }>(`/api/v1/projects/${id}/sessions/${sid}`, { token });
         setSelectedMessages(
           (res.session.messages || []).map((m) => ({
-            role: m.role === "assistant" ? "assistant" : "user",
+            role:
+              m.role === "assistant" ? "assistant" : m.role === "agent" ? "agent" : "user",
             content: m.content,
           })),
         );

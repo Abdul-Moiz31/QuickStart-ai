@@ -1,13 +1,19 @@
 import type { ChatSessionModel } from "@quickstart-ai/db";
 import { publishInboxEvent, publishSessionEvent } from "./realtime.js";
 
-/**
- * How long a handoff may sit untouched before the bot takes the conversation back.
- *
- * Without this, a visitor who escalates when nobody is on shift gets a widget that
- * never replies again — strictly worse than the bot answering imperfectly.
- */
-export const HANDOFF_TIMEOUT_MS = Number(process.env.HANDOFF_TIMEOUT_MS ?? 10 * 60 * 1000);
+/** Without a timeout, a visitor who escalates when nobody is on shift is left with a widget that never replies again. */
+const DEFAULT_HANDOFF_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** `??` alone lets "" through as 0 (everything instantly stale) and junk through as NaN (nothing ever stale). Both fail silently. */
+function resolveTimeoutMs(raw: string | undefined): number {
+  const parsed = Number(raw);
+  if (!raw?.trim() || !Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_HANDOFF_TIMEOUT_MS;
+  }
+  return parsed;
+}
+
+export const HANDOFF_TIMEOUT_MS = resolveTimeoutMs(process.env.HANDOFF_TIMEOUT_MS);
 
 interface HandoffState {
   humanPending?: boolean | null;
@@ -17,10 +23,7 @@ interface HandoffState {
   agentLastActiveAt?: Date | null;
 }
 
-/**
- * An active handoff goes stale from the agent's last write; an unclaimed one from
- * the moment it was escalated.
- */
+/** Active handoffs age from the agent's last write, unclaimed ones from the escalation. */
 export function isHandoffStale(session: HandoffState, now = Date.now()): boolean {
   if (session.humanActive) {
     const last = session.agentLastActiveAt ?? session.takenOverAt;
@@ -34,13 +37,11 @@ export function isHandoffStale(session: HandoffState, now = Date.now()): boolean
 }
 
 /**
- * Clears a stale handoff and tells both sides.
+ * Hands a timed-out conversation back to the bot while keeping it in the queue.
  *
- * Released on read rather than by a scheduled sweep. The only observable effects of
- * staleness are that the bot stays silent for the visitor and that the inbox shows a
- * row nobody is working, and both are resolved at the moment someone would notice —
- * the visitor's next message, or the inbox being opened. A sweep would need Mongo in
- * the worker to fix nothing sooner that anyone can see.
+ * humanPending stays set on purpose: "somebody asked for a person and nobody came"
+ * is what the business needs to see, and clearing it would erase an overnight
+ * escalation before anyone read it.
  */
 export async function releaseStaleHandoff(
   Session: ChatSessionModel,
@@ -50,7 +51,7 @@ export async function releaseStaleHandoff(
   await Session.updateOne(
     { _id: sessionId },
     {
-      $set: { humanActive: false, humanPending: false, releasedAt: new Date() },
+      $set: { humanActive: false, humanPending: true, releasedAt: new Date() },
       $unset: { agentId: "" },
     },
   );

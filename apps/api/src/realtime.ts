@@ -5,18 +5,17 @@ import { getRedis } from "./redis.js";
 /**
  * Live-conversation transport for the human agent inbox.
  *
- * The agent's reply and the visitor's open connection do not necessarily land on
- * the same API process, so the two sides are bridged over Redis pub/sub rather
- * than an in-process emitter. A single instance would make an emitter appear to
- * work and then fail silently once the API scales or an instance restarts.
+ * The agent's reply and the visitor's open connection do not necessarily land on the
+ * same API process, so the two sides are bridged over Redis. An in-process emitter
+ * would work on one instance and fail silently once the API scales.
  */
 
-/** Per-session channel. Only the one visitor and whoever holds the session read it. */
+/** Per-session channel. A widget on a project-wide channel would see other visitors' messages. */
 export function sessionChannel(sessionId: string): string {
   return `qs:session:${sessionId}`;
 }
 
-/** Per-project channel for inbox-level notices (new escalations, visitor typing). */
+/** Per-project channel for inbox-level notices. */
 export function inboxChannel(projectId: string): string {
   return `qs:project:${projectId}:inbox`;
 }
@@ -35,9 +34,9 @@ export type InboxEvent =
   | { type: "session_released"; sessionId: string };
 
 /**
- * A subscribed ioredis connection cannot run ordinary commands, so subscribers get
- * their own connection. Reusing the shared client from getRedis() would break every
- * rate-limit check in the API the moment the first SSE stream opened.
+ * Subscribers get their own connection: a subscribed ioredis client cannot run
+ * ordinary commands, so sharing getRedis() would break every rate-limit check in the
+ * API the moment the first stream opened.
  */
 let subscriber: Redis | null = null;
 
@@ -48,11 +47,7 @@ export function getSubscriber(): Redis {
   return subscriber;
 }
 
-/**
- * Publishing is an ordinary command, so it reuses the shared client. Delivery is
- * best-effort by design: callers persist to Mongo first, so a Redis outage costs
- * live delivery but never the message itself.
- */
+/** Best-effort by design: callers persist to Mongo first, so an outage costs delivery, never the message. */
 async function publish(channel: string, payload: unknown): Promise<void> {
   try {
     const redis = getRedis();
@@ -72,13 +67,9 @@ export async function publishInboxEvent(projectId: string, event: InboxEvent): P
 }
 
 /**
- * Channel fan-out.
- *
- * One subscriber connection serves every open stream, so subscriptions are
- * reference-counted per channel: two dashboard tabs watching the same project
- * share a subscription, and the channel is only released when the last of them
- * disconnects. Without the count, the first tab to close would silently deafen
- * the second.
+ * One subscriber connection serves every stream, so subscriptions are reference
+ * counted per channel. Without the count, the first tab to close would silently
+ * deafen every other tab on the same channel.
  */
 type ChannelListener = (payload: unknown) => void;
 
@@ -118,9 +109,18 @@ export async function subscribeChannel(
 
   let set = listeners.get(channel);
   if (!set) {
+    // Registered only once SUBSCRIBE succeeds. Recording the channel first would
+    // make every later subscriber short-circuit on an entry that is not actually
+    // subscribed, leaving the channel silently dead for the process lifetime even
+    // after Redis recovers.
+    try {
+      await sub.subscribe(channel);
+    } catch {
+      // Leave the channel unregistered so the next subscriber retries.
+      return () => {};
+    }
     set = new Set();
     listeners.set(channel, set);
-    await sub.subscribe(channel).catch(() => undefined);
   }
   set.add(listener);
 

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { connectMongo, getChatSessionModel, prisma } from "@quickstart-ai/db";
+import { connectMongo, getChatSessionModel, isValidSessionId, prisma } from "@quickstart-ai/db";
 import { ConflictError, ForbiddenError, NotFoundError } from "@quickstart-ai/shared";
 import { z } from "zod";
 import { requireAuth, requireClient } from "../auth.js";
@@ -10,7 +10,7 @@ import {
   sessionChannel,
 } from "../realtime.js";
 import { streamChannels } from "../sse.js";
-import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
+import { isHandoffStale } from "../handoff.js";
 
 const agentMessageSchema = z.object({
   content: z.string().min(1).max(4000),
@@ -26,13 +26,9 @@ async function requireProjectOwner(projectId: string, userId: string) {
   return project;
 }
 
-/**
- * Loads a session and confirms it belongs to a project the caller owns.
- *
- * Session ids are Mongo ObjectIds and carry no tenant information, so ownership
- * is always resolved through the project rather than trusted from the URL.
- */
+/** Session ids carry no tenant information, so ownership is resolved through the project, never trusted from the URL. */
 async function requireOwnedSession(sessionId: string, userId: string) {
+  if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
   await connectMongo();
   const Session = getChatSessionModel();
   const session = await Session.findById(sessionId);
@@ -58,18 +54,9 @@ export async function agentInboxRoutes(app: FastifyInstance) {
       .limit(100)
       .lean();
 
-    // Drop rows nobody is working any more before showing the queue, so the badge
-    // and the list cannot advertise work that has already timed out.
-    const stale = sessions.filter((s) => isHandoffStale(s));
-    for (const s of stale) {
-      await releaseStaleHandoff(Session, String(s._id), s.projectId);
-    }
-    const staleIds = new Set(stale.map((s) => String(s._id)));
-    const live = sessions.filter((s) => !staleIds.has(String(s._id)));
-
     return {
       success: true,
-      sessions: live.map((s) => {
+      sessions: sessions.map((s) => {
         const lastMessage = s.messages?.[s.messages.length - 1];
         return {
           id: String(s._id),
@@ -77,6 +64,9 @@ export async function agentInboxRoutes(app: FastifyInstance) {
           visitorEmail: s.visitorEmail,
           humanPending: Boolean(s.humanPending),
           humanActive: Boolean(s.humanActive),
+          // Reported, never acted on: the badge refreshes this endpoint in the
+          // background, and a mutating read would retire conversations unseen.
+          stale: isHandoffStale(s),
           agentId: s.agentId ?? null,
           escalatedAt: s.escalatedAt ?? null,
           takenOverAt: s.takenOverAt ?? null,
@@ -135,9 +125,8 @@ export async function agentInboxRoutes(app: FastifyInstance) {
     const { sessionId } = req.params as { sessionId: string };
     const { Session, session } = await requireOwnedSession(sessionId, req.user!.id);
 
-    // The condition lives in the query, not in a preceding read. Two tabs clicking
-    // "take over" at once would both pass a read-then-write check and the second
-    // would silently overwrite the first agent's claim.
+    // The condition lives in the query: a read-then-write would let two tabs both
+    // pass the check and the second silently overwrite the first agent's claim.
     const now = new Date();
     const claimed = await Session.findOneAndUpdate(
       { _id: session._id, humanActive: { $ne: true } },
@@ -181,9 +170,7 @@ export async function agentInboxRoutes(app: FastifyInstance) {
     const at = new Date();
     session.messages.push({ role: "agent", content: body.content, meta: { agentId: req.user!.id } });
     session.agentLastActiveAt = at;
-    // Persisted before publishing: if Redis is unavailable the visitor still receives
-    // the message when their stream reconnects and refetches. Live delivery may fail;
-    // the message itself is never lost.
+    // Persisted before publishing, so a Redis outage costs live delivery, not the message.
     await session.save();
 
     await publishSessionEvent(sessionId, {
@@ -227,15 +214,14 @@ export async function agentInboxRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Visitor-side live stream: agent replies and handoff status for one session.
-   *
-   * Authenticated with clientId from the query string because the browser's native
-   * EventSource cannot set headers. requireClient already accepts the query form and
-   * clientId is public — it ships in the embed snippet on the customer's page.
+   * Visitor-side live stream. Authenticated with clientId from the query string
+   * because EventSource cannot set headers; requireClient already accepts that form
+   * and clientId is public, it ships in the embed snippet.
    */
   app.get("/api/v1/chat/sessions/:sessionId/stream", async (req, reply) => {
     await requireClient(req);
     const { sessionId } = req.params as { sessionId: string };
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
 
     await connectMongo();
     const Session = getChatSessionModel();
@@ -254,11 +240,11 @@ export async function agentInboxRoutes(app: FastifyInstance) {
 
   /** Visitor typing indicator, forwarded to the inbox. */
   app.post("/api/v1/chat/sessions/:sessionId/typing", async (req) => {
-    // touch: false skips the lastUsedAt write. This endpoint is called on a timer
-    // while someone types; a Postgres round trip per ping is not worth a field that
-    // a sent message updates anyway.
+    // Called on a timer while someone types: a Postgres write per ping is not worth
+    // a field that a sent message updates anyway.
     await requireClient(req, { touch: false });
     const { sessionId } = req.params as { sessionId: string };
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
 
     await connectMongo();
     const Session = getChatSessionModel();

@@ -327,8 +327,7 @@ export function ChatBot({
     if (primaryColorProp) setResolvedPrimary(primaryColorProp);
   }, [primaryColorProp]);
 
-  // Live channel for the session: agent replies and handoff status. Opened once a
-  // session exists and torn down with it, so a closed widget holds no connection.
+  // Live channel for agent replies and handoff status, torn down with the session.
   useEffect(() => {
     if (!sessionId) return;
 
@@ -353,8 +352,8 @@ export function ChatBot({
         }
         if (event.type === "human_active") {
           setHumanActive(true);
-          // A bot answer may have been mid-flight when the agent took over. It was
-          // never persisted as delivered, so drop the half-rendered bubble.
+          // A bot answer may have been mid-flight; it was superseded before
+          // delivery, so drop the half-rendered bubble.
           setMessages((m) => m.filter((msg) => !msg.streaming));
           setLoading(false);
           return;
@@ -375,8 +374,6 @@ export function ChatBot({
           setMessages((m) => [...m, { role: "agent", content: event.content }]);
         }
       },
-      // Anything published while the stream was down is gone; the transcript is the
-      // only way back to a correct view.
       reconcile,
     );
 
@@ -418,11 +415,9 @@ export function ChatBot({
   };
 
   /**
-   * Tells the inbox the visitor is typing.
-   *
-   * Only while a human is actually reading, and at most once every 4 seconds: this
-   * is an HTTP call per ping, and an unthrottled one would eat the per-IP rate
-   * limit that the visitor's actual messages depend on.
+   * One HTTP call per ping, so it fires only while a human is reading and at most
+   * every 4s — unthrottled it would eat the rate limit the visitor's real messages
+   * depend on.
    */
   const notifyTyping = () => {
     if (!humanActive || !sessionId) return;

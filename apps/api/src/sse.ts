@@ -6,11 +6,8 @@ const HEARTBEAT_MS = 25_000;
 
 /**
  * Opens an SSE response bridged to one or more Redis channels.
- *
- * Resolves only once the client disconnects, so the route handler stays alive for
- * the life of the stream. Heartbeats and teardown live here rather than at each
- * call site: a missed heartbeat kills the stream silently, and a missed
- * unsubscribe leaks a listener on every reconnect.
+ * Resolves once the client disconnects, keeping the route handler alive for the
+ * life of the stream.
  */
 export async function streamChannels(opts: {
   req: FastifyRequest;
@@ -28,41 +25,68 @@ export async function streamChannels(opts: {
     "X-Accel-Buffering": "no",
   });
 
-  let open = true;
+  // Tracked separately: a failed write means the socket is gone, which is not the
+  // same as teardown having run. Conflating them lets a write error skip cleanup.
+  let writable = true;
+  let closed = false;
+  let unsubscribes: (() => void)[] = [];
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let onClosed: (() => void) | null = null;
+
+  const teardown = () => {
+    if (closed) return;
+    closed = true;
+    writable = false;
+    if (heartbeat) clearInterval(heartbeat);
+    for (const unsubscribe of unsubscribes) unsubscribe();
+    unsubscribes = [];
+    onClosed?.();
+  };
+
+  // Attached before any await. Subscribing touches Redis, and a client that
+  // disconnects during that window would otherwise never be observed, leaking the
+  // heartbeat and holding the channel subscription open for the process lifetime.
+  req.raw.on("close", teardown);
+  req.raw.on("error", teardown);
+  reply.raw.on("close", teardown);
+
   const write = (payload: unknown) => {
-    if (!open) return;
+    if (!writable) return;
     try {
       reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
     } catch {
-      open = false;
+      teardown();
     }
   };
 
   if (initialEvent) write(initialEvent);
 
-  const unsubscribes = await Promise.all(
+  const handles = await Promise.all(
     channels.map((channel) => subscribeChannel(channel, write)),
   );
 
-  const heartbeat = setInterval(() => {
-    if (!open) return;
+  // The client may have gone while we were subscribing; teardown has already run,
+  // so release these directly rather than storing them.
+  if (closed) {
+    for (const unsubscribe of handles) unsubscribe();
+    return;
+  }
+  unsubscribes = handles;
+
+  heartbeat = setInterval(() => {
+    if (!writable) return;
     try {
       reply.raw.write(`: ping\n\n`);
     } catch {
-      open = false;
+      teardown();
     }
   }, HEARTBEAT_MS);
 
   await new Promise<void>((resolve) => {
-    const close = () => {
-      if (!open) return;
-      open = false;
-      clearInterval(heartbeat);
-      for (const unsubscribe of unsubscribes) unsubscribe();
+    if (closed) {
       resolve();
-    };
-    req.raw.on("close", close);
-    req.raw.on("error", close);
-    reply.raw.on("close", close);
+      return;
+    }
+    onClosed = resolve;
   });
 }

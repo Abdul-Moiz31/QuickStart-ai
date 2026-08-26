@@ -66,8 +66,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.push(`/dashboard/projects/${activeId}/${section}`);
   }
 
-  // Count of escalations waiting on a human, kept live off the same stream the
-  // inbox page uses so the badge does not need polling.
+  // Driven off the same stream the inbox page uses, so the badge needs no polling.
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
