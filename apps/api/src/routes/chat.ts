@@ -47,18 +47,6 @@ function userFacingChatError(err: unknown): string {
 }
 
 /**
- * Best single retrieval score behind an answer.
- *
- * Recorded next to `confidence`, which averages all DEFAULT_TOP_K chunks and so
- * cannot distinguish a strong top hit buried under an irrelevant tail from a
- * genuinely poor match. Gap detection reads this; the answer prompt still reads
- * confidence, so nothing about generation changes.
- */
-function topChunkScore(chunks: { score: number }[]): number {
-  return chunks.length ? Math.max(...chunks.map((c) => c.score)) : 0;
-}
-
-/**
  * The handoff flag is set inline rather than from the event pipeline:
  * collectAndEmitChatEvents is fire-and-forget over BullMQ and dedupes on
  * type+sessionId — right for notifying Slack, wrong for state the next request reads.
@@ -335,7 +323,7 @@ export async function chatRoutes(app: FastifyInstance) {
         content: accumulatedAnswer,
         meta: {
           confidence: preamble.confidence,
-          topScore: topChunkScore(preamble.chunks),
+          topScore: preamble.retrievalTopScore,
           toolsUsed: preamble.toolsUsed,
           events: preamble.eventsEmitted.map((e) => e.type),
           ...(stillBot ? {} : { suppressed: true }),
@@ -366,7 +354,7 @@ export async function chatRoutes(app: FastifyInstance) {
         confidence: preamble.confidence,
         toolsUsed: preamble.toolsUsed,
         chunkCount: preamble.chunks.length,
-        topScore: topChunkScore(preamble.chunks),
+        topScore: preamble.retrievalTopScore,
         isFirstUserMessage,
         agentEvents: preamble.eventsEmitted.map((e) => ({
           type: e.type,
@@ -427,7 +415,7 @@ export async function chatRoutes(app: FastifyInstance) {
       content: result.answer,
       meta: {
         confidence: result.confidence,
-        topScore: topChunkScore(result.chunks),
+        topScore: result.retrievalTopScore,
         toolsUsed: result.toolsUsed,
         events: result.eventsEmitted.map((e) => e.type),
         ...(stillBot ? {} : { suppressed: true }),
@@ -458,7 +446,7 @@ export async function chatRoutes(app: FastifyInstance) {
       confidence: result.confidence,
       toolsUsed: result.toolsUsed,
       chunkCount: result.chunks.length,
-      topScore: topChunkScore(result.chunks),
+      topScore: result.retrievalTopScore,
       isFirstUserMessage,
       agentEvents: result.eventsEmitted.map((e) => ({
         type: e.type,

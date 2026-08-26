@@ -49,6 +49,13 @@ export async function collectAndEmitChatEvents(
 
   const enriched = events.map((ev) => ({
     ...ev,
+    // A conversation can produce many weak turns — greetings and small talk score
+    // low against any knowledge base. dedupeEvents only collapses within a single
+    // turn, and the derived idempotency key includes the message, so without a
+    // session-scoped key every "hi" would reach Slack as its own gap.
+    ...(ev.type === BUILTIN_EVENT_TYPES.KNOWLEDGE_GAP
+      ? { idempotencyKey: `${ctx.projectId}:knowledge.gap:${ctx.sessionId}` }
+      : {}),
     sessionId: ctx.sessionId,
     payload: {
       ...ev.payload,
