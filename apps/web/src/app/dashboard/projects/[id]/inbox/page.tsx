@@ -61,9 +61,8 @@ export default function InboxPage() {
   const visitorTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingPing = useRef(0);
 
-  // The SSE handler is installed once but needs the currently open conversation,
-  // so the id is mirrored into a ref rather than added to the effect deps — a
-  // resubscribe on every selection would drop events during the gap.
+  // Mirrored into a ref rather than added to the stream effect's deps:
+  // resubscribing on every selection would drop events during the gap.
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
@@ -105,8 +104,8 @@ export default function InboxPage() {
     void loadTranscript(activeId);
   }, [activeId, loadTranscript]);
 
-  // Live inbox feed. EventSource sends cookies on same-site requests, which is how
-  // requireAuth sees the session here.
+  // EventSource cannot set an Authorization header, so these streams authenticate
+  // with the session cookie.
   useEffect(() => {
     if (!projectId) return;
     const url = `${resolvePublicApiUrl()}/api/v1/projects/${projectId}/inbox/stream`;
@@ -216,8 +215,6 @@ export default function InboxPage() {
         token: getStoredToken() ?? undefined,
       });
       setReply("");
-      // Appended locally rather than waiting for a round trip; the visitor's copy
-      // is already persisted by the time this resolves.
       setTranscript((t) => [...t, { role: "agent", content, createdAt: null }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send the reply");

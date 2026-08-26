@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { connectMongo, getChatSessionModel, prisma } from "@quickstart-ai/db";
+import { connectMongo, getChatSessionModel, isValidSessionId, prisma } from "@quickstart-ai/db";
 import {
   type AgentStreamPreamble,
   createChatClient,
@@ -47,23 +47,17 @@ function userFacingChatError(err: unknown): string {
 }
 
 /**
- * True when the agent loop escalated on this turn.
- *
- * The handoff flag is set inline here rather than from the event pipeline:
+ * The handoff flag is set inline rather than from the event pipeline:
  * collectAndEmitChatEvents is fire-and-forget over BullMQ and dedupes on
- * type+sessionId, which is right for notifying Slack and wrong for state the next
- * request has to read.
+ * type+sessionId — right for notifying Slack, wrong for state the next request reads.
  */
 function didEscalate(events: { type: string }[]): boolean {
   return events.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF);
 }
 
 /**
- * Re-read the handoff flag after generation.
- *
- * The guard at the top of the request describes the past: an agent can take the
- * session over while the model is still generating. Anything that must hold at
- * write time is checked again at write time.
+ * The guard at the top of the request describes the past: an agent can take over
+ * while the model is still generating, so it is re-checked at write time.
  */
 async function isStillBotControlled(
   Session: ReturnType<typeof getChatSessionModel>,
@@ -112,13 +106,13 @@ export async function chatRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Transcript for one session, used by the widget to reconcile after its live
-   * stream reconnects. Redis pub/sub has no replay, so anything published while the
-   * connection was down is only recoverable from here.
+   * Transcript for one session. Pub/sub has no replay, so anything published while
+   * the widget's stream was down is only recoverable from here.
    */
   app.get("/api/v1/chat/sessions/:sessionId/messages", async (req) => {
     await requireClient(req, { touch: false });
     const { sessionId } = req.params as { sessionId: string };
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
     await connectMongo();
     const Session = getChatSessionModel();
     const session = await Session.findById(sessionId)
@@ -131,10 +125,10 @@ export async function chatRoutes(app: FastifyInstance) {
       success: true,
       humanActive: Boolean(session.humanActive),
       messages: (session.messages ?? [])
-        // System and tool turns are internal plumbing and never shown to a visitor.
+        // System and tool turns are internal plumbing.
         .filter((m) => m.role !== "system" && m.role !== "tool")
-        // A superseded bot answer was never delivered; replaying it here would put it
-        // on screen after the fact.
+        // Superseded answers were never delivered; replaying them would surface a
+        // reply the visitor was deliberately not shown.
         .filter((m) => !(m.meta as { suppressed?: boolean } | undefined)?.suppressed)
         .map((m) => ({ role: m.role, content: m.content })),
     };
@@ -182,24 +176,23 @@ export async function chatRoutes(app: FastifyInstance) {
       sessionId = String(created._id);
     }
 
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
     const session = await Session.findById(sessionId);
     if (!session || session.projectId !== project.id) {
       throw new NotFoundError("Session not found");
     }
 
-    // A human agent holds this conversation: record the visitor's message, push it to
-    // the inbox, and answer nothing. This sits above the cache lookup deliberately —
-    // the answer cache is keyed by project and question, not by session, so a cache
-    // hit populated by a different visitor would otherwise talk over the agent.
+    // Nobody has worked this conversation for a while: hand it back rather than
+    // leave the visitor with a widget that never answers again.
     if (session.humanActive && isHandoffStale(session)) {
-      // Nobody has worked this conversation for a while. Hand it back rather than
-      // leaving the visitor with a widget that never answers again.
       await releaseStaleHandoff(Session, sessionId, project.id);
       session.humanActive = false;
-      session.humanPending = false;
       session.agentId = undefined;
     }
 
+    // Deliberately above the cache lookup: the answer cache is keyed by project and
+    // question, not by session, so an entry populated by a different visitor would
+    // otherwise be served over a live agent.
     if (session.humanActive) {
       session.messages.push({ role: "user", content: body.message });
       await session.save();
@@ -268,9 +261,8 @@ export async function chatRoutes(app: FastifyInstance) {
     const llmRuntime = getProjectLlmRuntime(project);
     const embeddings = createEmbeddingsClient(llmRuntime);
     const chat = createChatClient(llmRuntime);
-    // "agent" turns are human replies sent during a handoff. They map to assistant so
-    // the resuming bot reads them as things it already said; the default branch would
-    // feed them back as if the visitor had written them.
+    // Agent turns map to assistant so a resuming bot reads them as its own prior
+    // turns; the default branch would feed them back as visitor messages.
     const history = session.messages.slice(-10).map((m) => ({
       role:
         m.role === "assistant" || m.role === "agent" ? ("assistant" as const) : ("user" as const),
@@ -321,8 +313,7 @@ export async function chatRoutes(app: FastifyInstance) {
         return;
       }
 
-      // An agent may have taken over while the model was generating. The answer is
-      // kept but not delivered, so "why did the bot go quiet" stays diagnosable.
+      // Kept but not delivered, so "why did the bot go quiet" stays diagnosable.
       const stillBot = await isStillBotControlled(Session, sessionId);
       const escalated = didEscalate(preamble.eventsEmitted);
 
@@ -376,7 +367,7 @@ export async function chatRoutes(app: FastifyInstance) {
       }).catch((err) => req.log.error({ err }, "event emit failed"));
 
       try {
-        if (preamble.confidence !== "low") {
+        if (preamble.confidence !== "low" && stillBot) {
           await setCachedAnswer(redis, project.id, body.message, accumulatedAnswer);
         }
         await pushSessionMemory(redis, sessionId, `U:${body.message}\nA:${accumulatedAnswer}`);
@@ -466,7 +457,7 @@ export async function chatRoutes(app: FastifyInstance) {
     }).catch((err) => req.log.error({ err }, "event emit failed"));
 
     try {
-      if (result.confidence !== "low") {
+      if (result.confidence !== "low" && stillBot) {
         await setCachedAnswer(redis, project.id, body.message, result.answer);
       }
       await pushSessionMemory(redis, sessionId, `U:${body.message}\nA:${result.answer}`);
@@ -482,6 +473,12 @@ export async function chatRoutes(app: FastifyInstance) {
         meta: { confidence: result.confidence, toolsUsed: result.toolsUsed },
       },
     });
+
+    // An agent claimed the session while the model was generating. The answer was
+    // stored as suppressed; returning it anyway would talk over them.
+    if (!stillBot) {
+      return { success: true, sessionId, answer: "", humanActive: true, toolsUsed: [] };
+    }
 
     return {
       success: true,

@@ -47,6 +47,15 @@ export type ChatSessionModel = Model<ChatSessionDoc>;
 
 let ChatSession: ChatSessionModel;
 
+/**
+ * Session ids arrive from URLs, including public widget routes. Passing a
+ * malformed one to findById throws a Mongoose CastError, which surfaces as a 500
+ * rather than the 404 the caller deserves.
+ */
+export function isValidSessionId(id: string): boolean {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
 export function getChatSessionModel(): ChatSessionModel {
   if (ChatSession) return ChatSession;
   ChatSession =
