@@ -13,6 +13,7 @@ import {
 import { collectAndEmitChatEvents } from "@quickstart-ai/events";
 import {
   AppError,
+  BUILTIN_EVENT_TYPES,
   chatMessageSchema,
   createSessionSchema,
   NotFoundError,
@@ -22,6 +23,7 @@ import {
 import { requireClient } from "../auth.js";
 import { getProjectLlmRuntime } from "../project-llm.js";
 import { getRedis } from "../redis.js";
+import { publishInboxEvent } from "../realtime.js";
 import { env } from "../env.js";
 
 function streamError(reply: { raw: NodeJS.WritableStream }, message: string) {
@@ -41,6 +43,33 @@ function userFacingChatError(err: unknown): string {
     return "Knowledge search is temporarily unavailable. Please try again.";
   }
   return "Sorry, something went wrong. Please try again.";
+}
+
+/**
+ * True when the agent loop escalated on this turn.
+ *
+ * The handoff flag is set inline here rather than from the event pipeline:
+ * collectAndEmitChatEvents is fire-and-forget over BullMQ and dedupes on
+ * type+sessionId, which is right for notifying Slack and wrong for state the next
+ * request has to read.
+ */
+function didEscalate(events: { type: string }[]): boolean {
+  return events.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF);
+}
+
+/**
+ * Re-read the handoff flag after generation.
+ *
+ * The guard at the top of the request describes the past: an agent can take the
+ * session over while the model is still generating. Anything that must hold at
+ * write time is checked again at write time.
+ */
+async function isStillBotControlled(
+  Session: ReturnType<typeof getChatSessionModel>,
+  sessionId: string,
+): Promise<boolean> {
+  const fresh = await Session.findById(sessionId).select("humanActive").lean();
+  return !fresh?.humanActive;
 }
 
 export async function chatRoutes(app: FastifyInstance) {
@@ -128,6 +157,34 @@ export async function chatRoutes(app: FastifyInstance) {
       throw new NotFoundError("Session not found");
     }
 
+    // A human agent holds this conversation: record the visitor's message, push it to
+    // the inbox, and answer nothing. This sits above the cache lookup deliberately —
+    // the answer cache is keyed by project and question, not by session, so a cache
+    // hit populated by a different visitor would otherwise talk over the agent.
+    if (session.humanActive) {
+      session.messages.push({ role: "user", content: body.message });
+      await session.save();
+
+      void publishInboxEvent(project.id, {
+        type: "visitor_message",
+        sessionId,
+        content: body.message,
+        at: new Date().toISOString(),
+      });
+
+      if (body.stream) {
+        reply.header("Content-Type", "text/event-stream");
+        reply.header("Cache-Control", "no-cache");
+        reply.raw.write(
+          `data: ${JSON.stringify({ type: "meta", sessionId, humanActive: true })}\n\n`,
+        );
+        reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: [] })}\n\n`);
+        reply.raw.end();
+        return;
+      }
+      return { success: true, sessionId, answer: "", humanActive: true, toolsUsed: [] };
+    }
+
     const redis = getRedis();
     try {
       if (redis.status !== "ready") await redis.connect();
@@ -172,8 +229,12 @@ export async function chatRoutes(app: FastifyInstance) {
     const llmRuntime = getProjectLlmRuntime(project);
     const embeddings = createEmbeddingsClient(llmRuntime);
     const chat = createChatClient(llmRuntime);
+    // "agent" turns are human replies sent during a handoff. They map to assistant so
+    // the resuming bot reads them as things it already said; the default branch would
+    // feed them back as if the visitor had written them.
     const history = session.messages.slice(-10).map((m) => ({
-      role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+      role:
+        m.role === "assistant" || m.role === "agent" ? ("assistant" as const) : ("user" as const),
       content: m.content,
     }));
 
@@ -221,6 +282,11 @@ export async function chatRoutes(app: FastifyInstance) {
         return;
       }
 
+      // An agent may have taken over while the model was generating. The answer is
+      // kept but not delivered, so "why did the bot go quiet" stays diagnosable.
+      const stillBot = await isStillBotControlled(Session, sessionId);
+      const escalated = didEscalate(preamble.eventsEmitted);
+
       session.messages.push({ role: "user", content: body.message });
       session.messages.push({
         role: "assistant",
@@ -229,9 +295,24 @@ export async function chatRoutes(app: FastifyInstance) {
           confidence: preamble.confidence,
           toolsUsed: preamble.toolsUsed,
           events: preamble.eventsEmitted.map((e) => e.type),
+          ...(stillBot ? {} : { suppressed: true }),
         },
       });
+      if (escalated && stillBot && !session.humanActive) {
+        session.humanPending = true;
+        session.escalatedAt = new Date();
+      }
       await session.save();
+
+      if (escalated && stillBot) {
+        void publishInboxEvent(project.id, {
+          type: "escalation",
+          sessionId,
+          visitorName: session.visitorName,
+          message: body.message,
+          at: new Date().toISOString(),
+        });
+      }
 
       void collectAndEmitChatEvents({
         projectId: project.id,
@@ -293,6 +374,9 @@ export async function chatRoutes(app: FastifyInstance) {
       });
     }
 
+    const stillBot = await isStillBotControlled(Session, sessionId);
+    const escalated = didEscalate(result.eventsEmitted);
+
     session.messages.push({ role: "user", content: body.message });
     session.messages.push({
       role: "assistant",
@@ -301,9 +385,24 @@ export async function chatRoutes(app: FastifyInstance) {
         confidence: result.confidence,
         toolsUsed: result.toolsUsed,
         events: result.eventsEmitted.map((e) => e.type),
+        ...(stillBot ? {} : { suppressed: true }),
       },
     });
+    if (escalated && stillBot && !session.humanActive) {
+      session.humanPending = true;
+      session.escalatedAt = new Date();
+    }
     await session.save();
+
+    if (escalated && stillBot) {
+      void publishInboxEvent(project.id, {
+        type: "escalation",
+        sessionId,
+        visitorName: session.visitorName,
+        message: body.message,
+        at: new Date().toISOString(),
+      });
+    }
 
     void collectAndEmitChatEvents({
       projectId: project.id,
