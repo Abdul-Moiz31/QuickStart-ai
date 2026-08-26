@@ -43,16 +43,25 @@ export interface WidgetConfig {
 }
 
 export interface ChatMessage {
-  role: "user" | "assistant";
+  /** "agent" is a human replying during a handoff, rendered distinctly from the bot. */
+  role: "user" | "assistant" | "agent";
   content: string;
   streaming?: boolean;
 }
 
 export type StreamEvent =
-  | { type: "meta"; sessionId: string; confidence?: string }
+  | { type: "meta"; sessionId: string; confidence?: string; humanActive?: boolean }
   | { type: "token"; content: string }
   | { type: "done"; toolsUsed?: string[] }
   | { type: "error"; message: string };
+
+/** Pushed on the per-session channel while a human agent is involved. */
+export type SessionLiveEvent =
+  | { type: "connected"; humanActive: boolean }
+  | { type: "agent_message"; content: string; at: string }
+  | { type: "human_active" }
+  | { type: "human_released" }
+  | { type: "agent_typing" };
 
 export class ChatRequestError extends Error {
   constructor(
@@ -238,5 +247,70 @@ export class QuickStartClient {
       for (const line of lines) flushLine(line);
     }
     if (buffer.trim()) flushLine(buffer.trim());
+  }
+
+  /**
+   * Full message history for one session.
+   *
+   * Used to reconcile after the live stream reconnects: pub/sub has no replay, so
+   * anything published while the connection was down is only recoverable from the
+   * stored transcript.
+   */
+  async getSessionMessages(sessionId: string) {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/messages`);
+    url.searchParams.set("clientId", this.opts.clientId);
+    const res = await fetch(url.toString(), { headers: this.headers() });
+    if (!res.ok) throw await parseErrorResponse(res);
+    return res.json() as Promise<{
+      success: boolean;
+      humanActive: boolean;
+      messages: { role: ChatMessage["role"]; content: string }[];
+    }>;
+  }
+
+  /**
+   * Subscribes to the session's live channel.
+   *
+   * EventSource rather than a fetch reader: it reconnects on its own after a drop,
+   * which is the common case on mobile. It cannot send headers, so the client id
+   * travels in the query string — requireClient accepts that form and the id is
+   * public anyway.
+   */
+  subscribeToSession(
+    sessionId: string,
+    onEvent: (event: SessionLiveEvent) => void,
+    onReconnect?: () => void,
+  ): () => void {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/stream`);
+    url.searchParams.set("clientId", this.opts.clientId);
+
+    let source: EventSource | null = new EventSource(url.toString());
+    let sawOpen = false;
+
+    source.onopen = () => {
+      // The first open is the initial connection; later ones are recoveries, and
+      // anything published in between was missed.
+      if (sawOpen) onReconnect?.();
+      sawOpen = true;
+    };
+    source.onmessage = (ev: MessageEvent<string>) => {
+      const parsed = parseSsePayload(ev.data);
+      if (parsed) onEvent(parsed as unknown as SessionLiveEvent);
+    };
+
+    return () => {
+      source?.close();
+      source = null;
+    };
+  }
+
+  /** Visitor typing ping. Throttled by the caller; failures are ignored by design. */
+  async notifyVisitorTyping(sessionId: string): Promise<void> {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/typing`);
+    url.searchParams.set("clientId", this.opts.clientId);
+    await fetch(url.toString(), {
+      method: "POST",
+      headers: { "X-Client-Id": this.opts.clientId },
+    });
   }
 }
