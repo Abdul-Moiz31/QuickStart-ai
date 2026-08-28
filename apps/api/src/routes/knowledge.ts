@@ -13,6 +13,7 @@ import {
   updateKnowledgeQaSchema,
 } from "@quickstart-ai/shared";
 import { requireAuth } from "../auth.js";
+import { invalidateGapCache } from "../knowledge-gaps.js";
 import { env } from "../env.js";
 
 function getIngestQueue() {
@@ -71,6 +72,10 @@ export async function knowledgeRoutes(app: FastifyInstance) {
       });
       throw new AppError("Failed to enqueue ingest job. Is Redis running?", 503);
     }
+
+    // The Gaps tab tells the user an answered gap disappears once the knowledge is
+    // live. A ten minute cache would make that a lie for ten minutes.
+    void invalidateGapCache(id);
 
     return { success: true, document: doc };
   });

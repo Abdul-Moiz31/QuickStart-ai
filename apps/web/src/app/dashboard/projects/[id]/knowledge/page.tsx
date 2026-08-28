@@ -54,7 +54,25 @@ type FaqRow = KnowledgeQaPair & {
   qaIndex: number;
 };
 
+function formatWhen(value: string): string {
+  const d = new Date(value);
+  // An unparseable date yields NaN rather than throwing, so a try/catch here would
+  // never fire and the row would read "Invalid Date".
+  if (Number.isNaN(d.getTime())) return "recently";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 type AddMode = "faq" | "text" | "file" | null;
+/** Gaps is a view over conversations, not a document class, so it extends the tab set locally. */
+type TabId = KnowledgeSection | "gaps";
+
+type GapRow = {
+  question: string;
+  sessionCount: number;
+  lastAskedAt: string;
+  precision: "high" | "low";
+  topScore: number | null;
+};
 
 function statusLabel(status: string): string {
   const s = status.toUpperCase();
@@ -147,7 +165,11 @@ export default function KnowledgePage() {
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [tab, setTab] = useState<KnowledgeSection>("faq");
+  const [tab, setTab] = useState<TabId>("faq");
+  const [gaps, setGaps] = useState<GapRow[]>([]);
+  const [gapsLoaded, setGapsLoaded] = useState(false);
+  const [analysedAnswers, setAnalysedAnswers] = useState(0);
+  const [prefillQuestion, setPrefillQuestion] = useState("");
   const [showEvalNotice, setShowEvalNotice] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addMode, setAddMode] = useState<AddMode>(null);
@@ -165,9 +187,36 @@ export default function KnowledgePage() {
     setDocs(docRes.documents);
   }, [id]);
 
+  // Building this response costs an embedding batch and a vector search per group,
+  // so it is fetched only when the tab is actually opened rather than on page load.
+  const loadGaps = useCallback(async () => {
+    const token = getStoredToken();
+    if (!token) {
+      setGapsLoaded(true);
+      return;
+    }
+    const res = await api<{ gaps: GapRow[]; analysedAnswers: number }>(
+      `/api/v1/projects/${id}/knowledge-gaps?period=30d`,
+      { token },
+    );
+    setGaps(res.gaps);
+    setAnalysedAnswers(res.analysedAnswers);
+    setGapsLoaded(true);
+  }, [id]);
+
   useEffect(() => {
     load().catch((e) => setMsg(e instanceof Error ? e.message : "Failed to load"));
   }, [load]);
+
+  useEffect(() => {
+    if (tab !== "gaps") return;
+    loadGaps().catch((e) => {
+      // Mark the fetch as settled even when it failed, or the tab sits on
+      // "Checking recent conversations…" forever.
+      setGapsLoaded(true);
+      setMsg(e instanceof Error ? e.message : "Failed to load gaps");
+    });
+  }, [tab, loadGaps]);
 
   useEffect(() => {
     const busyDocs = docs.some((d) => d.status === "PENDING" || d.status === "PROCESSING");
@@ -204,8 +253,9 @@ export default function KnowledgePage() {
     setShowEvalNotice(true);
   }
 
-  function openAdd(mode: AddMode) {
+  function openAdd(mode: AddMode, question = "") {
     setMenuOpen(false);
+    setPrefillQuestion(question);
     setAddMode(mode);
     setAddOpen(true);
   }
@@ -213,6 +263,7 @@ export default function KnowledgePage() {
   function closeAdd() {
     setAddOpen(false);
     setAddMode(null);
+    setPrefillQuestion("");
   }
 
   async function submitAdd(e: FormEvent<HTMLFormElement>) {
@@ -368,10 +419,11 @@ export default function KnowledgePage() {
   const addTitle =
     addMode === "faq" ? "Add FAQ" : addMode === "text" ? "Add free text" : "Upload document";
 
-  const tabs: { id: KnowledgeSection; label: string; count: number }[] = [
+  const tabs: { id: TabId; label: string; count: number }[] = [
     { id: "onboarding", label: "Onboarding", count: grouped.onboarding.length },
     { id: "faq", label: "FAQs", count: grouped.faqRows.length },
     { id: "document", label: "Documents", count: grouped.documents.length },
+    { id: "gaps", label: "Gaps", count: gaps.length },
   ];
 
   return (
@@ -572,6 +624,71 @@ export default function KnowledgePage() {
       </section>
       )}
 
+      {tab === "gaps" && (
+        <section className="mt-6 pb-4">
+          <p className="text-sm text-mute">
+            Questions your bot answered badly in the last 30 days. Answering one here removes
+            it from this list automatically once the knowledge is live.
+          </p>
+
+          {!gapsLoaded ? (
+            <p className="mt-6 text-sm text-mute">Checking recent conversations…</p>
+          ) : gaps.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-ink/[0.08] bg-clay px-4 py-6 text-center">
+              <p className="text-sm font-medium text-ink">
+                {analysedAnswers === 0
+                  ? "Not enough conversations yet"
+                  : "No gaps found"}
+              </p>
+              <p className="mt-1 text-sm text-mute">
+                {analysedAnswers === 0
+                  ? "Once visitors start chatting, anything your bot struggles with shows up here."
+                  : `Your bot answered confidently across ${analysedAnswers} recent replies.`}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {gaps.map((gap) => (
+                <div
+                  key={gap.question}
+                  className="rounded-xl border border-ink/[0.08] bg-white p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink">{gap.question}</p>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-mute">
+                        <span>
+                          {gap.sessionCount === 1
+                            ? "1 conversation"
+                            : `${gap.sessionCount} conversations`}
+                        </span>
+                        <span aria-hidden>·</span>
+                        <span>last asked {formatWhen(gap.lastAskedAt)}</span>
+                        {gap.precision === "low" && (
+                          <>
+                            <span aria-hidden>·</span>
+                            {/* Selected by the old averaged score, which flags some
+                                well-answered questions. Labelled rather than hidden. */}
+                            <span className="text-ink/45">lower certainty</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <DashBtn
+                      type="button"
+                      onClick={() => openAdd("faq", gap.question)}
+                      className="!px-3 !py-1.5 text-xs"
+                    >
+                      Add answer
+                    </DashBtn>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {tab === "document" && (
       <section className="mt-6 pb-4">
         <div className="space-y-3">
@@ -717,17 +834,31 @@ export default function KnowledgePage() {
                         required
                         className="mt-1"
                         placeholder={addMode === "faq" ? "Support hours" : "Document title"}
+                        // Coming from a gap, the visitor's own wording is a better
+                        // starting title than a blank field.
+                        defaultValue={prefillQuestion.slice(0, 80)}
                       />
                     </div>
                     {addMode === "faq" ? (
                       <>
                         <div>
                           <label className="text-xs text-mute">Question</label>
-                          <DashField name="question" required className="mt-1" />
+                          <DashField
+                            name="question"
+                            required
+                            className="mt-1"
+                            defaultValue={prefillQuestion}
+                          />
                         </div>
                         <div>
                           <label className="text-xs text-mute">Answer</label>
-                          <DashTextarea name="answer" required rows={4} className="mt-1" />
+                          <DashTextarea
+                            name="answer"
+                            required
+                            rows={4}
+                            className="mt-1"
+                            autoFocus={Boolean(prefillQuestion)}
+                          />
                         </div>
                       </>
                     ) : (
