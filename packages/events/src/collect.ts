@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "@quickstart-ai/db";
 import { BUILTIN_EVENT_TYPES } from "@quickstart-ai/shared";
 import { detectHeuristicEvents } from "./heuristics.js";
@@ -27,7 +28,9 @@ export async function collectAndEmitChatEvents(
       userMessage: ctx.userMessage,
       confidence: ctx.confidence,
       chunkCount: ctx.chunkCount,
+      topScore: ctx.topScore,
       sessionId: ctx.sessionId,
+      assistantEvents: ctx.agentEvents.map((e) => e.type),
     }),
   );
 
@@ -48,6 +51,13 @@ export async function collectAndEmitChatEvents(
 
   const enriched = events.map((ev) => ({
     ...ev,
+    // A conversation can produce many weak turns — greetings and small talk score
+    // low against any knowledge base. dedupeEvents only collapses within a single
+    // turn, and the derived idempotency key includes the message, so without a
+    // session-scoped key every "hi" would reach Slack as its own gap.
+    ...(ev.type === BUILTIN_EVENT_TYPES.KNOWLEDGE_GAP
+      ? { idempotencyKey: `${ctx.projectId}:knowledge.gap:${ctx.sessionId}` }
+      : {}),
     sessionId: ctx.sessionId,
     payload: {
       ...ev.payload,
@@ -95,7 +105,9 @@ export async function emitTestEvent(opts: {
         payload: {
           test: true,
           message: "This is a test event from QuickStart AI Integrations.",
+          nonce: randomUUID(),
         },
+        idempotencyKey: `test:${opts.projectId}:${randomUUID()}`,
       },
     ],
     redisUrl: opts.redisUrl,

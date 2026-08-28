@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "concurrency": "15",
   "globalDependencies": [".env", ".env.local"],
   "globalEnv": [
     "NEXT_PUBLIC_API_URL",

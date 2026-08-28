@@ -17,6 +17,8 @@ export interface ChatEventContext {
   confidence: "high" | "medium" | "low";
   toolsUsed: string[];
   chunkCount: number;
+  /** Best single retrieval score. Absent for callers that do not run retrieval. */
+  topScore?: number;
   agentEvents: DomainEventInput[];
   isFirstUserMessage: boolean;
 }

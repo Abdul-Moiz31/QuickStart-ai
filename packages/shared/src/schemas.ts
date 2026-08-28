@@ -27,6 +27,7 @@ export const updateProjectSchema = createProjectSchema.partial().extend({
   toolsWebSearch: z.boolean().optional(),
   toolsHumanHandoff: z.boolean().optional(),
   toolsLeadCapture: z.boolean().optional(),
+  sessionReviewEnabled: z.boolean().optional(),
 });
 
 export const updateLlmSettingsSchema = z.object({

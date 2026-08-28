@@ -24,6 +24,22 @@ import { requireAuth } from "../auth.js";
 import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { env } from "../env.js";
 import { getRedis } from "../redis.js";
+import {
+  collectGapCandidates,
+  GAP_CACHE_PERIODS,
+  gapCacheKey,
+  getSkippedGapQuestions,
+  invalidateGapCache,
+  normalizeGapQuestion,
+  periodToSince,
+  skipKnowledgeGap,
+} from "../knowledge-gaps.js";
+import { groupAndResolve } from "../knowledge-gap-grouping.js";
+import {
+  collectReviewGapCandidates,
+  listSessionReviews,
+  mergeReviewGaps,
+} from "../session-reviews.js";
 
 const playgroundMessageSchema = z.object({
   message: z.string().min(1).max(4000),
@@ -31,6 +47,13 @@ const playgroundMessageSchema = z.object({
 });
 
 const MAX_EVAL_CASES = 15;
+const MAX_GAP_GROUPS = 20;
+const GAP_CACHE_TTL_SECONDS = 600;
+const GAP_PERIODS: string[] = [...GAP_CACHE_PERIODS];
+
+const skipGapSchema = z.object({
+  question: z.string().min(1).max(2000),
+});
 
 async function loadKnowledgeQaCases(projectId: string): Promise<{
   pairs: { question: string; answer: string }[];
@@ -417,6 +440,170 @@ export async function dashboardRoutes(app: FastifyInstance) {
         plan: project.plan,
         usage: events,
       },
+    };
+  });
+
+  /**
+   * Questions the knowledge base answered badly, grouped and ranked.
+   *
+   * Read from sessions rather than ProjectEvent: the knowledge.gap event only fired
+   * when retrieval returned zero chunks, which cannot happen once a project has any
+   * knowledge, so that table is empty.
+   */
+  app.get("/api/v1/projects/:id/knowledge-gaps", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    // Validated rather than passed through: it lands in a Redis key and is echoed
+    // back in the response, and periodToSince silently coerces anything unknown.
+    const rawPeriod = (req.query as { period?: string }).period ?? "30d";
+    const period = GAP_PERIODS.includes(rawPeriod) ? rawPeriod : "30d";
+    const includeLowerCertainty =
+      (req.query as { includeLowerCertainty?: string }).includeLowerCertainty === "1";
+    const project = await prisma.project.findFirst({
+      where: { id, ownerId: req.user!.id },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    // Each uncached build costs an embedding batch plus a vector search per group,
+    // and the sidebar is not polling this, so a short cache is enough to keep
+    // repeat visits and period toggles cheap.
+    const cacheKey = gapCacheKey(id, period);
+    const redis = getRedis();
+    try {
+      if (redis.status !== "ready") await redis.connect();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as {
+          success: boolean;
+          period: string;
+          analysedAnswers: number;
+          resolvedCount: number;
+          gaps: { question: string }[];
+        };
+        const skipped = await getSkippedGapQuestions(id);
+        parsed.gaps = parsed.gaps.filter(
+          (g) => !skipped.has(normalizeGapQuestion(g.question)),
+        );
+        if (!includeLowerCertainty) {
+          parsed.gaps = parsed.gaps.filter(
+            (g) => (g as { precision?: string }).precision !== "low",
+          );
+        }
+        const reviewCandidates = await collectReviewGapCandidates({
+          projectId: id,
+          since: periodToSince(period),
+        });
+        parsed.gaps = mergeReviewGaps(parsed.gaps, reviewCandidates).filter(
+          (g) => !skipped.has(normalizeGapQuestion(g.question)),
+        ) as typeof parsed.gaps;
+        return parsed;
+      }
+    } catch {
+      // Cache is an optimisation; fall through and compute.
+    }
+
+    await connectMongo();
+    const { candidates, analysedAnswers } = await collectGapCandidates({
+      projectId: id,
+      since: periodToSince(period),
+    });
+
+    const { groups, resolved } = await groupAndResolve({
+      projectId: id,
+      candidates,
+      embeddings: createEmbeddingsClient(getProjectEmbeddingsRuntime(project)),
+      limit: MAX_GAP_GROUPS,
+    });
+
+    const skipped = await getSkippedGapQuestions(id);
+    let visibleGroups = groups.filter(
+      (g) => !skipped.has(normalizeGapQuestion(g.question)),
+    );
+    if (!includeLowerCertainty) {
+      visibleGroups = visibleGroups.filter((g) => g.precision !== "low");
+    }
+
+    const reviewCandidates = await collectReviewGapCandidates({
+      projectId: id,
+      since: periodToSince(period),
+    });
+    const mergedGaps = mergeReviewGaps(
+      visibleGroups.map((g) => ({
+        question: g.question,
+        sessionCount: g.sessionCount,
+        lastAskedAt: g.lastAskedAt,
+        sessionIds: g.sessionIds.slice(0, 5),
+        precision: g.precision,
+        topScore: g.worstTopScore,
+        source: "retrieval" as const,
+      })),
+      reviewCandidates,
+    ).filter((g) => !skipped.has(normalizeGapQuestion(g.question)));
+
+    const payload = {
+      success: true,
+      period,
+      // Separating these lets the UI distinguish "your bot is doing fine" from
+      // "nobody has talked to your bot yet", which need different empty states.
+      analysedAnswers,
+      resolvedCount: resolved,
+      gaps: mergedGaps.map((g) => ({
+        question: g.question,
+        sessionCount: g.sessionCount,
+        lastAskedAt: g.lastAskedAt,
+        sessionIds: "sessionIds" in g ? g.sessionIds?.slice(0, 5) ?? [] : [],
+        precision: g.precision,
+        topScore: "topScore" in g ? g.topScore : null,
+        source: "source" in g ? g.source : "retrieval",
+      })),
+    };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(payload), "EX", GAP_CACHE_TTL_SECONDS);
+    } catch {
+      // ignore cache write failures
+    }
+
+    return payload;
+  });
+
+  app.post("/api/v1/projects/:id/knowledge-gaps/skip", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    const body = skipGapSchema.parse(req.body);
+    const project = await prisma.project.findFirst({
+      where: { id, ownerId: req.user!.id },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    await skipKnowledgeGap(id, body.question);
+    await invalidateGapCache(id);
+
+    return { success: true };
+  });
+
+  app.get("/api/v1/projects/:id/session-reviews", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    const rawPeriod = (req.query as { period?: string }).period ?? "30d";
+    const period = GAP_PERIODS.includes(rawPeriod) ? rawPeriod : "30d";
+    const project = await prisma.project.findFirst({
+      where: { id, ownerId: req.user!.id },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    await connectMongo();
+    const reviews = await listSessionReviews({
+      projectId: id,
+      since: periodToSince(period),
+      limit: 30,
+    });
+
+    return {
+      success: true,
+      period,
+      sessionReviewEnabled: project.sessionReviewEnabled,
+      reviews,
     };
   });
 

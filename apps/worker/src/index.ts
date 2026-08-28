@@ -12,6 +12,7 @@ import { QUEUE_NAMES, buildEmbeddingsRuntimeConfig } from "@quickstart-ai/shared
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
 import { startEvalWorker } from "./eval-job.js";
 import { startEventsWorkers } from "./event-job.js";
+import { startSessionReviewWorker } from "./session-review-worker.js";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 config({ path: resolve(root, ".env") });
@@ -115,6 +116,7 @@ async function main() {
 
   const evalWorker = startEvalWorker(redisUrl);
   const { eventsWorker, retryWorker } = startEventsWorkers(redisUrl);
+  const sessionReviewWorker = startSessionReviewWorker(redisUrl);
 
   console.log(
     "QuickStart worker listening on queues:",
@@ -122,9 +124,10 @@ async function main() {
     QUEUE_NAMES.EVAL,
     QUEUE_NAMES.EVENTS,
     QUEUE_NAMES.EVENTS_RETRY,
+    QUEUE_NAMES.SESSION_REVIEW,
   );
 
-  const allWorkers = [worker, evalWorker, eventsWorker, retryWorker];
+  const allWorkers = [worker, evalWorker, eventsWorker, retryWorker, sessionReviewWorker];
 
   async function shutdown(signal: string) {
     console.log(`[worker] ${signal} received — draining in-flight jobs…`);
