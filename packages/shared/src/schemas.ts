@@ -49,6 +49,7 @@ export const updateProjectSchema = createProjectSchema.partial().extend({
   toolsWebSearch: z.boolean().optional(),
   toolsHumanHandoff: z.boolean().optional(),
   toolsLeadCapture: z.boolean().optional(),
+  allowAnonymousSessions: z.boolean().optional(),
   proactiveTriggers: proactiveTriggersConfigSchema.optional(),
 });
 
@@ -129,8 +130,8 @@ export const chatMessageSchema = z.object({
 });
 
 export const createSessionSchema = z.object({
-  visitorName: z.string().min(1).max(120),
-  visitorEmail: z.string().email(),
+  visitorName: z.string().max(120).optional(),
+  visitorEmail: z.string().email().optional(),
 });
 
 export const createWebhookSchema = z.object({

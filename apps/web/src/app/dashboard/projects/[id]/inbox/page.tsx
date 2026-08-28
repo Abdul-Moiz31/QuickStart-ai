@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { useParams } from "next/navigation";
 import { Headset, Send, UserCheck } from "lucide-react";
 import { api, getStoredToken, resolvePublicApiUrl } from "@/lib/api";
+import { isAnonymousVisitor } from "@quickstart-ai/shared";
 import { DashBtn } from "@/components/dashboard/DashboardShell";
 import { ChatMessageContent, ChatTypingIndicator } from "@/components/dashboard/ChatMessageContent";
 
@@ -270,6 +271,11 @@ export default function InboxPage() {
                         <span className="truncate text-sm font-semibold text-ink">
                           {row.visitorName}
                         </span>
+                        {isAnonymousVisitor(row.visitorEmail) && (
+                          <span className="shrink-0 rounded-full bg-ink/8 px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">
+                            Anonymous
+                          </span>
+                        )}
                         {row.humanPending && (
                           <span className="shrink-0 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
                             waiting
@@ -306,7 +312,9 @@ export default function InboxPage() {
               <div className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-ink/[0.08] bg-white p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{active.visitorName}</p>
-                  <p className="truncate text-xs text-ink/55">{active.visitorEmail}</p>
+                  <p className="truncate text-xs text-ink/55">
+                    {isAnonymousVisitor(active.visitorEmail) ? "Anonymous visitor" : active.visitorEmail}
+                  </p>
                 </div>
                 {humanActive ? (
                   <DashBtn

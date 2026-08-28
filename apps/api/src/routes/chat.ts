@@ -23,7 +23,7 @@ import {
   createSessionSchema,
   NotFoundError,
   PLAN_LIMITS,
-  type PlanTier,
+  resolveVisitorIdentity,
 } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
 import { loadEnabledCustomTools } from "./custom-tools.js";
@@ -114,17 +114,34 @@ async function markSessionEscalated(
 export async function chatRoutes(app: FastifyInstance) {
   app.post("/api/v1/chat/session", async (req) => {
     await requireClient(req);
-    const body = createSessionSchema.parse(req.body);
+    const body = createSessionSchema.parse(req.body ?? {});
+    const project = await prisma.project.findUnique({
+      where: { id: req.projectId! },
+      select: { allowAnonymousSessions: true, welcomeMessage: true },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    let identity;
+    try {
+      identity = resolveVisitorIdentity(
+        { visitorName: body.visitorName, visitorEmail: body.visitorEmail },
+        project.allowAnonymousSessions,
+      );
+    } catch (err) {
+      throw new AppError(err instanceof Error ? err.message : "Invalid session identity", 400, "VALIDATION_ERROR");
+    }
+
     await connectMongo();
     const Session = getChatSessionModel();
+    const welcome = project.welcomeMessage?.trim() || "Hello! How can I assist you today?";
     const session = await Session.create({
       projectId: req.projectId!,
-      visitorName: body.visitorName,
-      visitorEmail: body.visitorEmail,
+      visitorName: identity.visitorName,
+      visitorEmail: identity.visitorEmail,
       messages: [
         {
           role: "assistant",
-          content: "Hello! How can I assist you today?",
+          content: welcome,
         },
       ],
     });
@@ -146,6 +163,7 @@ export async function chatRoutes(app: FastifyInstance) {
         welcomeMessage: project.welcomeMessage,
         description: project.description,
         proactiveTriggers: project.proactiveTriggers,
+        allowAnonymousSessions: project.allowAnonymousSessions,
       },
     };
   });

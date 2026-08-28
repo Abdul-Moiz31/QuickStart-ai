@@ -190,6 +190,7 @@ export async function projectRoutes(app: FastifyInstance) {
         toolsWebSearch: body.toolsWebSearch,
         toolsHumanHandoff: body.toolsHumanHandoff,
         toolsLeadCapture: body.toolsLeadCapture,
+        allowAnonymousSessions: body.allowAnonymousSessions,
         proactiveTriggers: body.proactiveTriggers,
       },
     });

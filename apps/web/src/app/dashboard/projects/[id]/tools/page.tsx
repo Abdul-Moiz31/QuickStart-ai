@@ -122,6 +122,16 @@ export default function ToolsPage() {
             checked={leadCapture}
             onChange={setLeadCapture}
           />
+          <p className="mt-2 text-sm text-mute">
+            To let visitors chat without name or email first, enable{" "}
+            <a
+              href={`/dashboard/projects/${id}/settings`}
+              className="font-medium text-ink underline underline-offset-2"
+            >
+              anonymous chat
+            </a>{" "}
+            under Settings → Visitor access.
+          </p>
           <p className="mt-4 text-sm text-mute">
             Send leads, handoffs, and custom alerts from{" "}
             <a
