@@ -17,6 +17,7 @@ import {
   FolderKanban,
   Headset,
   LogOut,
+  MessageCircle,
   MessageSquare,
   Palette,
   Puzzle,
@@ -127,6 +128,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     { id: "settings", label: "Settings", icon: Settings2 },
     { id: "tools", label: "Tools", icon: Puzzle },
     { id: "triggers", label: "Visitor prompts", icon: Zap },
+    { id: "channels", label: "Channels", icon: MessageCircle },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "custom-events", label: "Custom events", icon: Sparkles },
   ] as const;
