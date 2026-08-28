@@ -26,6 +26,14 @@ export interface AgentResult {
   chunks: RetrievedChunk[];
   toolsUsed: string[];
   confidence: "high" | "medium" | "low";
+  /**
+   * Best raw retrieval score, taken before reranking.
+   *
+   * `chunks[].score` is overwritten by rerankChunks with an LLM 0-10 judgement
+   * divided by 10, so it is not comparable with a vectorSearch cosine. Callers
+   * that need to compare retrieval quality against a later search must use this.
+   */
+  retrievalTopScore: number;
   eventsEmitted: ToolEventPayload[];
 }
 
@@ -320,6 +328,11 @@ export async function runAgenticRag(opts: {
     topK: 20,
   });
 
+  // Captured before rerankChunks replaces score with an LLM judgement on a
+  // different scale. Gap detection compares this against vectorSearch cosines.
+  const retrievalTopScore = rawChunks.length
+    ? Math.max(...rawChunks.map((c) => c.score))
+    : 0;
   const chunks = await rerankChunks(opts.query, rawChunks, opts.chat, 8);
 
   const tools = buildAgentTools({
@@ -367,6 +380,7 @@ export async function runAgenticRag(opts: {
     chunks,
     toolsUsed,
     confidence,
+    retrievalTopScore,
     eventsEmitted: [...eventsEmitted, ...loopEvents],
   };
 }
@@ -375,6 +389,8 @@ export interface AgentStreamPreamble {
   chunks: RetrievedChunk[];
   toolsUsed: string[];
   confidence: AgentResult["confidence"];
+  /** See AgentResult.retrievalTopScore. */
+  retrievalTopScore: number;
   eventsEmitted: ToolEventPayload[];
 }
 
@@ -398,6 +414,11 @@ export async function* runAgenticRagStream(
     topK: 20,
   });
 
+  // Captured before rerankChunks replaces score with an LLM judgement on a
+  // different scale. Gap detection compares this against vectorSearch cosines.
+  const retrievalTopScore = rawChunks.length
+    ? Math.max(...rawChunks.map((c) => c.score))
+    : 0;
   const chunks = await rerankChunks(opts.query, rawChunks, opts.chat, 8);
 
   const tools = buildAgentTools({
@@ -463,6 +484,7 @@ export async function* runAgenticRagStream(
     chunks,
     toolsUsed,
     confidence,
+    retrievalTopScore,
     eventsEmitted: [...preEventsEmitted, ...loopEvents],
   };
 }

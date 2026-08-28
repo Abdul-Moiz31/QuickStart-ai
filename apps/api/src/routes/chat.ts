@@ -346,6 +346,7 @@ export async function chatRoutes(app: FastifyInstance) {
         content: accumulatedAnswer,
         meta: {
           confidence: preamble.confidence,
+          topScore: preamble.retrievalTopScore,
           toolsUsed: preamble.toolsUsed,
           events: preamble.eventsEmitted.map((e) => e.type),
           ...(stillBot ? {} : { suppressed: true }),
@@ -376,6 +377,7 @@ export async function chatRoutes(app: FastifyInstance) {
         confidence: preamble.confidence,
         toolsUsed: preamble.toolsUsed,
         chunkCount: preamble.chunks.length,
+        topScore: preamble.retrievalTopScore,
         isFirstUserMessage,
         agentEvents: preamble.eventsEmitted.map((e) => ({
           type: e.type,
@@ -439,6 +441,7 @@ export async function chatRoutes(app: FastifyInstance) {
       content: result.answer,
       meta: {
         confidence: result.confidence,
+        topScore: result.retrievalTopScore,
         toolsUsed: result.toolsUsed,
         events: result.eventsEmitted.map((e) => e.type),
         ...(stillBot ? {} : { suppressed: true }),
@@ -469,6 +472,7 @@ export async function chatRoutes(app: FastifyInstance) {
       confidence: result.confidence,
       toolsUsed: result.toolsUsed,
       chunkCount: result.chunks.length,
+      topScore: result.retrievalTopScore,
       isFirstUserMessage,
       agentEvents: result.eventsEmitted.map((e) => ({
         type: e.type,
