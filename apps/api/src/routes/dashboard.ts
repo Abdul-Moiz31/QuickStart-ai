@@ -471,7 +471,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const { groups, resolved } = await groupAndResolve({
       projectId: id,
       candidates,
-      embeddings: createEmbeddingsClient(getProjectLlmRuntime(project)),
+      embeddings: createEmbeddingsClient(getProjectEmbeddingsRuntime(project)),
       limit: MAX_GAP_GROUPS,
     });
 
