@@ -143,8 +143,15 @@ model IntegrationConnection {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deliveries  WebhookDelivery[]
+  /**
+   * Plaintext routing key for inbound channel webhooks — the Twilio "From" number
+   * or Meta phone_number_id/page id — so a webhook can find its project without
+   * decrypting every enabled row of that provider. Unused by Slack/Discord.
+   */
+  externalId  String?
 
   @@index([projectId, provider])
+  @@index([provider, externalId])
 }
 
 model WebhookDelivery {

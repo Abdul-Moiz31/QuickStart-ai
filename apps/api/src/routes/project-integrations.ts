@@ -12,6 +12,8 @@ import {
   createEventRuleSchema,
   createSlackIntegrationSchema,
   createDiscordIntegrationSchema,
+  createTwilioIntegrationSchema,
+  createWhatsappIntegrationSchema,
   createWebhookSchema,
   EVENT_CATALOG,
   EVENT_LIMITS,
@@ -22,6 +24,7 @@ import {
 } from "@quickstart-ai/shared";
 import { encryptSecret } from "@quickstart-ai/shared/secrets";
 import { requireAuth } from "../auth.js";
+import { env } from "../env.js";
 
 async function requireProject(projectId: string, ownerId: string) {
   const project = await prisma.project.findFirst({
@@ -269,6 +272,101 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
         description: row.description,
         events: row.events,
         enabled: row.enabled,
+      },
+    };
+  });
+
+  app.post("/api/v1/projects/:id/integrations/sms", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    await requireProject(id, req.user!.id);
+    const body = createTwilioIntegrationSchema.parse(req.body);
+
+    const count = await prisma.integrationConnection.count({ where: { projectId: id } });
+    if (count >= EVENT_LIMITS.integrationsPerProject) {
+      return {
+        success: false,
+        message: `Maximum ${EVENT_LIMITS.integrationsPerProject} integrations per project`,
+      };
+    }
+
+    const row = await prisma.integrationConnection.create({
+      data: {
+        projectId: id,
+        provider: "sms",
+        label: body.label ?? "SMS",
+        description: body.description ?? "",
+        configEnc: encryptSecret(
+          JSON.stringify({
+            accountSid: body.accountSid,
+            authToken: body.authToken,
+            fromNumber: body.fromNumber,
+          }),
+        ),
+        // Channel integrations aren't domain-event notification targets — inbound
+        // messages are handled directly by the /api/v1/channels/sms webhook.
+        events: [],
+        enabled: body.enabled ?? true,
+        externalId: body.fromNumber,
+      },
+    });
+
+    return {
+      success: true,
+      integration: {
+        id: row.id,
+        provider: row.provider,
+        label: row.label,
+        description: row.description,
+        enabled: row.enabled,
+        webhookUrl: `${env.publicApiUrl.replace(/\/$/, "")}/api/v1/channels/sms`,
+      },
+    };
+  });
+
+  app.post("/api/v1/projects/:id/integrations/whatsapp", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    await requireProject(id, req.user!.id);
+    const body = createWhatsappIntegrationSchema.parse(req.body);
+
+    const count = await prisma.integrationConnection.count({ where: { projectId: id } });
+    if (count >= EVENT_LIMITS.integrationsPerProject) {
+      return {
+        success: false,
+        message: `Maximum ${EVENT_LIMITS.integrationsPerProject} integrations per project`,
+      };
+    }
+
+    const row = await prisma.integrationConnection.create({
+      data: {
+        projectId: id,
+        provider: "whatsapp",
+        label: body.label ?? "WhatsApp",
+        description: body.description ?? "",
+        configEnc: encryptSecret(
+          JSON.stringify({
+            phoneNumberId: body.phoneNumberId,
+            accessToken: body.accessToken,
+            appSecret: body.appSecret,
+            verifyToken: body.verifyToken,
+          }),
+        ),
+        events: [],
+        enabled: body.enabled ?? true,
+        externalId: body.phoneNumberId,
+      },
+    });
+
+    return {
+      success: true,
+      integration: {
+        id: row.id,
+        provider: row.provider,
+        label: row.label,
+        description: row.description,
+        enabled: row.enabled,
+        webhookUrl: `${env.publicApiUrl.replace(/\/$/, "")}/api/v1/channels/whatsapp`,
       },
     };
   });
