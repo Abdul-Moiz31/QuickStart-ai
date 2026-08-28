@@ -224,7 +224,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4 px-6 py-8 md:px-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-bold text-ink">Inbox</h1>

@@ -66,7 +66,7 @@ export default function AnalyticsPage() {
   const empty = loaded && (!data || data.totalConversations === 0);
 
   return (
-    <div className="pb-10">
+    <div className="mx-auto max-w-6xl px-6 py-8 pb-10 md:px-10">
       <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Analytics</h1>
       <p className="mt-2 text-sm text-mute">
         How your chatbot performed with real visitors — volume, answer quality, and where
