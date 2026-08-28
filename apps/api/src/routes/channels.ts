@@ -4,6 +4,13 @@ import { prisma } from "@quickstart-ai/db";
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
 import { env } from "../env.js";
 import { runChannelMessage } from "../channels/reply.js";
+import {
+  markReadWithTyping,
+  parseWhatsappWebhook,
+  sendWhatsappText,
+  verifyMetaSignature,
+  type WhatsappConfig,
+} from "../channels/whatsapp.js";
 
 interface TwilioConfig {
   accountSid: string;
@@ -18,6 +25,36 @@ async function findSmsIntegration(toNumber: string) {
   if (!row) return null;
   const config = JSON.parse(decryptSecret(row.configEnc)) as TwilioConfig;
   return { projectId: row.projectId, config };
+}
+
+async function findWhatsappIntegration(phoneNumberId: string) {
+  const row = await prisma.integrationConnection.findFirst({
+    where: { provider: "whatsapp", externalId: phoneNumberId, enabled: true },
+  });
+  if (!row) return null;
+  const config = JSON.parse(decryptSecret(row.configEnc)) as WhatsappConfig;
+  return { projectId: row.projectId, config };
+}
+
+/**
+ * One-time app-level handshake: Meta doesn't know which project this is for
+ * (there's no phone number in the query string), so it's matched by scanning
+ * enabled WhatsApp integrations for a verify token match. Only runs at setup
+ * time, not per message, so the O(n) decrypt scan is fine.
+ */
+async function findIntegrationByVerifyToken(token: string) {
+  const rows = await prisma.integrationConnection.findMany({
+    where: { provider: "whatsapp", enabled: true },
+  });
+  for (const row of rows) {
+    try {
+      const config = JSON.parse(decryptSecret(row.configEnc)) as WhatsappConfig;
+      if (config.verifyToken === token) return config;
+    } catch {
+      // skip rows that fail to decrypt
+    }
+  }
+  return null;
 }
 
 function twiml(message: string): string {
@@ -84,5 +121,94 @@ export async function channelsRoutes(app: FastifyInstance) {
       return reply.type("text/xml").send(twiml("This business has reached its daily message limit. Please try again tomorrow."));
     }
     return reply.type("text/xml").send(twiml("Sorry, something went wrong. Please try again."));
+  });
+
+  app.get("/api/v1/channels/whatsapp", async (req, reply) => {
+    const query = req.query as Record<string, string>;
+    const mode = query["hub.mode"];
+    const token = query["hub.verify_token"];
+    const challenge = query["hub.challenge"];
+    if (mode !== "subscribe" || !token) {
+      return reply.status(403).send("Forbidden");
+    }
+    const match = await findIntegrationByVerifyToken(token);
+    if (!match) {
+      req.log.warn("WhatsApp webhook verification: no matching verify token");
+      return reply.status(403).send("Forbidden");
+    }
+    return reply.status(200).type("text/plain").send(challenge ?? "");
+  });
+
+  // Signature verification needs the exact raw bytes Meta signed, so this route
+  // gets its own encapsulated plugin with a buffer-mode content-type parser —
+  // Fastify scopes addContentTypeParser to the registering context, so this
+  // doesn't affect the global JSON parser used by every other route.
+  await app.register(async (scoped) => {
+    scoped.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
+      done(null, body);
+    });
+
+    scoped.post("/api/v1/channels/whatsapp", async (req, reply) => {
+      const raw = req.body as Buffer;
+      let payload: unknown;
+      try {
+        payload = JSON.parse(raw.toString("utf8"));
+      } catch {
+        return reply.status(400).send("Bad request");
+      }
+
+      const parsed = parseWhatsappWebhook(payload);
+      if (!parsed) {
+        // Non-message webhook (status update, etc.) — acknowledge and ignore.
+        return reply.status(200).send("OK");
+      }
+
+      const integration = await findWhatsappIntegration(parsed.phoneNumberId);
+      if (!integration) {
+        req.log.warn({ phoneNumberId: parsed.phoneNumberId }, "WhatsApp webhook: no project configured for this number");
+        return reply.status(200).send("OK");
+      }
+
+      const signature = req.headers["x-hub-signature-256"] as string | undefined;
+      if (!verifyMetaSignature(raw, signature, integration.config.appSecret)) {
+        req.log.warn({ phoneNumberId: parsed.phoneNumberId }, "WhatsApp webhook: signature verification failed");
+        return reply.status(403).send("Forbidden");
+      }
+
+      void markReadWithTyping(integration.config, parsed.messageId);
+
+      if (parsed.type !== "text" || !parsed.text) {
+        await sendWhatsappText(
+          integration.config,
+          parsed.from,
+          "Sorry, I can only understand text messages right now — could you type your question?",
+        ).catch((err) => req.log.error({ err }, "WhatsApp fallback send failed"));
+        return reply.status(200).send("OK");
+      }
+
+      const result = await runChannelMessage({
+        projectId: integration.projectId,
+        channel: "whatsapp",
+        externalId: parsed.from,
+        message: parsed.text,
+        log: req.log,
+        rateLimit: { key: `wa:${parsed.from}`, limit: 20, windowMs: 60_000 },
+      });
+
+      let replyText: string | null = null;
+      if (result.kind === "answer") replyText = result.answer;
+      else if (result.kind === "rate_limited") replyText = "You're sending messages too quickly. Please wait a moment.";
+      else if (result.kind === "plan_limit") replyText = "This business has reached its daily message limit. Please try again tomorrow.";
+      else if (result.kind === "error") replyText = result.message;
+      // "human_active" and "no_project" send nothing back.
+
+      if (replyText) {
+        await sendWhatsappText(integration.config, parsed.from, replyText).catch((err) =>
+          req.log.error({ err }, "WhatsApp reply send failed"),
+        );
+      }
+
+      return reply.status(200).send("OK");
+    });
   });
 }
