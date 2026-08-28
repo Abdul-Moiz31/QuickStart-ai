@@ -28,9 +28,18 @@ import {
   collectGapCandidates,
   GAP_CACHE_PERIODS,
   gapCacheKey,
+  getSkippedGapQuestions,
+  invalidateGapCache,
+  normalizeGapQuestion,
   periodToSince,
+  skipKnowledgeGap,
 } from "../knowledge-gaps.js";
 import { groupAndResolve } from "../knowledge-gap-grouping.js";
+import {
+  collectReviewGapCandidates,
+  listSessionReviews,
+  mergeReviewGaps,
+} from "../session-reviews.js";
 
 const playgroundMessageSchema = z.object({
   message: z.string().min(1).max(4000),
@@ -41,6 +50,10 @@ const MAX_EVAL_CASES = 15;
 const MAX_GAP_GROUPS = 20;
 const GAP_CACHE_TTL_SECONDS = 600;
 const GAP_PERIODS: string[] = [...GAP_CACHE_PERIODS];
+
+const skipGapSchema = z.object({
+  question: z.string().min(1).max(2000),
+});
 
 async function loadKnowledgeQaCases(projectId: string): Promise<{
   pairs: { question: string; answer: string }[];
@@ -444,6 +457,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
     // back in the response, and periodToSince silently coerces anything unknown.
     const rawPeriod = (req.query as { period?: string }).period ?? "30d";
     const period = GAP_PERIODS.includes(rawPeriod) ? rawPeriod : "30d";
+    const includeLowerCertainty =
+      (req.query as { includeLowerCertainty?: string }).includeLowerCertainty === "1";
     const project = await prisma.project.findFirst({
       where: { id, ownerId: req.user!.id },
     });
@@ -457,7 +472,32 @@ export async function dashboardRoutes(app: FastifyInstance) {
     try {
       if (redis.status !== "ready") await redis.connect();
       const cached = await redis.get(cacheKey);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached) as {
+          success: boolean;
+          period: string;
+          analysedAnswers: number;
+          resolvedCount: number;
+          gaps: { question: string }[];
+        };
+        const skipped = await getSkippedGapQuestions(id);
+        parsed.gaps = parsed.gaps.filter(
+          (g) => !skipped.has(normalizeGapQuestion(g.question)),
+        );
+        if (!includeLowerCertainty) {
+          parsed.gaps = parsed.gaps.filter(
+            (g) => (g as { precision?: string }).precision !== "low",
+          );
+        }
+        const reviewCandidates = await collectReviewGapCandidates({
+          projectId: id,
+          since: periodToSince(period),
+        });
+        parsed.gaps = mergeReviewGaps(parsed.gaps, reviewCandidates).filter(
+          (g) => !skipped.has(normalizeGapQuestion(g.question)),
+        ) as typeof parsed.gaps;
+        return parsed;
+      }
     } catch {
       // Cache is an optimisation; fall through and compute.
     }
@@ -475,6 +515,31 @@ export async function dashboardRoutes(app: FastifyInstance) {
       limit: MAX_GAP_GROUPS,
     });
 
+    const skipped = await getSkippedGapQuestions(id);
+    let visibleGroups = groups.filter(
+      (g) => !skipped.has(normalizeGapQuestion(g.question)),
+    );
+    if (!includeLowerCertainty) {
+      visibleGroups = visibleGroups.filter((g) => g.precision !== "low");
+    }
+
+    const reviewCandidates = await collectReviewGapCandidates({
+      projectId: id,
+      since: periodToSince(period),
+    });
+    const mergedGaps = mergeReviewGaps(
+      visibleGroups.map((g) => ({
+        question: g.question,
+        sessionCount: g.sessionCount,
+        lastAskedAt: g.lastAskedAt,
+        sessionIds: g.sessionIds.slice(0, 5),
+        precision: g.precision,
+        topScore: g.worstTopScore,
+        source: "retrieval" as const,
+      })),
+      reviewCandidates,
+    ).filter((g) => !skipped.has(normalizeGapQuestion(g.question)));
+
     const payload = {
       success: true,
       period,
@@ -482,13 +547,14 @@ export async function dashboardRoutes(app: FastifyInstance) {
       // "nobody has talked to your bot yet", which need different empty states.
       analysedAnswers,
       resolvedCount: resolved,
-      gaps: groups.map((g) => ({
+      gaps: mergedGaps.map((g) => ({
         question: g.question,
         sessionCount: g.sessionCount,
         lastAskedAt: g.lastAskedAt,
-        sessionIds: g.sessionIds.slice(0, 5),
+        sessionIds: "sessionIds" in g ? g.sessionIds?.slice(0, 5) ?? [] : [],
         precision: g.precision,
-        topScore: g.worstTopScore,
+        topScore: "topScore" in g ? g.topScore : null,
+        source: "source" in g ? g.source : "retrieval",
       })),
     };
 
@@ -499,6 +565,46 @@ export async function dashboardRoutes(app: FastifyInstance) {
     }
 
     return payload;
+  });
+
+  app.post("/api/v1/projects/:id/knowledge-gaps/skip", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    const body = skipGapSchema.parse(req.body);
+    const project = await prisma.project.findFirst({
+      where: { id, ownerId: req.user!.id },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    await skipKnowledgeGap(id, body.question);
+    await invalidateGapCache(id);
+
+    return { success: true };
+  });
+
+  app.get("/api/v1/projects/:id/session-reviews", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    const rawPeriod = (req.query as { period?: string }).period ?? "30d";
+    const period = GAP_PERIODS.includes(rawPeriod) ? rawPeriod : "30d";
+    const project = await prisma.project.findFirst({
+      where: { id, ownerId: req.user!.id },
+    });
+    if (!project) throw new NotFoundError("Project not found");
+
+    await connectMongo();
+    const reviews = await listSessionReviews({
+      projectId: id,
+      since: periodToSince(period),
+      limit: 30,
+    });
+
+    return {
+      success: true,
+      period,
+      sessionReviewEnabled: project.sessionReviewEnabled,
+      reviews,
+    };
   });
 
   app.get("/api/v1/projects/:id/eval/status", async (req) => {

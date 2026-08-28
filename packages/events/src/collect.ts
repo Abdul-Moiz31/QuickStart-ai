@@ -30,6 +30,7 @@ export async function collectAndEmitChatEvents(
       chunkCount: ctx.chunkCount,
       topScore: ctx.topScore,
       sessionId: ctx.sessionId,
+      assistantEvents: ctx.agentEvents.map((e) => e.type),
     }),
   );
 

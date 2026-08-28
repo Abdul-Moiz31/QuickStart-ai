@@ -48,6 +48,7 @@ export default function ToolsPage() {
   const [webSearch, setWebSearch] = useState(false);
   const [humanHandoff, setHumanHandoff] = useState(true);
   const [leadCapture, setLeadCapture] = useState(false);
+  const [sessionReviewEnabled, setSessionReviewEnabled] = useState(false);
   const [credits, setCredits] = useState(0);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,12 +61,14 @@ export default function ToolsPage() {
         toolsWebSearch: boolean;
         toolsHumanHandoff: boolean;
         toolsLeadCapture: boolean;
+        sessionReviewEnabled?: boolean;
         credits: number;
       };
     }>(`/api/v1/projects/${id}`, { token }).then((res) => {
       setWebSearch(Boolean(res.project.toolsWebSearch));
       setHumanHandoff(res.project.toolsHumanHandoff !== false);
       setLeadCapture(Boolean(res.project.toolsLeadCapture));
+      setSessionReviewEnabled(Boolean(res.project.sessionReviewEnabled));
       setCredits(res.project.credits ?? 0);
     });
   }, [id]);
@@ -83,6 +86,7 @@ export default function ToolsPage() {
           toolsWebSearch: webSearch,
           toolsHumanHandoff: humanHandoff,
           toolsLeadCapture: leadCapture,
+          sessionReviewEnabled,
         }),
       });
       setMsg("Tools updated");
@@ -140,6 +144,21 @@ export default function ToolsPage() {
           </p>
           <DashBtn type="submit" disabled={busy} className="mt-6">
             {busy ? "Saving…" : "Save tools"}
+          </DashBtn>
+        </DashPanel>
+        <DashPanel>
+          <ToolToggle
+            label="Conversation insights"
+            description="After a chat goes quiet, summarize it and classify topics (FAQ gaps vs handoffs vs chit-chat). Uses LLM tokens — enable when you want deeper review in Knowledge → Review."
+            checked={sessionReviewEnabled}
+            onChange={setSessionReviewEnabled}
+          />
+          <p className="mt-3 text-xs text-mute">
+            Summaries run in the background after a chat goes quiet (~30 minutes). Keep the
+            worker running. Plan limits will apply when billing is enabled.
+          </p>
+          <DashBtn type="submit" disabled={busy} className="mt-4">
+            {busy ? "Saving…" : "Save insights setting"}
           </DashBtn>
         </DashPanel>
         <DashPanel>

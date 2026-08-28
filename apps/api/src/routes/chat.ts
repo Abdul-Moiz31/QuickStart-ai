@@ -31,6 +31,7 @@ import { getRedis } from "../redis.js";
 import { publishInboxEvent } from "../realtime.js";
 import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
 import { env } from "../env.js";
+import { scheduleSessionReview } from "../session-review.js";
 import { beginSseReply, endSse, writeSseEvent } from "../sse.js";
 
 function streamError(reply: FastifyReply, message: string) {
@@ -358,6 +359,8 @@ export async function chatRoutes(app: FastifyInstance) {
       }
       await session.save();
 
+      void scheduleSessionReview({ projectId: project.id, sessionId });
+
       if (escalated && stillBot) {
         void publishInboxEvent(project.id, {
           type: "escalation",
@@ -452,6 +455,8 @@ export async function chatRoutes(app: FastifyInstance) {
       session.escalatedAt = new Date();
     }
     await session.save();
+
+    void scheduleSessionReview({ projectId: project.id, sessionId });
 
     if (escalated && stillBot) {
       void publishInboxEvent(project.id, {
