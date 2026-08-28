@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, getStoredToken } from "@/lib/api";
 import { DashBtn, DashPanel } from "@/components/dashboard/DashboardShell";
+import { CustomToolsSection } from "@/components/dashboard/CustomToolsSection";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 
 function ToolToggle({
@@ -101,7 +102,7 @@ export default function ToolsPage() {
         Enable extras your chatbot can use while answering visitors.
       </p>
       {msg && <p className="mt-4 text-sm text-mute">{msg}</p>}
-      <form onSubmit={save} className="mt-6 space-y-4">
+      <form onSubmit={save} className="mt-6">
         <DashPanel>
           <ToolToggle
             label="Web search"
@@ -142,12 +143,15 @@ export default function ToolsPage() {
             {busy ? "Saving…" : "Save tools"}
           </DashBtn>
         </DashPanel>
+      </form>
+      <div className="mt-4 space-y-4">
+        <CustomToolsSection projectId={id} />
         <DashPanel>
           <p className="text-xs uppercase tracking-wide text-mute">Credits</p>
           <p className="mt-1 font-mono text-2xl font-bold text-ink">{credits}</p>
           <p className="mt-1 text-sm text-mute">Remaining for this project.</p>
         </DashPanel>
-      </form>
+      </div>
     </div>
   );
 }

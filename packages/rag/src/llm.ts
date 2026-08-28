@@ -10,26 +10,47 @@ export interface EmbeddingsClient {
   embed(texts: string[]): Promise<number[][]>;
 }
 
+export interface ChatOptions {
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
+  /** Rotate fallback chain start (e.g. eval case index) to spread load across free models. */
+  modelChainRotate?: number;
+  /** Disable tool calls for auxiliary text-only tasks (HyDE, rerank, planner). */
+  textOnly?: boolean;
+}
+
 export interface ChatClient {
-  chat(
-    messages: LLMMessage[],
-    options?: {
-      temperature?: number;
-      maxTokens?: number;
-      model?: string;
-      /** Rotate fallback chain start (e.g. eval case index) to spread load across free models. */
-      modelChainRotate?: number;
-    },
-  ): Promise<string>;
-  chatStream?(
-    messages: LLMMessage[],
-    options?: {
-      temperature?: number;
-      maxTokens?: number;
-      model?: string;
-      modelChainRotate?: number;
-    },
-  ): AsyncGenerator<string>;
+  chat(messages: LLMMessage[], options?: ChatOptions): Promise<string>;
+  chatStream?(messages: LLMMessage[], options?: ChatOptions): AsyncGenerator<string>;
+}
+
+const TEXT_ONLY_HINT = "Reply with plain text only. Do not call tools.";
+
+function withTextOnlyHint(messages: LLMMessage[]): LLMMessage[] {
+  const systemIdx = messages.findIndex((m) => m.role === "system");
+  if (systemIdx >= 0) {
+    return messages.map((m, i) =>
+      i === systemIdx ? { ...m, content: `${m.content}\n\n${TEXT_ONLY_HINT}` } : m,
+    );
+  }
+  return [{ role: "system", content: TEXT_ONLY_HINT }, ...messages];
+}
+
+function buildChatRequestBody(
+  model: string,
+  messages: LLMMessage[],
+  options: ChatOptions & { stream?: boolean },
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model,
+    messages: options.textOnly ? withTextOnlyHint(messages) : messages,
+    temperature: options.temperature ?? 0.3,
+    max_tokens: options.maxTokens ?? 800,
+    tool_choice: "none",
+  };
+  if (options.stream) body.stream = true;
+  return body;
 }
 
 /**
@@ -215,17 +236,12 @@ async function chatOnce(
   cfg: ReturnType<typeof getConfig>,
   model: string,
   messages: LLMMessage[],
-  options: { temperature?: number; maxTokens?: number },
+  options: ChatOptions = {},
 ): Promise<string> {
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
     headers: authHeaders(cfg),
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: options.temperature ?? 0.3,
-      max_tokens: options.maxTokens ?? 800,
-    }),
+    body: JSON.stringify(buildChatRequestBody(model, messages, options)),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -244,7 +260,7 @@ async function chatOnce(
 export async function chatWithModelFallback(
   messages: LLMMessage[],
   models: readonly string[],
-  options: { temperature?: number; maxTokens?: number; modelChainRotate?: number; runtime?: Partial<LlmRuntimeConfig> } = {},
+  options: ChatOptions & { runtime?: Partial<LlmRuntimeConfig> } = {},
 ): Promise<{ content: string; model: string }> {
   const cfg = getConfig(options.runtime);
   if (!cfg.apiKey) {
@@ -340,7 +356,6 @@ export function createChatClient(runtime?: Partial<LlmRuntimeConfig>): ChatClien
     },
 
     async *chatStream(messages, options = {}) {
-      // Stream from first working model in the chain
       const cfg = getConfig(runtime);
       if (!cfg.apiKey) {
         const text = await this.chat(messages, options);
@@ -355,13 +370,7 @@ export function createChatClient(runtime?: Partial<LlmRuntimeConfig>): ChatClien
           const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
             method: "POST",
             headers: authHeaders(cfg),
-            body: JSON.stringify({
-              model,
-              messages,
-              temperature: options.temperature ?? 0.3,
-              max_tokens: options.maxTokens ?? 800,
-              stream: true,
-            }),
+            body: JSON.stringify(buildChatRequestBody(model, messages, { ...options, stream: true })),
           });
           if (!res.ok || !res.body) {
             const body = await res.text();
@@ -370,6 +379,8 @@ export function createChatClient(runtime?: Partial<LlmRuntimeConfig>): ChatClien
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
+          let yieldedAny = false;
+          let streamDone = false;
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -380,24 +391,54 @@ export function createChatClient(runtime?: Partial<LlmRuntimeConfig>): ChatClien
               const trimmed = line.trim();
               if (!trimmed.startsWith("data:")) continue;
               const payload = trimmed.slice(5).trim();
-              if (payload === "[DONE]") return;
+              if (payload === "[DONE]") {
+                streamDone = true;
+                break;
+              }
               try {
                 const json = JSON.parse(payload) as {
                   choices: { delta?: { content?: string } }[];
                 };
                 const delta = json.choices[0]?.delta?.content;
-                if (delta) yield delta;
+                if (delta) {
+                  yieldedAny = true;
+                  yield delta;
+                }
               } catch {
                 // ignore partial JSON
               }
             }
+            if (streamDone) break;
           }
-          return;
+          if (yieldedAny) return;
+          console.warn(`[llm] stream returned empty from ${model}, trying next`);
         } catch (err) {
           lastError = err;
-          console.warn(`[llm] stream model failed, trying next: ${model}`, err);
+          if (isRateLimitError(err)) {
+            const wait = parseRetryAfterMs(err as Error);
+            console.warn(`[llm] stream rate limited on ${model}, waiting ${wait}ms then trying next`);
+            await sleep(wait);
+          } else {
+            console.warn(`[llm] stream model failed, trying next: ${model}`, err);
+          }
         }
       }
+
+      try {
+        const { content } = await chatWithModelFallback(messages, chain, {
+          ...options,
+          modelChainRotate: options.modelChainRotate,
+          runtime,
+        });
+        if (content.trim()) {
+          console.warn("[llm] stream chain empty — falling back to non-stream completion");
+          for (const ch of content) yield ch;
+          return;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+
       throw lastError instanceof Error
         ? lastError
         : new Error("All LLM stream models failed");

@@ -49,4 +49,11 @@ export const PLAN_LIMITS = {
   enterprise: { messagesPerDay: 100_000, documents: 10_000, projects: 200 },
 } as const;
 
+export const CUSTOM_TOOL_LIMITS = {
+  maxPerProject: 20,
+  callsPerMinutePerTool: 10,
+  executionTimeoutMs: 5_000,
+  maxResponseBytes: 4096,
+} as const;
+
 export type PlanTier = keyof typeof PLAN_LIMITS;

@@ -2,6 +2,11 @@ import type { ChatClient, EmbeddingsClient, LLMMessage } from "./llm.js";
 import { BUILTIN_EVENT_TYPES } from "@quickstart-ai/shared";
 import { fetchWebsiteSummary } from "./website.js";
 import { hybridRetrieve, rerankChunks, type RetrievedChunk } from "./retrieve.js";
+import {
+  executeCustomTool,
+  formatCustomToolDescription,
+  type CustomToolRuntime,
+} from "./custom-tools.js";
 
 export interface ToolEventPayload {
   type: string;
@@ -49,6 +54,8 @@ export function buildAgentTools(ctx: {
   visitorEmail?: string;
   visitorName?: string;
   userMessage?: string;
+  customTools?: CustomToolRuntime[];
+  redisUrl?: string;
 }): AgentTool[] {
   const tools: AgentTool[] = [
     {
@@ -159,6 +166,22 @@ export function buildAgentTools(ctx: {
     });
   }
 
+  for (const custom of ctx.customTools ?? []) {
+    if (!custom.enabled) continue;
+    tools.push({
+      name: custom.name,
+      description: formatCustomToolDescription(custom),
+      async execute(args) {
+        const { query: _query, ...toolArgs } = args;
+        const result = await executeCustomTool(custom, toolArgs, {
+          projectId: ctx.projectId,
+          redisUrl: ctx.redisUrl,
+        });
+        return { output: result.output };
+      },
+    });
+  }
+
   return tools;
 }
 
@@ -233,6 +256,7 @@ async function runToolLoopPrelude(opts: {
       temperature: 0,
       maxTokens: 200,
       modelChainRotate: opts.modelChainRotate,
+      textOnly: true,
     });
     const match = planRaw.match(/\{[\s\S]*\}/);
     if (match) {
@@ -318,6 +342,8 @@ export async function runAgenticRag(opts: {
   toolsLeadCapture?: boolean;
   visitorName?: string;
   visitorEmail?: string;
+  customTools?: CustomToolRuntime[];
+  redisUrl?: string;
 }): Promise<AgentResult> {
   const { chunks: rawChunks, method: _method } = await hybridRetrieve({
     projectId: opts.projectId,
@@ -347,6 +373,8 @@ export async function runAgenticRag(opts: {
     visitorName: opts.visitorName,
     visitorEmail: opts.visitorEmail,
     userMessage: opts.query,
+    customTools: opts.customTools,
+    redisUrl: opts.redisUrl,
   });
 
   const knowledgeResult = await tools[0]!.execute({});
@@ -392,6 +420,8 @@ export interface AgentStreamPreamble {
   /** See AgentResult.retrievalTopScore. */
   retrievalTopScore: number;
   eventsEmitted: ToolEventPayload[];
+  /** Messages for the final answer step — used to retry when streaming yields nothing. */
+  answerMessages: LLMMessage[];
 }
 
 type AgentRagOpts = Parameters<typeof runAgenticRag>[0];
@@ -433,6 +463,8 @@ export async function* runAgenticRagStream(
     visitorName: opts.visitorName,
     visitorEmail: opts.visitorEmail,
     userMessage: opts.query,
+    customTools: opts.customTools,
+    redisUrl: opts.redisUrl,
   });
 
   const knowledgeResult = await tools[0]!.execute({});
@@ -486,5 +518,6 @@ export async function* runAgenticRagStream(
     confidence,
     retrievalTopScore,
     eventsEmitted: [...preEventsEmitted, ...loopEvents],
+    answerMessages,
   };
 }
