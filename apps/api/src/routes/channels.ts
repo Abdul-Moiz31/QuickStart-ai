@@ -7,6 +7,7 @@ import { runChannelMessage } from "../channels/reply.js";
 import {
   markReadWithTyping,
   parseWhatsappWebhook,
+  sendWhatsappInteractive,
   sendWhatsappText,
   verifyMetaSignature,
   type WhatsappConfig,
@@ -177,7 +178,10 @@ export async function channelsRoutes(app: FastifyInstance) {
 
       void markReadWithTyping(integration.config, parsed.messageId);
 
-      if (parsed.type !== "text" || !parsed.text) {
+      // Both plain text and a tapped button/list reply arrive with parsed.text
+      // set (see parseWhatsappWebhook) — anything else (image, voice note, …)
+      // gets the fallback since inbound media isn't handled yet.
+      if (!parsed.text) {
         await sendWhatsappText(
           integration.config,
           parsed.from,
@@ -195,17 +199,26 @@ export async function channelsRoutes(app: FastifyInstance) {
         rateLimit: { key: `wa:${parsed.from}`, limit: 20, windowMs: 60_000 },
       });
 
-      let replyText: string | null = null;
-      if (result.kind === "answer") replyText = result.answer;
-      else if (result.kind === "rate_limited") replyText = "You're sending messages too quickly. Please wait a moment.";
-      else if (result.kind === "plan_limit") replyText = "This business has reached its daily message limit. Please try again tomorrow.";
-      else if (result.kind === "error") replyText = result.message;
-      // "human_active" and "no_project" send nothing back.
-
-      if (replyText) {
-        await sendWhatsappText(integration.config, parsed.from, replyText).catch((err) =>
+      if (result.kind === "answer" && result.quickReplies) {
+        await sendWhatsappText(integration.config, parsed.from, result.answer).catch((err) =>
           req.log.error({ err }, "WhatsApp reply send failed"),
         );
+        await sendWhatsappInteractive(integration.config, parsed.from, result.quickReplies).catch((err) =>
+          req.log.error({ err }, "WhatsApp interactive send failed"),
+        );
+      } else {
+        let replyText: string | null = null;
+        if (result.kind === "answer") replyText = result.answer;
+        else if (result.kind === "rate_limited") replyText = "You're sending messages too quickly. Please wait a moment.";
+        else if (result.kind === "plan_limit") replyText = "This business has reached its daily message limit. Please try again tomorrow.";
+        else if (result.kind === "error") replyText = result.message;
+        // "human_active" and "no_project" send nothing back.
+
+        if (replyText) {
+          await sendWhatsappText(integration.config, parsed.from, replyText).catch((err) =>
+            req.log.error({ err }, "WhatsApp reply send failed"),
+          );
+        }
       }
 
       return reply.status(200).send("OK");

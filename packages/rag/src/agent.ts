@@ -10,9 +10,16 @@ export interface ToolEventPayload {
   payload: Record<string, unknown>;
 }
 
+/** Tappable choices for channels that render them (WhatsApp interactive messages). */
+export interface QuickReplyOptions {
+  prompt?: string;
+  options: Array<{ id: string; title: string }>;
+}
+
 export interface ToolExecutionResult {
   output: string;
   event?: ToolEventPayload;
+  quickReplies?: QuickReplyOptions;
 }
 
 export interface AgentTool {
@@ -35,6 +42,8 @@ export interface AgentResult {
    */
   retrievalTopScore: number;
   eventsEmitted: ToolEventPayload[];
+  /** Set only when the agent chose to present tappable choices and the channel opted in (WhatsApp). */
+  quickReplies?: QuickReplyOptions;
 }
 
 export function buildAgentTools(ctx: {
@@ -46,6 +55,8 @@ export function buildAgentTools(ctx: {
   toolsWebSearch?: boolean;
   toolsHumanHandoff?: boolean;
   toolsLeadCapture?: boolean;
+  /** Only WhatsApp interactive messages render tappable choices — the web widget and SMS don't. */
+  toolsInteractiveReplies?: boolean;
   visitorEmail?: string;
   visitorName?: string;
   userMessage?: string;
@@ -159,6 +170,26 @@ export function buildAgentTools(ctx: {
     });
   }
 
+  if (ctx.toolsInteractiveReplies) {
+    tools.push({
+      name: "present_options",
+      description:
+        "Offer the visitor a short list of tappable choices (2-10) instead of free text, when the answer naturally narrows to a few options — e.g. picking a product, a support topic, or yes/no. Args: options (string array), prompt (optional short label).",
+      async execute(args) {
+        const rawOptions = Array.isArray(args.options) ? args.options : [];
+        const options = rawOptions
+          .slice(0, 10)
+          .map((o, i) => ({ id: `opt_${i + 1}`, title: String(o).slice(0, 24) }))
+          .filter((o) => o.title.trim().length > 0);
+        if (!options.length) return { output: "No options provided." };
+        return {
+          output: `Presented options: ${options.map((o) => o.title).join(", ")}`,
+          quickReplies: { prompt: args.prompt ? String(args.prompt) : undefined, options },
+        };
+      },
+    });
+  }
+
   return tools;
 }
 
@@ -188,6 +219,7 @@ export function buildAgentSystemPrompt(projectName: string, custom?: string): st
 interface ToolLoopPrelude {
   toolsUsed: string[];
   eventsEmitted: ToolEventPayload[];
+  quickReplies?: QuickReplyOptions;
   answerMessages: LLMMessage[];
 }
 
@@ -203,6 +235,7 @@ async function runToolLoopPrelude(opts: {
 }): Promise<ToolLoopPrelude> {
   const toolsUsed: string[] = ["search_knowledge"];
   const eventsEmitted: ToolEventPayload[] = [];
+  let quickReplies: QuickReplyOptions | undefined;
   const toolCatalog = opts.tools
     .map((t) => `- ${t.name}: ${t.description}`)
     .join("\n");
@@ -258,6 +291,7 @@ async function runToolLoopPrelude(opts: {
     toolResults.push(`${name}:\n${result.output}`);
     toolsUsed.push(name);
     if (result.event) eventsEmitted.push(result.event);
+    if (result.quickReplies) quickReplies = result.quickReplies;
   }
 
   const answerMessages: LLMMessage[] = [
@@ -277,7 +311,7 @@ async function runToolLoopPrelude(opts: {
     { role: "user", content: opts.query },
   ];
 
-  return { toolsUsed, eventsEmitted, answerMessages };
+  return { toolsUsed, eventsEmitted, quickReplies, answerMessages };
 }
 
 async function runToolLoop(opts: {
@@ -289,8 +323,13 @@ async function runToolLoop(opts: {
   knowledge: string;
   confidence: AgentResult["confidence"];
   modelChainRotate?: number;
-}): Promise<{ answer: string; toolsUsed: string[]; eventsEmitted: ToolEventPayload[] }> {
-  const { toolsUsed, eventsEmitted, answerMessages } = await runToolLoopPrelude(opts);
+}): Promise<{
+  answer: string;
+  toolsUsed: string[];
+  eventsEmitted: ToolEventPayload[];
+  quickReplies?: QuickReplyOptions;
+}> {
+  const { toolsUsed, eventsEmitted, quickReplies, answerMessages } = await runToolLoopPrelude(opts);
 
   const answer = await opts.chat.chat(answerMessages, {
     temperature: 0.2,
@@ -298,7 +337,7 @@ async function runToolLoop(opts: {
     modelChainRotate: opts.modelChainRotate,
   });
 
-  return { answer, toolsUsed, eventsEmitted };
+  return { answer, toolsUsed, eventsEmitted, quickReplies };
 }
 
 export async function runAgenticRag(opts: {
@@ -316,6 +355,7 @@ export async function runAgenticRag(opts: {
   toolsWebSearch?: boolean;
   toolsHumanHandoff?: boolean;
   toolsLeadCapture?: boolean;
+  toolsInteractiveReplies?: boolean;
   visitorName?: string;
   visitorEmail?: string;
 }): Promise<AgentResult> {
@@ -344,6 +384,7 @@ export async function runAgenticRag(opts: {
     toolsWebSearch: opts.toolsWebSearch,
     toolsHumanHandoff: opts.toolsHumanHandoff,
     toolsLeadCapture: opts.toolsLeadCapture,
+    toolsInteractiveReplies: opts.toolsInteractiveReplies,
     visitorName: opts.visitorName,
     visitorEmail: opts.visitorEmail,
     userMessage: opts.query,
@@ -364,7 +405,12 @@ export async function runAgenticRag(opts: {
 
   const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 
-  const { answer, toolsUsed, eventsEmitted: loopEvents } = await runToolLoop({
+  const {
+    answer,
+    toolsUsed,
+    eventsEmitted: loopEvents,
+    quickReplies,
+  } = await runToolLoop({
     tools,
     chat: opts.chat,
     systemPrompt: system,
@@ -382,6 +428,7 @@ export async function runAgenticRag(opts: {
     confidence,
     retrievalTopScore,
     eventsEmitted: [...eventsEmitted, ...loopEvents],
+    quickReplies,
   };
 }
 

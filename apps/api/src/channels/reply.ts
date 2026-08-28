@@ -7,6 +7,7 @@ import {
   pushSessionMemory,
   runAgenticRag,
   setCachedAnswer,
+  type QuickReplyOptions,
 } from "@quickstart-ai/rag";
 import { collectAndEmitChatEvents } from "@quickstart-ai/events";
 import { BUILTIN_EVENT_TYPES, PLAN_LIMITS, type PlanTier } from "@quickstart-ai/shared";
@@ -24,7 +25,7 @@ export type ChannelReplyResult =
   | { kind: "rate_limited" }
   | { kind: "human_active" }
   | { kind: "error"; message: string }
-  | { kind: "answer"; answer: string; escalated: boolean };
+  | { kind: "answer"; answer: string; escalated: boolean; quickReplies?: QuickReplyOptions };
 
 /** Placeholder visitor identity for channels that don't collect a name/email up front. */
 function placeholderVisitor(channel: ChannelName, externalId: string) {
@@ -152,6 +153,7 @@ export async function runChannelMessage(opts: {
     businessWebsite: project.owner?.businessWebsite ?? undefined,
     visitorName: session.visitorName,
     visitorEmail: session.visitorEmail,
+    toolsInteractiveReplies: opts.channel === "whatsapp",
   };
 
   let result;
@@ -233,5 +235,5 @@ export async function runChannelMessage(opts: {
     },
   });
 
-  return { kind: "answer", answer: result.answer, escalated };
+  return { kind: "answer", answer: result.answer, escalated, quickReplies: result.quickReplies };
 }
