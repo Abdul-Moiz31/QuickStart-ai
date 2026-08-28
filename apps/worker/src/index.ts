@@ -8,7 +8,7 @@ import {
   createEmbeddingsClient,
   storeChunkEmbeddings,
 } from "@quickstart-ai/rag";
-import { QUEUE_NAMES, buildLlmRuntimeConfig } from "@quickstart-ai/shared";
+import { QUEUE_NAMES, buildEmbeddingsRuntimeConfig } from "@quickstart-ai/shared";
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
 import { startEvalWorker } from "./eval-job.js";
 import { startEventsWorkers } from "./event-job.js";
@@ -54,8 +54,10 @@ async function processIngest(documentId: string, projectId: string) {
   );
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
-  const llmRuntime = project ? buildLlmRuntimeConfig(project, decryptSecret) : undefined;
-  const embeddings = createEmbeddingsClient(llmRuntime);
+  const embeddingsRuntime = project
+    ? buildEmbeddingsRuntimeConfig(project, decryptSecret)
+    : undefined;
+  const embeddings = createEmbeddingsClient(embeddingsRuntime);
   const vectors = await embeddings.embed(chunks);
   await storeChunkEmbeddings(
     created.map((c) => c.id),

@@ -31,6 +31,8 @@ function SettingsSection({
   );
 }
 
+const SAVED_KEY_MASK = "••••••••••••••••";
+
 export default function SettingsPage() {
   const { id } = useParams<{ id: string }>();
   const [msg, setMsg] = useState("");
@@ -43,6 +45,7 @@ export default function SettingsPage() {
   const [llmLoaded, setLlmLoaded] = useState(false);
   const [llmModel, setLlmModel] = useState("");
   const [llmApiKey, setLlmApiKey] = useState("");
+  const [llmKeyEditing, setLlmKeyEditing] = useState(false);
   const [llmKeyMasked, setLlmKeyMasked] = useState<string | null>(null);
   const [hasLlmKey, setHasLlmKey] = useState(false);
 
@@ -76,6 +79,7 @@ export default function SettingsPage() {
     setHasLlmKey(res.llm.hasLlmKey);
     setLlmKeyMasked(res.llm.llmKeyMasked);
     setLlmApiKey("");
+    setLlmKeyEditing(false);
     setLlmLoaded(true);
   }, [id]);
 
@@ -128,6 +132,7 @@ export default function SettingsPage() {
       });
       setMsg("LLM settings saved.");
       setLlmApiKey("");
+      setLlmKeyEditing(false);
       await load();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Save failed");
@@ -135,6 +140,8 @@ export default function SettingsPage() {
       setBusy(false);
     }
   }
+
+  const showingSavedKey = hasLlmKey && !llmKeyEditing;
 
   const selectClass =
     "w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ink/40";
@@ -259,15 +266,33 @@ export default function SettingsPage() {
                   </label>
                   <DashField
                     type="password"
-                    value={llmApiKey}
+                    value={showingSavedKey ? SAVED_KEY_MASK : llmApiKey}
+                    readOnly={showingSavedKey}
+                    onFocus={() => {
+                      if (hasLlmKey && !llmKeyEditing) {
+                        setLlmKeyEditing(true);
+                        setLlmApiKey("");
+                      }
+                    }}
                     onChange={(e) => setLlmApiKey(e.target.value)}
-                    placeholder={providerOption?.keyHint || "Paste API key"}
+                    onBlur={() => {
+                      if (!llmApiKey.trim()) setLlmKeyEditing(false);
+                    }}
+                    placeholder={showingSavedKey ? undefined : providerOption?.keyHint || "Paste API key"}
                     autoComplete="off"
                     className="mt-1.5 font-mono"
                   />
-                  {hasLlmKey && llmKeyMasked && (
+                  {hasLlmKey && (
                     <p className="mt-1.5 text-xs text-mute">
-                      Saved: <span className="font-mono">{llmKeyMasked}</span> — leave blank to keep.
+                      {showingSavedKey
+                        ? "API key saved — focus the field to replace it."
+                        : "Leave blank when saving to keep your current key."}
+                      {llmKeyMasked && showingSavedKey && (
+                        <>
+                          {" "}
+                          (<span className="font-mono">{llmKeyMasked}</span>)
+                        </>
+                      )}
                     </p>
                   )}
                 </div>

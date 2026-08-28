@@ -21,7 +21,7 @@ import {
 } from "@quickstart-ai/shared";
 import type { EvalCase } from "@quickstart-ai/eval";
 import { requireAuth } from "../auth.js";
-import { getProjectLlmRuntime } from "../project-llm.js";
+import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { env } from "../env.js";
 import { getRedis } from "../redis.js";
 
@@ -269,9 +269,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
       };
     }
 
-    const llmRuntime = getProjectLlmRuntime(project);
-    const embeddings = createEmbeddingsClient(llmRuntime);
-    const chat = createChatClient(llmRuntime);
+    const chatRuntime = getProjectChatRuntime(project);
+    const embeddingsRuntime = getProjectEmbeddingsRuntime(project);
+    const embeddings = createEmbeddingsClient(embeddingsRuntime);
+    const chat = createChatClient(chatRuntime);
     const history = session.messages.slice(-10).map((m) => ({
       role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
       content: m.content,

@@ -39,7 +39,8 @@ export function setAuthCookie(reply: FastifyReply, token: string) {
 export async function requireAuth(req: FastifyRequest) {
   const header = req.headers.authorization;
   const bearer = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
-  const token = bearer || req.cookies.token;
+  const queryToken = (req.query as { token?: string }).token;
+  const token = bearer || req.cookies.token || queryToken;
   if (!token) throw new UnauthorizedError("Please login");
 
   try {
@@ -59,8 +60,19 @@ export async function requireAdmin(req: FastifyRequest) {
   if (req.user?.role !== "ADMIN") throw new ForbiddenError("Admin only");
 }
 
+export interface ClientAuthOptions {
+  /**
+   * Record lastUsedAt on the credential. Defaults to true.
+   *
+   * High-frequency, low-value endpoints (typing pings) turn this off: the write
+   * is one Postgres round trip per call, and "last used" is not meaningfully
+   * more accurate for being updated by a keystroke than by a message.
+   */
+  touch?: boolean;
+}
+
 /** Widget / public chat auth via client_id (+ optional secret for server-to-server). */
-export async function requireClient(req: FastifyRequest) {
+export async function requireClient(req: FastifyRequest, opts: ClientAuthOptions = {}) {
   const clientId =
     (req.headers["x-client-id"] as string | undefined) ||
     (req.query as { clientId?: string }).clientId;
@@ -92,10 +104,12 @@ export async function requireClient(req: FastifyRequest) {
   );
   if (!rl.allowed) throw new ForbiddenError("Rate limit exceeded for client");
 
-  await prisma.apiCredential.update({
-    where: { id: cred.id },
-    data: { lastUsedAt: new Date() },
-  });
+  if (opts.touch !== false) {
+    await prisma.apiCredential.update({
+      where: { id: cred.id },
+      data: { lastUsedAt: new Date() },
+    });
+  }
 
   req.projectId = cred.projectId;
   req.clientId = clientId;

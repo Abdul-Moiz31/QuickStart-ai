@@ -43,16 +43,25 @@ export interface WidgetConfig {
 }
 
 export interface ChatMessage {
-  role: "user" | "assistant";
+  /** "agent" is a human replying during a handoff, rendered distinctly from the bot. */
+  role: "user" | "assistant" | "agent";
   content: string;
   streaming?: boolean;
 }
 
 export type StreamEvent =
-  | { type: "meta"; sessionId: string; confidence?: string }
+  | { type: "meta"; sessionId: string; confidence?: string; humanActive?: boolean }
   | { type: "token"; content: string }
-  | { type: "done"; toolsUsed?: string[] }
+  | { type: "done"; toolsUsed?: string[]; handoffPending?: boolean }
   | { type: "error"; message: string };
+
+/** Pushed on the per-session channel while a human agent is involved. */
+export type SessionLiveEvent =
+  | { type: "connected"; humanActive: boolean }
+  | { type: "agent_message"; content: string; at: string }
+  | { type: "human_active" }
+  | { type: "human_released" }
+  | { type: "agent_typing" };
 
 export class ChatRequestError extends Error {
   constructor(
@@ -238,5 +247,72 @@ export class QuickStartClient {
       for (const line of lines) flushLine(line);
     }
     if (buffer.trim()) flushLine(buffer.trim());
+  }
+
+  async getSessionMessages(sessionId: string) {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/messages`);
+    url.searchParams.set("clientId", this.opts.clientId);
+    const res = await fetch(url.toString(), { headers: this.headers() });
+    if (!res.ok) throw await parseErrorResponse(res);
+    return res.json() as Promise<{
+      success: boolean;
+      humanActive: boolean;
+      humanPending: boolean;
+      messages: { role: ChatMessage["role"]; content: string }[];
+    }>;
+  }
+
+  subscribeToSession(
+    sessionId: string,
+    onEvent: (event: SessionLiveEvent) => void,
+    onReconnect?: () => void,
+  ): () => void {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/stream`);
+    url.searchParams.set("clientId", this.opts.clientId);
+
+    let source: EventSource | null = new EventSource(url.toString());
+    let sawOpen = false;
+
+    source.onopen = () => {
+      if (sawOpen) onReconnect?.();
+      sawOpen = true;
+    };
+    source.onmessage = (ev: MessageEvent<string>) => {
+      try {
+        onEvent(JSON.parse(ev.data) as SessionLiveEvent);
+      } catch {
+        // ignore malformed frames
+      }
+    };
+
+    return () => {
+      source?.close();
+      source = null;
+    };
+  }
+
+  async requestHandoff(sessionId: string) {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/request-handoff`);
+    url.searchParams.set("clientId", this.opts.clientId);
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+    return res.json() as Promise<{
+      success: boolean;
+      humanPending: boolean;
+      humanActive?: boolean;
+    }>;
+  }
+
+  async notifyVisitorTyping(sessionId: string): Promise<void> {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/typing`);
+    url.searchParams.set("clientId", this.opts.clientId);
+    await fetch(url.toString(), {
+      method: "POST",
+      headers: { "X-Client-Id": this.opts.clientId },
+    });
   }
 }

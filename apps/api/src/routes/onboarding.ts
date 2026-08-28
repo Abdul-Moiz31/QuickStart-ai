@@ -231,7 +231,7 @@ export async function onboardingRoutes(app: FastifyInstance) {
       const systemPrompt = `You are the support chatbot for ${merged.businessName} (${merged.businessIndustry}).
 Website: ${merged.businessWebsite || "n/a"}
 About: ${merged.businessDescription}
-Answer only from the business knowledge provided. Be clear and helpful.`;
+Answer only from the business knowledge provided. Be clear, helpful, and brief (widget-sized replies).`;
 
       await prisma.project.update({
         where: { id: project.id },
@@ -324,7 +324,7 @@ Answer only from the business knowledge provided. Be clear and helpful.`;
     const systemPrompt = `You are the support chatbot for ${body.businessName} (${body.businessIndustry}).
 Website: ${body.businessWebsite || "n/a"}
 About: ${body.businessDescription}
-Answer only from the business knowledge provided. Be clear and helpful.`;
+Answer only from the business knowledge provided. Be clear, helpful, and brief (widget-sized replies).`;
 
     const clientId = generateClientId();
     const clientSecret = generateClientSecret();
