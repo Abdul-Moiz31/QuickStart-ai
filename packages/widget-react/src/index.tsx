@@ -5,7 +5,9 @@ import {
   ChatRequestError,
   QuickStartClient,
   resolveWidgetSurface,
+  TriggerEngine,
   type ChatMessage,
+  type ProactiveTriggersConfig,
   type WidgetTheme,
 } from "@quickstart-ai/widget-core";
 
@@ -408,6 +410,8 @@ export function ChatBot({
   const [open, setOpen] = useState(false);
   const [started, setStarted] = useState(false);
   const [projectName, setProjectName] = useState("QuickStart AI");
+  const [proactiveTriggers, setProactiveTriggers] = useState<ProactiveTriggersConfig | null>(null);
+  const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [sessionId, setSessionId] = useState("");
@@ -445,11 +449,28 @@ export function ChatBot({
         if (cfg?.position === "left" || cfg?.position === "right") {
           setResolvedPosition(cfg.position);
         }
+        if (cfg?.proactiveTriggers?.rules?.length) {
+          setProactiveTriggers(cfg.proactiveTriggers);
+        }
       })
       .catch(() => {
         // keep defaults
       });
   }, [client, id]);
+
+  // Torn down once the visitor engages (started) — no need to keep watching page
+  // signals for someone who is already talking to the bot.
+  useEffect(() => {
+    if (!proactiveTriggers || started) return;
+    const engine = new TriggerEngine(proactiveTriggers, {
+      onFire: (rule) => {
+        setProactiveMessage(rule.message);
+        setOpen(true);
+      },
+    });
+    engine.start();
+    return () => engine.stop();
+  }, [proactiveTriggers, started]);
 
   useEffect(() => {
     if (primaryColorProp) setResolvedPrimary(primaryColorProp);
@@ -533,6 +554,11 @@ export function ChatBot({
       const res = await client.createSession(name.trim(), email.trim());
       setSessionId(res.session.id);
       setStarted(true);
+      // Cosmetic-only until now — the proactive line becomes the real conversation
+      // opener the moment the visitor actually engages.
+      if (proactiveMessage) {
+        setMessages((m) => [{ role: "assistant", content: proactiveMessage }, ...m.slice(1)]);
+      }
     } catch (e) {
       console.error(e);
       alert("Could not start chat session");
@@ -729,6 +755,24 @@ export function ChatBot({
 
         {!started ? (
           <div className="qs-widget-start-form" style={{ background: surface.panel.bg }}>
+            {proactiveMessage && (
+              <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div
+                  style={{
+                    maxWidth: "88%",
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    borderRadius: 16,
+                    borderTopLeftRadius: 4,
+                    background: surface.assistant.bg,
+                    color: surface.assistant.text,
+                  }}
+                >
+                  {proactiveMessage}
+                </div>
+              </div>
+            )}
             <p style={{ color: "#5C5A56", margin: 0, fontSize: 14 }}>Start a conversation</p>
             <input
               placeholder="Your name"
