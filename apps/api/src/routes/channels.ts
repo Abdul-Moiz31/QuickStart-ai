@@ -12,6 +12,7 @@ import {
   verifyMetaSignature,
   type WhatsappConfig,
 } from "../channels/whatsapp.js";
+import { parseInstagramWebhook, sendInstagramText, type InstagramConfig } from "../channels/instagram.js";
 
 interface TwilioConfig {
   accountSid: string;
@@ -37,19 +38,31 @@ async function findWhatsappIntegration(phoneNumberId: string) {
   return { projectId: row.projectId, config };
 }
 
+async function findInstagramIntegration(pageId: string) {
+  const row = await prisma.integrationConnection.findFirst({
+    where: { provider: "instagram", externalId: pageId, enabled: true },
+  });
+  if (!row) return null;
+  const config = JSON.parse(decryptSecret(row.configEnc)) as InstagramConfig;
+  return { projectId: row.projectId, config };
+}
+
 /**
  * One-time app-level handshake: Meta doesn't know which project this is for
- * (there's no phone number in the query string), so it's matched by scanning
- * enabled WhatsApp integrations for a verify token match. Only runs at setup
- * time, not per message, so the O(n) decrypt scan is fine.
+ * (there's no phone number/page id in the query string), so it's matched by
+ * scanning enabled integrations of that provider for a verify token match.
+ * Only runs at setup time, not per message, so the O(n) decrypt scan is fine.
  */
-async function findIntegrationByVerifyToken(token: string) {
+async function findIntegrationByVerifyToken<T extends { verifyToken: string }>(
+  provider: "whatsapp" | "instagram",
+  token: string,
+): Promise<T | null> {
   const rows = await prisma.integrationConnection.findMany({
-    where: { provider: "whatsapp", enabled: true },
+    where: { provider, enabled: true },
   });
   for (const row of rows) {
     try {
-      const config = JSON.parse(decryptSecret(row.configEnc)) as WhatsappConfig;
+      const config = JSON.parse(decryptSecret(row.configEnc)) as T;
       if (config.verifyToken === token) return config;
     } catch {
       // skip rows that fail to decrypt
@@ -132,7 +145,7 @@ export async function channelsRoutes(app: FastifyInstance) {
     if (mode !== "subscribe" || !token) {
       return reply.status(403).send("Forbidden");
     }
-    const match = await findIntegrationByVerifyToken(token);
+    const match = await findIntegrationByVerifyToken<WhatsappConfig>("whatsapp", token);
     if (!match) {
       req.log.warn("WhatsApp webhook verification: no matching verify token");
       return reply.status(403).send("Forbidden");
@@ -219,6 +232,89 @@ export async function channelsRoutes(app: FastifyInstance) {
             req.log.error({ err }, "WhatsApp reply send failed"),
           );
         }
+      }
+
+      return reply.status(200).send("OK");
+    });
+  });
+
+  app.get("/api/v1/channels/instagram", async (req, reply) => {
+    const query = req.query as Record<string, string>;
+    const mode = query["hub.mode"];
+    const token = query["hub.verify_token"];
+    const challenge = query["hub.challenge"];
+    if (mode !== "subscribe" || !token) {
+      return reply.status(403).send("Forbidden");
+    }
+    const match = await findIntegrationByVerifyToken<InstagramConfig>("instagram", token);
+    if (!match) {
+      req.log.warn("Instagram webhook verification: no matching verify token");
+      return reply.status(403).send("Forbidden");
+    }
+    return reply.status(200).type("text/plain").send(challenge ?? "");
+  });
+
+  // Same raw-body requirement as WhatsApp — see that route's comment above.
+  await app.register(async (scoped) => {
+    scoped.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
+      done(null, body);
+    });
+
+    scoped.post("/api/v1/channels/instagram", async (req, reply) => {
+      const raw = req.body as Buffer;
+      let payload: unknown;
+      try {
+        payload = JSON.parse(raw.toString("utf8"));
+      } catch {
+        return reply.status(400).send("Bad request");
+      }
+
+      const parsed = parseInstagramWebhook(payload);
+      if (!parsed) {
+        return reply.status(200).send("OK");
+      }
+
+      const integration = await findInstagramIntegration(parsed.pageId);
+      if (!integration) {
+        req.log.warn({ pageId: parsed.pageId }, "Instagram webhook: no project configured for this page");
+        return reply.status(200).send("OK");
+      }
+
+      const signature = req.headers["x-hub-signature-256"] as string | undefined;
+      if (!verifyMetaSignature(raw, signature, integration.config.appSecret)) {
+        req.log.warn({ pageId: parsed.pageId }, "Instagram webhook: signature verification failed");
+        return reply.status(403).send("Forbidden");
+      }
+
+      if (!parsed.text) {
+        await sendInstagramText(
+          integration.config,
+          parsed.from,
+          "Sorry, I can only understand text messages right now — could you type your question?",
+        ).catch((err) => req.log.error({ err }, "Instagram fallback send failed"));
+        return reply.status(200).send("OK");
+      }
+
+      const result = await runChannelMessage({
+        projectId: integration.projectId,
+        channel: "instagram",
+        externalId: parsed.from,
+        message: parsed.text,
+        log: req.log,
+        rateLimit: { key: `ig:${parsed.from}`, limit: 20, windowMs: 60_000 },
+      });
+
+      let replyText: string | null = null;
+      if (result.kind === "answer") replyText = result.answer;
+      else if (result.kind === "rate_limited") replyText = "You're sending messages too quickly. Please wait a moment.";
+      else if (result.kind === "plan_limit") replyText = "This business has reached its daily message limit. Please try again tomorrow.";
+      else if (result.kind === "error") replyText = result.message;
+      // "human_active" and "no_project" send nothing back.
+
+      if (replyText) {
+        await sendInstagramText(integration.config, parsed.from, replyText).catch((err) =>
+          req.log.error({ err }, "Instagram reply send failed"),
+        );
       }
 
       return reply.status(200).send("OK");

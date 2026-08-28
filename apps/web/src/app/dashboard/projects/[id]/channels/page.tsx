@@ -7,7 +7,7 @@ import { api, getStoredToken, resolvePublicApiUrl } from "@/lib/api";
 import { DashBtn, DashField, DashPanel } from "@/components/dashboard/DashboardShell";
 import { HelpDetails } from "@/components/integrations/IntegrationsSections";
 
-type ChannelKind = "sms" | "whatsapp" | null;
+type ChannelKind = "sms" | "whatsapp" | "instagram" | null;
 
 interface ChannelRow {
   id: string;
@@ -19,11 +19,12 @@ interface ChannelRow {
 const CHANNEL_OPTIONS: Array<{ kind: ChannelKind; label: string; hint: string }> = [
   { kind: "sms", label: "SMS", hint: "Answer texts on a Twilio number" },
   { kind: "whatsapp", label: "WhatsApp", hint: "Answer messages on a WhatsApp Business number" },
+  { kind: "instagram", label: "Instagram", hint: "Answer DMs on your Instagram business account" },
 ];
 
-const CHANNEL_LABEL: Record<string, string> = { sms: "SMS", whatsapp: "WhatsApp" };
+const CHANNEL_LABEL: Record<string, string> = { sms: "SMS", whatsapp: "WhatsApp", instagram: "Instagram" };
 
-function webhookUrlFor(kind: "sms" | "whatsapp"): string {
+function webhookUrlFor(kind: "sms" | "whatsapp" | "instagram"): string {
   return `${resolvePublicApiUrl()}/api/v1/channels/${kind}`;
 }
 
@@ -37,6 +38,12 @@ const SETUP_STEPS: Record<string, string[]> = {
     "Meta App Dashboard → WhatsApp → Configuration → Webhook.",
     "Paste the URL below as the callback URL, and the Verify Token you choose below.",
     "Copy the Phone Number ID and a System User access token from WhatsApp → API Setup.",
+    "Copy the App Secret from App Settings → Basic.",
+  ],
+  instagram: [
+    "Meta App Dashboard → Instagram → Configuration → Webhook.",
+    "Paste the URL below as the callback URL, and the Verify Token you choose below.",
+    "Copy your Instagram-linked Page ID and a Page access token from Messenger → API Setup (instagram_manage_messages permission).",
     "Copy the App Secret from App Settings → Basic.",
   ],
 };
@@ -63,7 +70,11 @@ export default function ChannelsPage() {
     const res = await api<{ integrations: ChannelRow[] }>(`/api/v1/projects/${id}/integrations`, {
       token,
     });
-    setChannels(res.integrations.filter((i) => i.provider === "sms" || i.provider === "whatsapp"));
+    setChannels(
+      res.integrations.filter(
+        (i) => i.provider === "sms" || i.provider === "whatsapp" || i.provider === "instagram",
+      ),
+    );
   }, [id]);
 
   useEffect(() => {
@@ -72,7 +83,7 @@ export default function ChannelsPage() {
 
   function startAdd(kind: ChannelKind) {
     setAdding(kind);
-    setLabel(kind === "sms" ? "SMS" : "WhatsApp");
+    setLabel(kind === "sms" ? "SMS" : kind === "whatsapp" ? "WhatsApp" : "Instagram");
     setAccountSid("");
     setAuthToken("");
     setFromNumber("");
@@ -93,7 +104,9 @@ export default function ChannelsPage() {
       const body =
         adding === "sms"
           ? { label, accountSid, authToken, fromNumber }
-          : { label, phoneNumberId, accessToken, appSecret, verifyToken };
+          : adding === "whatsapp"
+            ? { label, phoneNumberId, accessToken, appSecret, verifyToken }
+            : { label, pageId: phoneNumberId, pageAccessToken: accessToken, appSecret, verifyToken };
       await api(`/api/v1/projects/${id}/integrations/${adding}`, {
         method: "POST",
         token,
@@ -211,7 +224,9 @@ export default function ChannelsPage() {
                 ) : (
                   <>
                     <div>
-                      <label className="text-sm font-medium text-ink">Phone Number ID</label>
+                      <label className="text-sm font-medium text-ink">
+                        {adding === "whatsapp" ? "Phone Number ID" : "Page ID"}
+                      </label>
                       <DashField
                         required
                         value={phoneNumberId}
@@ -220,7 +235,9 @@ export default function ChannelsPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-ink">Access token</label>
+                      <label className="text-sm font-medium text-ink">
+                        {adding === "whatsapp" ? "Access token" : "Page access token"}
+                      </label>
                       <DashField
                         required
                         type="password"

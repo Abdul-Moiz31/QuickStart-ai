@@ -12,6 +12,7 @@ import {
   createEventRuleSchema,
   createSlackIntegrationSchema,
   createDiscordIntegrationSchema,
+  createInstagramIntegrationSchema,
   createTwilioIntegrationSchema,
   createWhatsappIntegrationSchema,
   createWebhookSchema,
@@ -367,6 +368,53 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
         description: row.description,
         enabled: row.enabled,
         webhookUrl: `${env.publicApiUrl.replace(/\/$/, "")}/api/v1/channels/whatsapp`,
+      },
+    };
+  });
+
+  app.post("/api/v1/projects/:id/integrations/instagram", async (req) => {
+    await requireAuth(req);
+    const { id } = req.params as { id: string };
+    await requireProject(id, req.user!.id);
+    const body = createInstagramIntegrationSchema.parse(req.body);
+
+    const count = await prisma.integrationConnection.count({ where: { projectId: id } });
+    if (count >= EVENT_LIMITS.integrationsPerProject) {
+      return {
+        success: false,
+        message: `Maximum ${EVENT_LIMITS.integrationsPerProject} integrations per project`,
+      };
+    }
+
+    const row = await prisma.integrationConnection.create({
+      data: {
+        projectId: id,
+        provider: "instagram",
+        label: body.label ?? "Instagram",
+        description: body.description ?? "",
+        configEnc: encryptSecret(
+          JSON.stringify({
+            pageId: body.pageId,
+            pageAccessToken: body.pageAccessToken,
+            appSecret: body.appSecret,
+            verifyToken: body.verifyToken,
+          }),
+        ),
+        events: [],
+        enabled: body.enabled ?? true,
+        externalId: body.pageId,
+      },
+    });
+
+    return {
+      success: true,
+      integration: {
+        id: row.id,
+        provider: row.provider,
+        label: row.label,
+        description: row.description,
+        enabled: row.enabled,
+        webhookUrl: `${env.publicApiUrl.replace(/\/$/, "")}/api/v1/channels/instagram`,
       },
     };
   });

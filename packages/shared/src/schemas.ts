@@ -178,6 +178,16 @@ export const createTwilioIntegrationSchema = z.object({
   enabled: z.boolean().optional().default(true),
 });
 
+export const createInstagramIntegrationSchema = z.object({
+  label: z.string().min(1).max(120).optional().default("Instagram"),
+  description: z.string().max(500).optional().default(""),
+  pageId: z.string().min(1).max(200),
+  pageAccessToken: z.string().min(1).max(4000),
+  appSecret: z.string().min(1).max(500),
+  verifyToken: z.string().min(1).max(200),
+  enabled: z.boolean().optional().default(true),
+});
+
 export const updateIntegrationSchema = z.object({
   label: z.string().min(1).max(120).optional(),
   description: z.string().max(500).optional(),
