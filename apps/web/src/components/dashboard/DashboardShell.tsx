@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import {
+  BarChart3,
   Bell,
   BookOpen,
   ChevronDown,
@@ -117,6 +118,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     { id: "knowledge", label: "Knowledge", icon: FileText },
     { id: "conversations", label: "Conversations", icon: MessageSquare },
     { id: "inbox", label: "Inbox", icon: Headset },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "eval", label: "Eval", icon: FlaskConical },
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "embed", label: "Embed", icon: Code2 },
