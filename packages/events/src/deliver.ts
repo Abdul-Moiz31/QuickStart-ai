@@ -7,7 +7,7 @@ import { formatSlackMessage, postToSlack } from "./deliver/slack.js";
 import { formatDiscordMessage, postToDiscord } from "./deliver/discord.js";
 import { nextRetryDelay, postWebhook } from "./deliver/webhook.js";
 import { verifyTwilioCredentials } from "./deliver/twilio.js";
-import { verifyWhatsappCredentials } from "./deliver/whatsapp.js";
+import { verifyInstagramCredentials, verifyWhatsappCredentials } from "./deliver/whatsapp.js";
 
 async function deliverIntegration(
   provider: string,
@@ -32,6 +32,10 @@ async function deliverIntegration(
   if (provider === "whatsapp") {
     const config = JSON.parse(decryptSecret(configEnc)) as { phoneNumberId: string; accessToken: string };
     return verifyWhatsappCredentials(config.phoneNumberId, config.accessToken);
+  }
+  if (provider === "instagram") {
+    const config = JSON.parse(decryptSecret(configEnc)) as { pageId: string; pageAccessToken: string };
+    return verifyInstagramCredentials(config.pageId, config.pageAccessToken);
   }
   throw new Error(`Unknown integration provider: ${provider}`);
 }
