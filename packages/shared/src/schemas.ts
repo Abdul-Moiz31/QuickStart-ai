@@ -17,6 +17,28 @@ export const createProjectSchema = z.object({
   category: z.string().max(120).optional(),
 });
 
+export const triggerConditionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("time_on_page"), seconds: z.number().int().min(1).max(3600) }),
+  z.object({ type: z.literal("url_match"), pattern: z.string().min(1).max(200) }),
+  z.object({ type: z.literal("exit_intent") }),
+  z.object({ type: z.literal("scroll_depth"), percent: z.number().int().min(1).max(100) }),
+  z.object({ type: z.literal("idle"), seconds: z.number().int().min(1).max(3600) }),
+]);
+
+export const proactiveTriggerRuleSchema = z.object({
+  id: z.string().min(1).max(60),
+  message: z.string().min(1).max(500),
+  enabled: z.boolean().optional().default(true),
+  /** All conditions must hold for the rule to fire ("AND" combinators). */
+  conditions: z.array(triggerConditionSchema).min(1).max(5),
+});
+
+export const proactiveTriggersConfigSchema = z.object({
+  /** Caps total proactive fires per visitor per day, across all rules. */
+  maxFiresPerDay: z.number().int().min(1).max(50).optional().default(3),
+  rules: z.array(proactiveTriggerRuleSchema).max(20),
+});
+
 export const updateProjectSchema = createProjectSchema.partial().extend({
   allowedOrigins: z.array(z.string().url()).optional(),
   widgetTheme: z.enum(["primary", "secondary", "tech", "professional"]).optional(),
@@ -27,6 +49,7 @@ export const updateProjectSchema = createProjectSchema.partial().extend({
   toolsWebSearch: z.boolean().optional(),
   toolsHumanHandoff: z.boolean().optional(),
   toolsLeadCapture: z.boolean().optional(),
+  proactiveTriggers: proactiveTriggersConfigSchema.optional(),
 });
 
 export const updateLlmSettingsSchema = z.object({
@@ -190,3 +213,6 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
+export type TriggerCondition = z.infer<typeof triggerConditionSchema>;
+export type ProactiveTriggerRule = z.infer<typeof proactiveTriggerRuleSchema>;
+export type ProactiveTriggersConfig = z.infer<typeof proactiveTriggersConfigSchema>;

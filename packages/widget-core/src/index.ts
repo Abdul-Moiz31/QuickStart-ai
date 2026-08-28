@@ -1,3 +1,6 @@
+import type { ProactiveTriggersConfig } from "./triggers/index.js";
+export * from "./triggers/index.js";
+
 export type WidgetTheme = "primary" | "secondary" | "tech" | "professional";
 
 export const THEME_COLORS: Record<WidgetTheme, { bg: string; accent: string; text: string }> = {
@@ -156,6 +159,7 @@ export class QuickStartClient {
         position: string;
         primaryColor?: string;
         welcomeMessage?: string;
+        proactiveTriggers?: ProactiveTriggersConfig;
       };
     }>;
   }

@@ -1,4 +1,10 @@
-import { QuickStartClient, resolveWidgetColors, type WidgetTheme } from "@quickstart-ai/widget-core";
+import {
+  QuickStartClient,
+  resolveWidgetColors,
+  TriggerEngine,
+  type ProactiveTriggerRule,
+  type WidgetTheme,
+} from "@quickstart-ai/widget-core";
 
 export interface MountOptions {
   clientId: string;
@@ -46,6 +52,8 @@ export function mountQuickStartChat(opts: MountOptions) {
   let sessionId = "";
   let unsubscribe: (() => void) | null = null;
   let loading = false;
+  let triggerEngine: TriggerEngine | null = null;
+  let proactiveMessage: string | null = null;
 
   const toggle = el("button", { type: "button", "aria-label": "Open chat" }, ["💬"]);
   Object.assign(toggle.style, {
@@ -126,7 +134,19 @@ export function mountQuickStartChat(opts: MountOptions) {
     }),
   );
 
-  form.append(el("p", { text: "Start a conversation" }), nameInput, emailInput, startBtn);
+  const proactiveBubble = el("div");
+  Object.assign(proactiveBubble.style, {
+    display: "none",
+    maxWidth: "88%",
+    padding: "10px 12px",
+    borderRadius: "14px",
+    background: "#e2e8f0",
+    color: "#0f172a",
+    fontSize: "14px",
+    lineHeight: "1.45",
+  });
+
+  form.append(proactiveBubble, el("p", { text: "Start a conversation" }), nameInput, emailInput, startBtn);
 
   const composer = el("div");
   Object.assign(composer.style, {
@@ -192,11 +212,36 @@ export function mountQuickStartChat(opts: MountOptions) {
     body.scrollTop = body.scrollHeight;
   }
 
+  function openPanel() {
+    open = true;
+    panel.style.display = "flex";
+    toggle.textContent = "×";
+  }
+
   toggle.onclick = () => {
     open = !open;
     panel.style.display = open ? "flex" : "none";
     toggle.textContent = open ? "×" : "💬";
   };
+
+  function onTriggerFire(rule: ProactiveTriggerRule) {
+    proactiveMessage = rule.message;
+    proactiveBubble.textContent = rule.message;
+    proactiveBubble.style.display = "block";
+    openPanel();
+  }
+
+  client
+    .getConfig()
+    .then((res) => {
+      const rules = res.config.proactiveTriggers?.rules;
+      if (!rules?.length) return;
+      triggerEngine = new TriggerEngine(res.config.proactiveTriggers!, { onFire: onTriggerFire });
+      triggerEngine.start();
+    })
+    .catch(() => {
+      // Triggers are an enhancement; a config fetch failure should not block the widget.
+    });
 
   startBtn.onclick = async () => {
     if (loading) return;
@@ -207,7 +252,10 @@ export function mountQuickStartChat(opts: MountOptions) {
       sessionId = res.session.id;
       form.style.display = "none";
       composer.style.display = "flex";
-      addBubble("assistant", "Hello! How can I assist you today?");
+      triggerEngine?.stop();
+      // Cosmetic-only until now — the proactive line becomes the real conversation
+      // opener the moment the visitor actually engages.
+      addBubble("assistant", proactiveMessage ?? "Hello! How can I assist you today?");
       subscribe();
     } catch (e) {
       console.error(e);
@@ -264,6 +312,8 @@ export function mountQuickStartChat(opts: MountOptions) {
     destroy: () => {
       unsubscribe?.();
       unsubscribe = null;
+      triggerEngine?.stop();
+      triggerEngine = null;
       toggle.remove();
       panel.remove();
     },
