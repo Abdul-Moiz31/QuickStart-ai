@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "@quickstart-ai/db";
 import { BUILTIN_EVENT_TYPES } from "@quickstart-ai/shared";
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
@@ -151,6 +152,45 @@ export async function deliverProjectEvent(eventId: string): Promise<void> {
       }
     }),
   );
+}
+
+function buildTestPingEnvelope(projectId: string, destination: string) {
+  return buildEventEnvelope({
+    id: randomUUID(),
+    type: BUILTIN_EVENT_TYPES.TEST_PING,
+    name: "Test Ping",
+    description: "This is a test event from QuickStart AI Integrations.",
+    projectId,
+    createdAt: new Date(),
+    data: {
+      test: true,
+      message: "This is a test event from QuickStart AI Integrations.",
+      destination,
+    },
+  });
+}
+
+/** Post a test ping directly to one integration (bypasses the event queue and subscriptions). */
+export async function deliverTestPingToIntegration(opts: {
+  projectId: string;
+  provider: string;
+  configEnc: string;
+  label: string;
+}): Promise<number> {
+  const envelope = buildTestPingEnvelope(opts.projectId, opts.label);
+  return deliverIntegration(opts.provider, opts.configEnc, envelope);
+}
+
+/** Post a test ping directly to one webhook endpoint. */
+export async function deliverTestPingToWebhook(opts: {
+  projectId: string;
+  url: string;
+  secretEnc: string;
+  label: string;
+}): Promise<number> {
+  const envelope = buildTestPingEnvelope(opts.projectId, opts.label);
+  const secret = decryptSecret(opts.secretEnc);
+  return postWebhook(opts.url, secret, envelope, `test-${randomUUID()}`);
 }
 
 export async function retryDelivery(deliveryId: string): Promise<void> {

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "@quickstart-ai/db";
 import { BUILTIN_EVENT_TYPES } from "@quickstart-ai/shared";
 import { detectHeuristicEvents } from "./heuristics.js";
@@ -103,7 +104,9 @@ export async function emitTestEvent(opts: {
         payload: {
           test: true,
           message: "This is a test event from QuickStart AI Integrations.",
+          nonce: randomUUID(),
         },
+        idempotencyKey: `test:${opts.projectId}:${randomUUID()}`,
       },
     ],
     redisUrl: opts.redisUrl,

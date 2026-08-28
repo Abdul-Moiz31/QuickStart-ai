@@ -3,10 +3,12 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@quickstart-ai/db";
 import {
   assertPublicHttpsUrl,
-  emitTestEvent,
+  deliverTestPingToIntegration,
+  deliverTestPingToWebhook,
   maskUrl,
 } from "@quickstart-ai/events";
 import {
+  AppError,
   createEventRuleSchema,
   createSlackIntegrationSchema,
   createDiscordIntegrationSchema,
@@ -20,7 +22,6 @@ import {
 } from "@quickstart-ai/shared";
 import { encryptSecret } from "@quickstart-ai/shared/secrets";
 import { requireAuth } from "../auth.js";
-import { env } from "../env.js";
 
 async function requireProject(projectId: string, ownerId: string) {
   const project = await prisma.project.findFirst({
@@ -156,12 +157,18 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
     });
     if (!existing) throw new NotFoundError("Webhook not found");
 
-    const eventId = await emitTestEvent({
-      projectId: id,
-      type: "test.ping",
-      redisUrl: env.redisUrl,
-    });
-    return { success: true, eventId, message: "Test event queued for delivery" };
+    try {
+      const code = await deliverTestPingToWebhook({
+        projectId: id,
+        url: existing.url,
+        secretEnc: existing.secretEnc,
+        label: existing.label,
+      });
+      return { success: true, message: `Test delivered (${code})` };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Test delivery failed";
+      throw new AppError(message, 502, "DELIVERY_FAILED");
+    }
   });
 
   app.get("/api/v1/projects/:id/integrations", async (req) => {
@@ -320,12 +327,18 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
     });
     if (!existing) throw new NotFoundError("Integration not found");
 
-    const eventId = await emitTestEvent({
-      projectId: id,
-      type: "test.ping",
-      redisUrl: env.redisUrl,
-    });
-    return { success: true, eventId, message: "Test event queued" };
+    try {
+      const code = await deliverTestPingToIntegration({
+        projectId: id,
+        provider: existing.provider,
+        configEnc: existing.configEnc,
+        label: existing.label,
+      });
+      return { success: true, message: `Test delivered (${code})` };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Test delivery failed";
+      throw new AppError(message, 502, "DELIVERY_FAILED");
+    }
   });
 
   app.get("/api/v1/projects/:id/event-rules", async (req) => {
