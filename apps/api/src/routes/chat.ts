@@ -101,6 +101,7 @@ export async function chatRoutes(app: FastifyInstance) {
         primaryColor: project.primaryColor,
         welcomeMessage: project.welcomeMessage,
         description: project.description,
+        proactiveTriggers: project.proactiveTriggers,
       },
     };
   });
