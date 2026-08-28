@@ -27,10 +27,11 @@ export const updateProjectSchema = createProjectSchema.partial().extend({
   toolsWebSearch: z.boolean().optional(),
   toolsHumanHandoff: z.boolean().optional(),
   toolsLeadCapture: z.boolean().optional(),
+  sessionReviewEnabled: z.boolean().optional(),
 });
 
 export const updateLlmSettingsSchema = z.object({
-  llmProvider: z.enum(["platform", "openrouter", "openai", "google", "anthropic", "xai"]),
+  llmProvider: z.enum(["platform", "openrouter", "openai", "google", "anthropic", "xai", "groq"]),
   useOwnLlmKey: z.boolean(),
   /** Preset model id from provider catalog */
   llmModel: z.string().max(120).optional(),

@@ -108,8 +108,10 @@ export default function InboxPage() {
   // with the session cookie.
   useEffect(() => {
     if (!projectId) return;
-    const url = `${resolvePublicApiUrl()}/api/v1/projects/${projectId}/inbox/stream`;
-    const source = new EventSource(url, { withCredentials: true });
+    const streamUrl = new URL(`${resolvePublicApiUrl()}/api/v1/projects/${projectId}/inbox/stream`);
+    const token = getStoredToken();
+    if (token) streamUrl.searchParams.set("token", token);
+    const source = new EventSource(streamUrl.toString(), { withCredentials: true });
 
     source.onmessage = (ev: MessageEvent<string>) => {
       let event: { type: string; sessionId?: string; content?: string };
@@ -243,14 +245,14 @@ export default function InboxPage() {
         <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">{error}</p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <aside className="rounded-xl border border-ink/[0.08] bg-white">
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-stretch">
+        <aside className="flex max-h-[calc(100vh-11rem)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-ink/[0.08] bg-white">
           {rows.length === 0 ? (
             <p className="p-6 text-center text-sm text-ink/50">
               Nothing escalated yet. Conversations appear here the moment the bot hands one off.
             </p>
           ) : (
-            <ul className="divide-y divide-ink/[0.06]">
+            <ul className="divide-y divide-ink/[0.06] overflow-y-auto">
               {rows.map((row) => (
                 <li key={row.id}>
                   <button
@@ -293,7 +295,7 @@ export default function InboxPage() {
           )}
         </aside>
 
-        <section className="flex min-h-[420px] flex-col rounded-xl border border-ink/[0.08] bg-white">
+        <section className="flex h-[calc(100vh-11rem)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-ink/[0.08] bg-white">
           {!active ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
               <Headset className="h-6 w-6 text-ink/25" />
@@ -301,7 +303,7 @@ export default function InboxPage() {
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/[0.08] p-3">
+              <div className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-ink/[0.08] bg-white p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{active.visitorName}</p>
                   <p className="truncate text-xs text-ink/55">{active.visitorEmail}</p>
@@ -328,7 +330,7 @@ export default function InboxPage() {
                 )}
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                 {transcript.map((m, i) => {
                   const isVisitor = m.role === "user";
                   const isAgent = m.role === "agent";
@@ -363,7 +365,10 @@ export default function InboxPage() {
                 <div ref={endRef} />
               </div>
 
-              <form onSubmit={send} className="flex gap-2 border-t border-ink/[0.08] p-3">
+              <form
+                onSubmit={send}
+                className="flex shrink-0 gap-2 border-t border-ink/[0.08] bg-white p-3"
+              >
                 <input
                   value={reply}
                   onChange={(e) => {

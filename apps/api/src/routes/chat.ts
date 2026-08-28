@@ -1,5 +1,10 @@
-import type { FastifyInstance } from "fastify";
-import { connectMongo, getChatSessionModel, isValidSessionId, prisma } from "@quickstart-ai/db";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import {
+  connectMongo,
+  getChatSessionModel,
+  isValidSessionId,
+  prisma,
+} from "@quickstart-ai/db";
 import {
   type AgentStreamPreamble,
   createChatClient,
@@ -21,15 +26,17 @@ import {
   type PlanTier,
 } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
-import { getProjectLlmRuntime } from "../project-llm.js";
+import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { getRedis } from "../redis.js";
 import { publishInboxEvent } from "../realtime.js";
 import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
 import { env } from "../env.js";
+import { scheduleSessionReview } from "../session-review.js";
+import { beginSseReply, endSse, writeSseEvent } from "../sse.js";
 
-function streamError(reply: { raw: NodeJS.WritableStream }, message: string) {
-  reply.raw.write(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
-  reply.raw.end();
+function streamError(reply: FastifyReply, message: string) {
+  writeSseEvent(reply, { type: "error", message });
+  endSse(reply);
 }
 
 function userFacingChatError(err: unknown): string {
@@ -46,25 +53,37 @@ function userFacingChatError(err: unknown): string {
   return "Sorry, something went wrong. Please try again.";
 }
 
-/**
- * The handoff flag is set inline rather than from the event pipeline:
- * collectAndEmitChatEvents is fire-and-forget over BullMQ and dedupes on
- * type+sessionId — right for notifying Slack, wrong for state the next request reads.
- */
 function didEscalate(events: { type: string }[]): boolean {
   return events.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF);
 }
 
-/**
- * The guard at the top of the request describes the past: an agent can take over
- * while the model is still generating, so it is re-checked at write time.
- */
 async function isStillBotControlled(
   Session: ReturnType<typeof getChatSessionModel>,
   sessionId: string,
 ): Promise<boolean> {
   const fresh = await Session.findById(sessionId).select("humanActive").lean();
   return !fresh?.humanActive;
+}
+
+async function markSessionEscalated(
+  Session: ReturnType<typeof getChatSessionModel>,
+  sessionId: string,
+  projectId: string,
+  visitorName: string,
+  triggerMessage?: string,
+): Promise<void> {
+  const now = new Date();
+  await Session.updateOne(
+    { _id: sessionId, humanActive: { $ne: true } },
+    { $set: { humanPending: true, escalatedAt: now } },
+  );
+  void publishInboxEvent(projectId, {
+    type: "escalation",
+    sessionId,
+    visitorName,
+    message: triggerMessage,
+    at: now.toISOString(),
+  });
 }
 
 export async function chatRoutes(app: FastifyInstance) {
@@ -105,10 +124,6 @@ export async function chatRoutes(app: FastifyInstance) {
     };
   });
 
-  /**
-   * Transcript for one session. Pub/sub has no replay, so anything published while
-   * the widget's stream was down is only recoverable from here.
-   */
   app.get("/api/v1/chat/sessions/:sessionId/messages", async (req) => {
     await requireClient(req, { touch: false });
     const { sessionId } = req.params as { sessionId: string };
@@ -116,7 +131,7 @@ export async function chatRoutes(app: FastifyInstance) {
     await connectMongo();
     const Session = getChatSessionModel();
     const session = await Session.findById(sessionId)
-      .select("projectId humanActive messages")
+      .select("projectId humanActive humanPending messages")
       .lean();
     if (!session || session.projectId !== req.projectId) {
       throw new NotFoundError("Session not found");
@@ -124,14 +139,39 @@ export async function chatRoutes(app: FastifyInstance) {
     return {
       success: true,
       humanActive: Boolean(session.humanActive),
+      humanPending: Boolean(session.humanPending),
       messages: (session.messages ?? [])
-        // System and tool turns are internal plumbing.
         .filter((m) => m.role !== "system" && m.role !== "tool")
-        // Superseded answers were never delivered; replaying them would surface a
-        // reply the visitor was deliberately not shown.
         .filter((m) => !(m.meta as { suppressed?: boolean } | undefined)?.suppressed)
         .map((m) => ({ role: m.role, content: m.content })),
     };
+  });
+
+  /** Visitor confirms they want to speak with a human agent. */
+  app.post("/api/v1/chat/sessions/:sessionId/request-handoff", async (req) => {
+    await requireClient(req);
+    const { sessionId } = req.params as { sessionId: string };
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
+
+    await connectMongo();
+    const Session = getChatSessionModel();
+    const session = await Session.findById(sessionId);
+    if (!session || session.projectId !== req.projectId) {
+      throw new NotFoundError("Session not found");
+    }
+    if (session.humanActive) {
+      return { success: true, humanActive: true, humanPending: false };
+    }
+    if (!session.humanPending) {
+      await markSessionEscalated(
+        Session,
+        sessionId,
+        session.projectId,
+        session.visitorName,
+        "Visitor requested support",
+      );
+    }
+    return { success: true, humanPending: true, humanActive: false };
   });
 
   app.post("/api/v1/chat/message", async (req, reply) => {
@@ -143,7 +183,6 @@ export async function chatRoutes(app: FastifyInstance) {
     });
     if (!project) throw new NotFoundError("Project not found");
 
-    // Enforce daily message limit based on the project's plan
     const planKey = (project.plan ?? "free") as PlanTier;
     const dailyLimit = PLAN_LIMITS[planKey].messagesPerDay;
     const startOfToday = new Date();
@@ -182,17 +221,12 @@ export async function chatRoutes(app: FastifyInstance) {
       throw new NotFoundError("Session not found");
     }
 
-    // Nobody has worked this conversation for a while: hand it back rather than
-    // leave the visitor with a widget that never answers again.
     if (session.humanActive && isHandoffStale(session)) {
       await releaseStaleHandoff(Session, sessionId, project.id);
       session.humanActive = false;
       session.agentId = undefined;
     }
 
-    // Deliberately above the cache lookup: the answer cache is keyed by project and
-    // question, not by session, so an entry populated by a different visitor would
-    // otherwise be served over a live agent.
     if (session.humanActive) {
       session.messages.push({ role: "user", content: body.message });
       await session.save();
@@ -205,13 +239,10 @@ export async function chatRoutes(app: FastifyInstance) {
       });
 
       if (body.stream) {
-        reply.header("Content-Type", "text/event-stream");
-        reply.header("Cache-Control", "no-cache");
-        reply.raw.write(
-          `data: ${JSON.stringify({ type: "meta", sessionId, humanActive: true })}\n\n`,
-        );
-        reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: [] })}\n\n`);
-        reply.raw.end();
+        beginSseReply(req, reply);
+        writeSseEvent(reply, { type: "meta", sessionId, humanActive: true });
+        writeSseEvent(reply, { type: "done", toolsUsed: [] });
+        endSse(reply);
         return;
       }
       return { success: true, sessionId, answer: "", humanActive: true, toolsUsed: [] };
@@ -236,16 +267,13 @@ export async function chatRoutes(app: FastifyInstance) {
       session.messages.push({ role: "assistant", content: cached, meta: { cached: true } });
       await session.save();
       if (body.stream) {
-        reply.header("Content-Type", "text/event-stream");
-        reply.header("Cache-Control", "no-cache");
-        reply.raw.write(
-          `data: ${JSON.stringify({ type: "meta", sessionId, confidence: "high" })}\n\n`,
-        );
+        beginSseReply(req, reply);
+        writeSseEvent(reply, { type: "meta", sessionId, confidence: "high" });
         for (const part of cached.match(/\S+\s*|\s+/g) ?? [cached]) {
-          reply.raw.write(`data: ${JSON.stringify({ type: "token", content: part })}\n\n`);
+          writeSseEvent(reply, { type: "token", content: part });
         }
-        reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: [] })}\n\n`);
-        reply.raw.end();
+        writeSseEvent(reply, { type: "done", toolsUsed: [] });
+        endSse(reply);
         return;
       }
       return {
@@ -258,11 +286,10 @@ export async function chatRoutes(app: FastifyInstance) {
       };
     }
 
-    const llmRuntime = getProjectLlmRuntime(project);
-    const embeddings = createEmbeddingsClient(llmRuntime);
-    const chat = createChatClient(llmRuntime);
-    // Agent turns map to assistant so a resuming bot reads them as its own prior
-    // turns; the default branch would feed them back as visitor messages.
+    const chatRuntime = getProjectChatRuntime(project);
+    const embeddingsRuntime = getProjectEmbeddingsRuntime(project);
+    const embeddings = createEmbeddingsClient(embeddingsRuntime);
+    const chat = createChatClient(chatRuntime);
     const history = session.messages.slice(-10).map((m) => ({
       role:
         m.role === "assistant" || m.role === "agent" ? ("assistant" as const) : ("user" as const),
@@ -288,11 +315,9 @@ export async function chatRoutes(app: FastifyInstance) {
       visitorEmail: session.visitorEmail,
     };
 
-    // ── Streaming path ────────────────────────────────────────────────────────
     if (body.stream) {
-      reply.header("Content-Type", "text/event-stream");
-      reply.header("Cache-Control", "no-cache");
-      reply.raw.write(`data: ${JSON.stringify({ type: "meta", sessionId })}\n\n`);
+      beginSseReply(req, reply);
+      writeSseEvent(reply, { type: "meta", sessionId });
 
       let accumulatedAnswer = "";
       let preamble!: AgentStreamPreamble;
@@ -302,7 +327,7 @@ export async function chatRoutes(app: FastifyInstance) {
         let next = await gen.next();
         while (!next.done) {
           accumulatedAnswer += next.value;
-          reply.raw.write(`data: ${JSON.stringify({ type: "token", content: next.value })}\n\n`);
+          writeSseEvent(reply, { type: "token", content: next.value });
           next = await gen.next();
         }
         preamble = next.value;
@@ -313,7 +338,6 @@ export async function chatRoutes(app: FastifyInstance) {
         return;
       }
 
-      // Kept but not delivered, so "why did the bot go quiet" stays diagnosable.
       const stillBot = await isStillBotControlled(Session, sessionId);
       const escalated = didEscalate(preamble.eventsEmitted);
 
@@ -334,6 +358,8 @@ export async function chatRoutes(app: FastifyInstance) {
         session.escalatedAt = new Date();
       }
       await session.save();
+
+      void scheduleSessionReview({ projectId: project.id, sessionId });
 
       if (escalated && stillBot) {
         void publishInboxEvent(project.id, {
@@ -386,12 +412,15 @@ export async function chatRoutes(app: FastifyInstance) {
         },
       });
 
-      reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: preamble.toolsUsed })}\n\n`);
-      reply.raw.end();
+      writeSseEvent(reply, {
+        type: "done",
+        toolsUsed: preamble.toolsUsed,
+        handoffPending: escalated && stillBot,
+      });
+      endSse(reply);
       return;
     }
 
-    // ── Non-streaming path ────────────────────────────────────────────────────
     let result;
     try {
       result = await runAgenticRag(ragOpts);
@@ -426,6 +455,8 @@ export async function chatRoutes(app: FastifyInstance) {
       session.escalatedAt = new Date();
     }
     await session.save();
+
+    void scheduleSessionReview({ projectId: project.id, sessionId });
 
     if (escalated && stillBot) {
       void publishInboxEvent(project.id, {
@@ -478,8 +509,6 @@ export async function chatRoutes(app: FastifyInstance) {
       },
     });
 
-    // An agent claimed the session while the model was generating. The answer was
-    // stored as suppressed; returning it anyway would talk over them.
     if (!stillBot) {
       return { success: true, sessionId, answer: "", humanActive: true, toolsUsed: [] };
     }
@@ -491,6 +520,7 @@ export async function chatRoutes(app: FastifyInstance) {
       cached: false,
       confidence: result.confidence,
       toolsUsed: result.toolsUsed,
+      handoffPending: escalated,
       sources: result.chunks.map((c) => ({ id: c.id, score: c.score })),
     };
   });

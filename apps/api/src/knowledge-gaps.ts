@@ -1,6 +1,27 @@
-import { getChatSessionModel, type ChatSessionDoc } from "@quickstart-ai/db";
-import { KNOWLEDGE_GAP_TOP_SCORE } from "@quickstart-ai/shared";
+import { getChatSessionModel, prisma, type ChatSessionDoc } from "@quickstart-ai/db";
+import { KNOWLEDGE_GAP_TOP_SCORE, normalizeGapQuestion, shouldExcludeFromGaps } from "@quickstart-ai/shared";
 import { getRedis } from "./redis.js";
+
+export { normalizeGapQuestion };
+
+export async function getSkippedGapQuestions(projectId: string): Promise<Set<string>> {
+  const rows = await prisma.skippedKnowledgeGap.findMany({
+    where: { projectId },
+    select: { questionNorm: true },
+  });
+  return new Set(rows.map((r) => r.questionNorm));
+}
+
+export async function skipKnowledgeGap(projectId: string, question: string): Promise<void> {
+  const trimmed = question.trim();
+  const questionNorm = normalizeGapQuestion(trimmed);
+  if (!questionNorm) return;
+  await prisma.skippedKnowledgeGap.upsert({
+    where: { projectId_questionNorm: { projectId, questionNorm } },
+    create: { projectId, question: trimmed, questionNorm },
+    update: {},
+  });
+}
 
 /** One weak answer, paired with the question that produced it. */
 export interface GapCandidate {
@@ -22,8 +43,14 @@ function messageMeta(m: SessionMessage): {
   confidence?: string;
   topScore?: number;
   suppressed?: boolean;
+  events?: string[];
 } {
-  return (m.meta ?? {}) as { confidence?: string; topScore?: number; suppressed?: boolean };
+  return (m.meta ?? {}) as {
+    confidence?: string;
+    topScore?: number;
+    suppressed?: boolean;
+    events?: string[];
+  };
 }
 
 /**
@@ -97,6 +124,8 @@ export async function collectGapCandidates(opts: {
 
       const question = prevTurn.content.trim();
       if (!question) return;
+
+      if (shouldExcludeFromGaps(question, meta)) return;
 
       // No timestamp means we cannot place it in the window; treating it as "now"
       // would smuggle arbitrarily old turns into a 30-day view.

@@ -1,4 +1,4 @@
-import { BUILTIN_EVENT_TYPES, KNOWLEDGE_GAP_TOP_SCORE } from "@quickstart-ai/shared";
+import { BUILTIN_EVENT_TYPES, KNOWLEDGE_GAP_TOP_SCORE, shouldExcludeFromGaps } from "@quickstart-ai/shared";
 import type { DomainEventInput } from "./types.js";
 
 const ISSUE_PATTERN =
@@ -31,10 +31,15 @@ export function detectHeuristicEvents(ctx: {
   chunkCount: number;
   topScore?: number;
   sessionId: string;
+  assistantEvents?: string[];
 }): DomainEventInput[] {
   const events: DomainEventInput[] = [];
 
-  if (isKnowledgeGap(ctx)) {
+  const excluded = shouldExcludeFromGaps(ctx.userMessage, {
+    events: ctx.assistantEvents,
+  });
+
+  if (!excluded && isKnowledgeGap(ctx)) {
     events.push({
       type: BUILTIN_EVENT_TYPES.KNOWLEDGE_GAP,
       source: "heuristic",

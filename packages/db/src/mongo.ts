@@ -29,6 +29,8 @@ const sessionSchema = new Schema(
     releasedAt: { type: Date },
     /** Last agent write — the auto-release sweep uses this to detect abandonment. */
     agentLastActiveAt: { type: Date },
+    /** LLM session review output — summary and classified topics. */
+    reviewMeta: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );

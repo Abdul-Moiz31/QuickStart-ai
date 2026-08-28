@@ -33,6 +33,16 @@ export const QUEUE_NAMES = {
   EVAL: "eval",
   EVENTS: "events",
   EVENTS_RETRY: "events-retry",
+  SESSION_REVIEW: "session-review",
+} as const;
+
+/** Delay before a quiet session is sent for LLM review. */
+export const SESSION_REVIEW_IDLE_MS = 30 * 60 * 1000;
+
+export const PLAN_FEATURES = {
+  free: { sessionReview: false },
+  pro: { sessionReview: true },
+  enterprise: { sessionReview: true },
 } as const;
 
 export const EVENT_LIMITS = {

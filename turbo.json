@@ -1,13 +1,18 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "concurrency": "20",
+  "concurrency": "15",
+  "globalDependencies": [".env", ".env.local"],
+  "globalEnv": [
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_APP_NAME",
+    "NEXT_PUBLIC_DEMO_CLIENT_ID"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
-      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },

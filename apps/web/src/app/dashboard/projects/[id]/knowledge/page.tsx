@@ -64,7 +64,7 @@ function formatWhen(value: string): string {
 
 type AddMode = "faq" | "text" | "file" | null;
 /** Gaps is a view over conversations, not a document class, so it extends the tab set locally. */
-type TabId = KnowledgeSection | "gaps";
+type TabId = KnowledgeSection | "gaps" | "review";
 
 type GapRow = {
   question: string;
@@ -72,6 +72,21 @@ type GapRow = {
   lastAskedAt: string;
   precision: "high" | "low";
   topScore: number | null;
+  source?: "retrieval" | "review";
+};
+
+type SessionReviewRow = {
+  sessionId: string;
+  visitorName: string;
+  reviewedAt: string;
+  summary: string;
+  topics: {
+    question: string;
+    classification: string;
+    confidence: number;
+    suggestedFaq?: string;
+  }[];
+  messageCount: number;
 };
 
 function statusLabel(status: string): string {
@@ -169,6 +184,11 @@ export default function KnowledgePage() {
   const [gaps, setGaps] = useState<GapRow[]>([]);
   const [gapsLoaded, setGapsLoaded] = useState(false);
   const [analysedAnswers, setAnalysedAnswers] = useState(0);
+  const [showLowerCertainty, setShowLowerCertainty] = useState(false);
+  const [reviews, setReviews] = useState<SessionReviewRow[]>([]);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [sessionReviewEnabled, setSessionReviewEnabled] = useState(false);
+  const [skippingQuestion, setSkippingQuestion] = useState<string | null>(null);
   const [prefillQuestion, setPrefillQuestion] = useState("");
   const [showEvalNotice, setShowEvalNotice] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -195,14 +215,52 @@ export default function KnowledgePage() {
       setGapsLoaded(true);
       return;
     }
+    const qs = showLowerCertainty ? "?period=30d&includeLowerCertainty=1" : "?period=30d";
     const res = await api<{ gaps: GapRow[]; analysedAnswers: number }>(
-      `/api/v1/projects/${id}/knowledge-gaps?period=30d`,
+      `/api/v1/projects/${id}/knowledge-gaps${qs}`,
       { token },
     );
     setGaps(res.gaps);
     setAnalysedAnswers(res.analysedAnswers);
     setGapsLoaded(true);
+  }, [id, showLowerCertainty]);
+
+  const loadReviews = useCallback(async () => {
+    const token = getStoredToken();
+    if (!token) {
+      setReviewsLoaded(true);
+      return;
+    }
+    const res = await api<{
+      reviews: SessionReviewRow[];
+      sessionReviewEnabled: boolean;
+    }>(`/api/v1/projects/${id}/session-reviews?period=30d`, { token });
+    setReviews(res.reviews);
+    setSessionReviewEnabled(res.sessionReviewEnabled);
+    setReviewsLoaded(true);
   }, [id]);
+
+  const skipGap = useCallback(
+    async (question: string) => {
+      const token = getStoredToken();
+      if (!token) return;
+      setSkippingQuestion(question);
+      setGaps((prev) => prev.filter((g) => g.question !== question));
+      try {
+        await api(`/api/v1/projects/${id}/knowledge-gaps/skip`, {
+          token,
+          method: "POST",
+          body: JSON.stringify({ question }),
+        });
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : "Failed to skip gap");
+        await loadGaps();
+      } finally {
+        setSkippingQuestion(null);
+      }
+    },
+    [id, loadGaps],
+  );
 
   useEffect(() => {
     load().catch((e) => setMsg(e instanceof Error ? e.message : "Failed to load"));
@@ -210,6 +268,7 @@ export default function KnowledgePage() {
 
   useEffect(() => {
     if (tab !== "gaps") return;
+    setGapsLoaded(false);
     loadGaps().catch((e) => {
       // Mark the fetch as settled even when it failed, or the tab sits on
       // "Checking recent conversations…" forever.
@@ -217,6 +276,15 @@ export default function KnowledgePage() {
       setMsg(e instanceof Error ? e.message : "Failed to load gaps");
     });
   }, [tab, loadGaps]);
+
+  useEffect(() => {
+    if (tab !== "review") return;
+    setReviewsLoaded(false);
+    loadReviews().catch((e) => {
+      setReviewsLoaded(true);
+      setMsg(e instanceof Error ? e.message : "Failed to load reviews");
+    });
+  }, [tab, loadReviews]);
 
   useEffect(() => {
     const busyDocs = docs.some((d) => d.status === "PENDING" || d.status === "PROCESSING");
@@ -424,6 +492,7 @@ export default function KnowledgePage() {
     { id: "faq", label: "FAQs", count: grouped.faqRows.length },
     { id: "document", label: "Documents", count: grouped.documents.length },
     { id: "gaps", label: "Gaps", count: gaps.length },
+    { id: "review", label: "Review", count: reviews.length },
   ];
 
   return (
@@ -628,8 +697,18 @@ export default function KnowledgePage() {
         <section className="mt-6 pb-4">
           <p className="text-sm text-mute">
             Questions your bot answered badly in the last 30 days. Answering one here removes
-            it from this list automatically once the knowledge is live.
+            it from this list automatically once the knowledge is live. Skip greetings or
+            questions that are not real gaps.
           </p>
+          <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-mute">
+            <input
+              type="checkbox"
+              checked={showLowerCertainty}
+              onChange={(e) => setShowLowerCertainty(e.target.checked)}
+              className="rounded border-ink/20"
+            />
+            Show lower-certainty gaps (legacy detection)
+          </label>
 
           {!gapsLoaded ? (
             <p className="mt-6 text-sm text-mute">Checking recent conversations…</p>
@@ -672,16 +751,101 @@ export default function KnowledgePage() {
                             <span className="text-ink/45">lower certainty</span>
                           </>
                         )}
+                        {gap.source === "review" && (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span className="text-ink/45">from review</span>
+                          </>
+                        )}
                       </p>
                     </div>
-                    <DashBtn
-                      type="button"
-                      onClick={() => openAdd("faq", gap.question)}
-                      className="!px-3 !py-1.5 text-xs"
-                    >
-                      Add answer
-                    </DashBtn>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <DashBtn
+                        type="button"
+                        variant="ghost"
+                        disabled={skippingQuestion === gap.question}
+                        onClick={() => skipGap(gap.question)}
+                        className="!px-3 !py-1.5 text-xs"
+                      >
+                        {skippingQuestion === gap.question ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          "Skip"
+                        )}
+                      </DashBtn>
+                      <DashBtn
+                        type="button"
+                        onClick={() => openAdd("faq", gap.question)}
+                        className="!px-3 !py-1.5 text-xs"
+                      >
+                        Add answer
+                      </DashBtn>
+                    </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "review" && (
+        <section className="mt-6 pb-4">
+          <p className="text-sm text-mute">
+            AI summaries of recent conversations. Enable{" "}
+            <strong className="font-medium text-ink">Conversation insights</strong> under Tools
+            to review sessions automatically after they go quiet (~30 minutes).
+          </p>
+          {!sessionReviewEnabled && reviewsLoaded && (
+            <p className="mt-3 rounded-xl border border-ink/[0.08] bg-clay px-4 py-3 text-sm text-mute">
+              Conversation insights are off for this project. Turn them on in Tools when you
+              want LLM-powered session summaries (uses API tokens).
+            </p>
+          )}
+          {!reviewsLoaded ? (
+            <p className="mt-6 text-sm text-mute">Loading conversation reviews…</p>
+          ) : reviews.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-ink/[0.08] bg-clay px-4 py-6 text-center">
+              <p className="text-sm font-medium text-ink">No reviews yet</p>
+              <p className="mt-1 text-sm text-mute">
+                Reviews appear after sessions go quiet and insights are enabled.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {reviews.map((review) => (
+                <div
+                  key={review.sessionId}
+                  className="rounded-xl border border-ink/[0.08] bg-white p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-ink">{review.visitorName}</p>
+                      <p className="mt-1 text-xs text-mute">
+                        {review.messageCount} messages · reviewed{" "}
+                        {formatWhen(review.reviewedAt)}
+                      </p>
+                    </div>
+                    <a
+                      href={`/dashboard/projects/${id}/conversations?session=${review.sessionId}`}
+                      className="text-xs font-medium text-ink underline underline-offset-2"
+                    >
+                      View conversation
+                    </a>
+                  </div>
+                  <p className="mt-3 text-sm text-mute">{review.summary}</p>
+                  {review.topics.length > 0 && (
+                    <ul className="mt-3 space-y-2 border-t border-ink/[0.06] pt-3">
+                      {review.topics.map((topic) => (
+                        <li key={`${review.sessionId}-${topic.question}`} className="text-sm">
+                          <span className="font-medium text-ink">{topic.question}</span>
+                          <span className="ml-2 rounded-full bg-clay px-2 py-0.5 text-[10px] uppercase tracking-wide text-mute">
+                            {topic.classification.replace("_", " ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>

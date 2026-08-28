@@ -8,10 +8,11 @@ import {
   createEmbeddingsClient,
   storeChunkEmbeddings,
 } from "@quickstart-ai/rag";
-import { QUEUE_NAMES, buildLlmRuntimeConfig } from "@quickstart-ai/shared";
+import { QUEUE_NAMES, buildEmbeddingsRuntimeConfig } from "@quickstart-ai/shared";
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
 import { startEvalWorker } from "./eval-job.js";
 import { startEventsWorkers } from "./event-job.js";
+import { startSessionReviewWorker } from "./session-review-worker.js";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 config({ path: resolve(root, ".env") });
@@ -54,8 +55,10 @@ async function processIngest(documentId: string, projectId: string) {
   );
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
-  const llmRuntime = project ? buildLlmRuntimeConfig(project, decryptSecret) : undefined;
-  const embeddings = createEmbeddingsClient(llmRuntime);
+  const embeddingsRuntime = project
+    ? buildEmbeddingsRuntimeConfig(project, decryptSecret)
+    : undefined;
+  const embeddings = createEmbeddingsClient(embeddingsRuntime);
   const vectors = await embeddings.embed(chunks);
   await storeChunkEmbeddings(
     created.map((c) => c.id),
@@ -113,6 +116,7 @@ async function main() {
 
   const evalWorker = startEvalWorker(redisUrl);
   const { eventsWorker, retryWorker } = startEventsWorkers(redisUrl);
+  const sessionReviewWorker = startSessionReviewWorker(redisUrl);
 
   console.log(
     "QuickStart worker listening on queues:",
@@ -120,9 +124,10 @@ async function main() {
     QUEUE_NAMES.EVAL,
     QUEUE_NAMES.EVENTS,
     QUEUE_NAMES.EVENTS_RETRY,
+    QUEUE_NAMES.SESSION_REVIEW,
   );
 
-  const allWorkers = [worker, evalWorker, eventsWorker, retryWorker];
+  const allWorkers = [worker, evalWorker, eventsWorker, retryWorker, sessionReviewWorker];
 
   async function shutdown(signal: string) {
     console.log(`[worker] ${signal} received — draining in-flight jobs…`);

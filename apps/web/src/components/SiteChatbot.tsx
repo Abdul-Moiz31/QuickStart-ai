@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { resolvePublicApiUrl } from "@/lib/api";
@@ -14,18 +13,13 @@ const ChatBot = dynamic(
 export function SiteChatbot() {
   const pathname = usePathname();
   const clientId = process.env.NEXT_PUBLIC_DEMO_CLIENT_ID?.trim();
-  const [apiUrl, setApiUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    setApiUrl(resolvePublicApiUrl());
-  }, []);
-
-  if (!clientId || !apiUrl || pathname?.startsWith("/dashboard")) return null;
+  if (!clientId || pathname?.startsWith("/dashboard")) return null;
 
   return (
     <ChatBot
       clientId={clientId}
-      apiUrl={apiUrl}
+      apiUrl={resolvePublicApiUrl()}
       position="right"
       primaryColor="#0A0A0A"
     />

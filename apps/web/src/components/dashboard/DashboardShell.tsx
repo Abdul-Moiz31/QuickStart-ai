@@ -67,7 +67,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.push(`/dashboard/projects/${activeId}/${section}`);
   }
 
-  // Driven off the same stream the inbox page uses, so the badge needs no polling.
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -90,10 +89,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
 
     refresh();
-    const source = new EventSource(
+    const streamUrl = new URL(
       `${resolvePublicApiUrl()}/api/v1/projects/${activeId}/inbox/stream`,
-      { withCredentials: true },
     );
+    const token = getStoredToken();
+    if (token) streamUrl.searchParams.set("token", token);
+    const source = new EventSource(streamUrl.toString(), { withCredentials: true });
     source.onmessage = (ev: MessageEvent<string>) => {
       try {
         const event = JSON.parse(ev.data) as { type: string };

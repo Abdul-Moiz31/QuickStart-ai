@@ -66,13 +66,15 @@ model Project {
   toolsWebSearch  Boolean         @default(false)
   toolsHumanHandoff Boolean       @default(true)
   toolsLeadCapture  Boolean       @default(false)
+  /** LLM conversation insights — opt-in; costs tokens per reviewed session. */
+  sessionReviewEnabled Boolean    @default(false)
   allowedOrigins  String[]        @default([])
   plan            PlanTier        @default(free)
   credits         Int             @default(200)
   /** Live chatbot (widget) only allowed when true — requires 7+ Q&A and passing eval. */
   chatbotEnabled  Boolean         @default(false)
   evalPassedAt    DateTime?
-  /** BYOK: platform | openrouter | openai | google | anthropic | xai */
+  /** BYOK: platform | openrouter | openai | google | anthropic | xai | groq */
   llmProvider     String          @default("platform")
   useOwnLlmKey    Boolean         @default(false)
   llmApiKeyEnc    String?         @db.Text
@@ -89,8 +91,21 @@ model Project {
   webhookEndpoints WebhookEndpoint[]
   integrationConnections IntegrationConnection[]
   eventRules      EventRule[]
+  skippedKnowledgeGaps SkippedKnowledgeGap[]
 
   @@index([ownerId])
+}
+
+model SkippedKnowledgeGap {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  question     String
+  questionNorm String
+  createdAt    DateTime @default(now())
+
+  @@unique([projectId, questionNorm])
+  @@index([projectId])
 }
 
 model ProjectEvent {
