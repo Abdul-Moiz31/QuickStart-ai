@@ -126,7 +126,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     { id: "embed", label: "Embed", icon: Code2 },
     { id: "settings", label: "Settings", icon: Settings2 },
     { id: "tools", label: "Tools", icon: Puzzle },
-    { id: "triggers", label: "Visitor prompts", icon: Zap },
+    { id: "triggers", label: "Triggers", icon: Zap },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "custom-events", label: "Custom events", icon: Sparkles },
   ] as const;
