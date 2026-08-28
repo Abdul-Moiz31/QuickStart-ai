@@ -32,3 +32,9 @@ export class RateLimitError extends AppError {
     super(message, 429, "RATE_LIMITED");
   }
 }
+
+export class ConflictError extends AppError {
+  constructor(message = "Conflict") {
+    super(message, 409, "CONFLICT");
+  }
+}

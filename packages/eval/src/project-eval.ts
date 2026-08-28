@@ -9,6 +9,7 @@ import {
   EVAL_PASS_THRESHOLDS,
   MIN_KNOWLEDGE_QA,
   parseKnowledgeQa,
+  buildEmbeddingsRuntimeConfig,
   buildLlmRuntimeConfig,
 } from "@quickstart-ai/shared";
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
@@ -84,9 +85,10 @@ export async function executeProjectEval(runId: string, projectId: string): Prom
     phase: "starting",
   });
 
-  const llmRuntime = buildLlmRuntimeConfig(project, decryptSecret);
-  const embeddings = createEmbeddingsClient(llmRuntime);
-  const chat = createChatClient(llmRuntime);
+  const chatRuntime = buildLlmRuntimeConfig(project, decryptSecret);
+  const embeddingsRuntime = buildEmbeddingsRuntimeConfig(project, decryptSecret);
+  const embeddings = createEmbeddingsClient(embeddingsRuntime);
+  const chat = createChatClient(chatRuntime);
   let caseIndex = 0;
 
   const summary = await runEval(cases, async (c) => {

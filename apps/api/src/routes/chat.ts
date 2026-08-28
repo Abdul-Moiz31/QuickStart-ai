@@ -1,5 +1,10 @@
-import type { FastifyInstance } from "fastify";
-import { connectMongo, getChatSessionModel, prisma } from "@quickstart-ai/db";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import {
+  connectMongo,
+  getChatSessionModel,
+  isValidSessionId,
+  prisma,
+} from "@quickstart-ai/db";
 import {
   type AgentStreamPreamble,
   createChatClient,
@@ -13,6 +18,7 @@ import {
 import { collectAndEmitChatEvents } from "@quickstart-ai/events";
 import {
   AppError,
+  BUILTIN_EVENT_TYPES,
   chatMessageSchema,
   createSessionSchema,
   NotFoundError,
@@ -20,13 +26,16 @@ import {
   type PlanTier,
 } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
-import { getProjectLlmRuntime } from "../project-llm.js";
+import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { getRedis } from "../redis.js";
+import { publishInboxEvent } from "../realtime.js";
+import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
 import { env } from "../env.js";
+import { beginSseReply, endSse, writeSseEvent } from "../sse.js";
 
-function streamError(reply: { raw: NodeJS.WritableStream }, message: string) {
-  reply.raw.write(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
-  reply.raw.end();
+function streamError(reply: FastifyReply, message: string) {
+  writeSseEvent(reply, { type: "error", message });
+  endSse(reply);
 }
 
 function userFacingChatError(err: unknown): string {
@@ -41,6 +50,39 @@ function userFacingChatError(err: unknown): string {
     return "Knowledge search is temporarily unavailable. Please try again.";
   }
   return "Sorry, something went wrong. Please try again.";
+}
+
+function didEscalate(events: { type: string }[]): boolean {
+  return events.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF);
+}
+
+async function isStillBotControlled(
+  Session: ReturnType<typeof getChatSessionModel>,
+  sessionId: string,
+): Promise<boolean> {
+  const fresh = await Session.findById(sessionId).select("humanActive").lean();
+  return !fresh?.humanActive;
+}
+
+async function markSessionEscalated(
+  Session: ReturnType<typeof getChatSessionModel>,
+  sessionId: string,
+  projectId: string,
+  visitorName: string,
+  triggerMessage?: string,
+): Promise<void> {
+  const now = new Date();
+  await Session.updateOne(
+    { _id: sessionId, humanActive: { $ne: true } },
+    { $set: { humanPending: true, escalatedAt: now } },
+  );
+  void publishInboxEvent(projectId, {
+    type: "escalation",
+    sessionId,
+    visitorName,
+    message: triggerMessage,
+    at: now.toISOString(),
+  });
 }
 
 export async function chatRoutes(app: FastifyInstance) {
@@ -81,6 +123,56 @@ export async function chatRoutes(app: FastifyInstance) {
     };
   });
 
+  app.get("/api/v1/chat/sessions/:sessionId/messages", async (req) => {
+    await requireClient(req, { touch: false });
+    const { sessionId } = req.params as { sessionId: string };
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
+    await connectMongo();
+    const Session = getChatSessionModel();
+    const session = await Session.findById(sessionId)
+      .select("projectId humanActive humanPending messages")
+      .lean();
+    if (!session || session.projectId !== req.projectId) {
+      throw new NotFoundError("Session not found");
+    }
+    return {
+      success: true,
+      humanActive: Boolean(session.humanActive),
+      humanPending: Boolean(session.humanPending),
+      messages: (session.messages ?? [])
+        .filter((m) => m.role !== "system" && m.role !== "tool")
+        .filter((m) => !(m.meta as { suppressed?: boolean } | undefined)?.suppressed)
+        .map((m) => ({ role: m.role, content: m.content })),
+    };
+  });
+
+  /** Visitor confirms they want to speak with a human agent. */
+  app.post("/api/v1/chat/sessions/:sessionId/request-handoff", async (req) => {
+    await requireClient(req);
+    const { sessionId } = req.params as { sessionId: string };
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
+
+    await connectMongo();
+    const Session = getChatSessionModel();
+    const session = await Session.findById(sessionId);
+    if (!session || session.projectId !== req.projectId) {
+      throw new NotFoundError("Session not found");
+    }
+    if (session.humanActive) {
+      return { success: true, humanActive: true, humanPending: false };
+    }
+    if (!session.humanPending) {
+      await markSessionEscalated(
+        Session,
+        sessionId,
+        session.projectId,
+        session.visitorName,
+        "Visitor requested support",
+      );
+    }
+    return { success: true, humanPending: true, humanActive: false };
+  });
+
   app.post("/api/v1/chat/message", async (req, reply) => {
     await requireClient(req);
     const body = chatMessageSchema.parse(req.body);
@@ -90,7 +182,6 @@ export async function chatRoutes(app: FastifyInstance) {
     });
     if (!project) throw new NotFoundError("Project not found");
 
-    // Enforce daily message limit based on the project's plan
     const planKey = (project.plan ?? "free") as PlanTier;
     const dailyLimit = PLAN_LIMITS[planKey].messagesPerDay;
     const startOfToday = new Date();
@@ -123,9 +214,37 @@ export async function chatRoutes(app: FastifyInstance) {
       sessionId = String(created._id);
     }
 
+    if (!isValidSessionId(sessionId)) throw new NotFoundError("Session not found");
     const session = await Session.findById(sessionId);
     if (!session || session.projectId !== project.id) {
       throw new NotFoundError("Session not found");
+    }
+
+    if (session.humanActive && isHandoffStale(session)) {
+      await releaseStaleHandoff(Session, sessionId, project.id);
+      session.humanActive = false;
+      session.agentId = undefined;
+    }
+
+    if (session.humanActive) {
+      session.messages.push({ role: "user", content: body.message });
+      await session.save();
+
+      void publishInboxEvent(project.id, {
+        type: "visitor_message",
+        sessionId,
+        content: body.message,
+        at: new Date().toISOString(),
+      });
+
+      if (body.stream) {
+        beginSseReply(req, reply);
+        writeSseEvent(reply, { type: "meta", sessionId, humanActive: true });
+        writeSseEvent(reply, { type: "done", toolsUsed: [] });
+        endSse(reply);
+        return;
+      }
+      return { success: true, sessionId, answer: "", humanActive: true, toolsUsed: [] };
     }
 
     const redis = getRedis();
@@ -147,16 +266,13 @@ export async function chatRoutes(app: FastifyInstance) {
       session.messages.push({ role: "assistant", content: cached, meta: { cached: true } });
       await session.save();
       if (body.stream) {
-        reply.header("Content-Type", "text/event-stream");
-        reply.header("Cache-Control", "no-cache");
-        reply.raw.write(
-          `data: ${JSON.stringify({ type: "meta", sessionId, confidence: "high" })}\n\n`,
-        );
+        beginSseReply(req, reply);
+        writeSseEvent(reply, { type: "meta", sessionId, confidence: "high" });
         for (const part of cached.match(/\S+\s*|\s+/g) ?? [cached]) {
-          reply.raw.write(`data: ${JSON.stringify({ type: "token", content: part })}\n\n`);
+          writeSseEvent(reply, { type: "token", content: part });
         }
-        reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: [] })}\n\n`);
-        reply.raw.end();
+        writeSseEvent(reply, { type: "done", toolsUsed: [] });
+        endSse(reply);
         return;
       }
       return {
@@ -169,11 +285,13 @@ export async function chatRoutes(app: FastifyInstance) {
       };
     }
 
-    const llmRuntime = getProjectLlmRuntime(project);
-    const embeddings = createEmbeddingsClient(llmRuntime);
-    const chat = createChatClient(llmRuntime);
+    const chatRuntime = getProjectChatRuntime(project);
+    const embeddingsRuntime = getProjectEmbeddingsRuntime(project);
+    const embeddings = createEmbeddingsClient(embeddingsRuntime);
+    const chat = createChatClient(chatRuntime);
     const history = session.messages.slice(-10).map((m) => ({
-      role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+      role:
+        m.role === "assistant" || m.role === "agent" ? ("assistant" as const) : ("user" as const),
       content: m.content,
     }));
 
@@ -196,11 +314,9 @@ export async function chatRoutes(app: FastifyInstance) {
       visitorEmail: session.visitorEmail,
     };
 
-    // ── Streaming path ────────────────────────────────────────────────────────
     if (body.stream) {
-      reply.header("Content-Type", "text/event-stream");
-      reply.header("Cache-Control", "no-cache");
-      reply.raw.write(`data: ${JSON.stringify({ type: "meta", sessionId })}\n\n`);
+      beginSseReply(req, reply);
+      writeSseEvent(reply, { type: "meta", sessionId });
 
       let accumulatedAnswer = "";
       let preamble!: AgentStreamPreamble;
@@ -210,7 +326,7 @@ export async function chatRoutes(app: FastifyInstance) {
         let next = await gen.next();
         while (!next.done) {
           accumulatedAnswer += next.value;
-          reply.raw.write(`data: ${JSON.stringify({ type: "token", content: next.value })}\n\n`);
+          writeSseEvent(reply, { type: "token", content: next.value });
           next = await gen.next();
         }
         preamble = next.value;
@@ -221,6 +337,9 @@ export async function chatRoutes(app: FastifyInstance) {
         return;
       }
 
+      const stillBot = await isStillBotControlled(Session, sessionId);
+      const escalated = didEscalate(preamble.eventsEmitted);
+
       session.messages.push({ role: "user", content: body.message });
       session.messages.push({
         role: "assistant",
@@ -229,9 +348,24 @@ export async function chatRoutes(app: FastifyInstance) {
           confidence: preamble.confidence,
           toolsUsed: preamble.toolsUsed,
           events: preamble.eventsEmitted.map((e) => e.type),
+          ...(stillBot ? {} : { suppressed: true }),
         },
       });
+      if (escalated && stillBot && !session.humanActive) {
+        session.humanPending = true;
+        session.escalatedAt = new Date();
+      }
       await session.save();
+
+      if (escalated && stillBot) {
+        void publishInboxEvent(project.id, {
+          type: "escalation",
+          sessionId,
+          visitorName: session.visitorName,
+          message: body.message,
+          at: new Date().toISOString(),
+        });
+      }
 
       void collectAndEmitChatEvents({
         projectId: project.id,
@@ -256,7 +390,7 @@ export async function chatRoutes(app: FastifyInstance) {
       }).catch((err) => req.log.error({ err }, "event emit failed"));
 
       try {
-        if (preamble.confidence !== "low") {
+        if (preamble.confidence !== "low" && stillBot) {
           await setCachedAnswer(redis, project.id, body.message, accumulatedAnswer);
         }
         await pushSessionMemory(redis, sessionId, `U:${body.message}\nA:${accumulatedAnswer}`);
@@ -273,12 +407,15 @@ export async function chatRoutes(app: FastifyInstance) {
         },
       });
 
-      reply.raw.write(`data: ${JSON.stringify({ type: "done", toolsUsed: preamble.toolsUsed })}\n\n`);
-      reply.raw.end();
+      writeSseEvent(reply, {
+        type: "done",
+        toolsUsed: preamble.toolsUsed,
+        handoffPending: escalated && stillBot,
+      });
+      endSse(reply);
       return;
     }
 
-    // ── Non-streaming path ────────────────────────────────────────────────────
     let result;
     try {
       result = await runAgenticRag(ragOpts);
@@ -293,6 +430,9 @@ export async function chatRoutes(app: FastifyInstance) {
       });
     }
 
+    const stillBot = await isStillBotControlled(Session, sessionId);
+    const escalated = didEscalate(result.eventsEmitted);
+
     session.messages.push({ role: "user", content: body.message });
     session.messages.push({
       role: "assistant",
@@ -301,9 +441,24 @@ export async function chatRoutes(app: FastifyInstance) {
         confidence: result.confidence,
         toolsUsed: result.toolsUsed,
         events: result.eventsEmitted.map((e) => e.type),
+        ...(stillBot ? {} : { suppressed: true }),
       },
     });
+    if (escalated && stillBot && !session.humanActive) {
+      session.humanPending = true;
+      session.escalatedAt = new Date();
+    }
     await session.save();
+
+    if (escalated && stillBot) {
+      void publishInboxEvent(project.id, {
+        type: "escalation",
+        sessionId,
+        visitorName: session.visitorName,
+        message: body.message,
+        at: new Date().toISOString(),
+      });
+    }
 
     void collectAndEmitChatEvents({
       projectId: project.id,
@@ -328,7 +483,7 @@ export async function chatRoutes(app: FastifyInstance) {
     }).catch((err) => req.log.error({ err }, "event emit failed"));
 
     try {
-      if (result.confidence !== "low") {
+      if (result.confidence !== "low" && stillBot) {
         await setCachedAnswer(redis, project.id, body.message, result.answer);
       }
       await pushSessionMemory(redis, sessionId, `U:${body.message}\nA:${result.answer}`);
@@ -345,6 +500,10 @@ export async function chatRoutes(app: FastifyInstance) {
       },
     });
 
+    if (!stillBot) {
+      return { success: true, sessionId, answer: "", humanActive: true, toolsUsed: [] };
+    }
+
     return {
       success: true,
       sessionId,
@@ -352,6 +511,7 @@ export async function chatRoutes(app: FastifyInstance) {
       cached: false,
       confidence: result.confidence,
       toolsUsed: result.toolsUsed,
+      handoffPending: escalated,
       sources: result.chunks.map((c) => ({ id: c.id, score: c.score })),
     };
   });

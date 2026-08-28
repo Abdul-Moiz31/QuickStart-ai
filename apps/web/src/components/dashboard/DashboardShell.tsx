@@ -14,6 +14,7 @@ import {
   FileText,
   FlaskConical,
   FolderKanban,
+  Headset,
   LogOut,
   MessageSquare,
   Palette,
@@ -21,6 +22,7 @@ import {
   Settings2,
   Sparkles,
 } from "lucide-react";
+import { api, getStoredToken, resolvePublicApiUrl } from "@/lib/api";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { OnboardingModal } from "@/components/dashboard/OnboardingModal";
 import { DashboardChatbot } from "@/components/dashboard/DashboardChatbot";
@@ -64,6 +66,50 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.push(`/dashboard/projects/${activeId}/${section}`);
   }
 
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!activeId) {
+      setPendingCount(0);
+      return;
+    }
+    let cancelled = false;
+
+    const refresh = () => {
+      api<{ sessions: { humanPending: boolean }[] }>(`/api/v1/projects/${activeId}/inbox`, {
+        token: getStoredToken() ?? undefined,
+      })
+        .then((res) => {
+          if (!cancelled) setPendingCount(res.sessions.filter((s) => s.humanPending).length);
+        })
+        .catch(() => {
+          // Badge is advisory; a failure just leaves the last known count.
+        });
+    };
+
+    refresh();
+    const streamUrl = new URL(
+      `${resolvePublicApiUrl()}/api/v1/projects/${activeId}/inbox/stream`,
+    );
+    const token = getStoredToken();
+    if (token) streamUrl.searchParams.set("token", token);
+    const source = new EventSource(streamUrl.toString(), { withCredentials: true });
+    source.onmessage = (ev: MessageEvent<string>) => {
+      try {
+        const event = JSON.parse(ev.data) as { type: string };
+        if (event.type === "connected" || event.type === "visitor_typing") return;
+        refresh();
+      } catch {
+        // ignore malformed frames
+      }
+    };
+
+    return () => {
+      cancelled = true;
+      source.close();
+    };
+  }, [activeId]);
+
   function isSection(section: string) {
     return Boolean(pathname?.includes(`/projects/`) && pathname?.endsWith(`/${section}`));
   }
@@ -71,6 +117,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const projectNav = [
     { id: "knowledge", label: "Knowledge", icon: FileText },
     { id: "conversations", label: "Conversations", icon: MessageSquare },
+    { id: "inbox", label: "Inbox", icon: Headset },
     { id: "eval", label: "Eval", icon: FlaskConical },
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "embed", label: "Embed", icon: Code2 },
@@ -188,6 +235,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   >
                     <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                     {!collapsed && <span>{item.label}</span>}
+                    {item.id === "inbox" && pendingCount > 0 && (
+                      <span
+                        className={`flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ${
+                          collapsed ? "absolute right-1 top-1" : "ml-auto"
+                        }`}
+                      >
+                        {pendingCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}

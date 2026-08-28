@@ -12,6 +12,7 @@ import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
 import { knowledgeRoutes } from "./routes/knowledge.js";
 import { chatRoutes } from "./routes/chat.js";
+import { agentInboxRoutes } from "./routes/agent-inbox.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { integrationsRoutes } from "./routes/integrations.js";
@@ -102,6 +103,7 @@ async function main() {
   await projectRoutes(app);
   await knowledgeRoutes(app);
   await chatRoutes(app);
+  await agentInboxRoutes(app);
   await dashboardRoutes(app);
   await integrationsRoutes(app);
   await projectIntegrationsRoutes(app);

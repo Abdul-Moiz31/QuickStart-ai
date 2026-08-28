@@ -72,7 +72,7 @@ model Project {
   /** Live chatbot (widget) only allowed when true — requires 7+ Q&A and passing eval. */
   chatbotEnabled  Boolean         @default(false)
   evalPassedAt    DateTime?
-  /** BYOK: platform | openrouter | openai | google | anthropic | xai */
+  /** BYOK: platform | openrouter | openai | google | anthropic | xai | groq */
   llmProvider     String          @default("platform")
   useOwnLlmKey    Boolean         @default(false)
   llmApiKeyEnc    String?         @db.Text
