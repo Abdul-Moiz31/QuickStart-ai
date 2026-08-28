@@ -57,3 +57,68 @@ export const CUSTOM_TOOL_LIMITS = {
 } as const;
 
 export type PlanTier = keyof typeof PLAN_LIMITS;
+
+/** Display name stored on sessions when the visitor did not identify themselves. */
+export const ANONYMOUS_VISITOR_NAME = "Anonymous visitor";
+
+/** Email domain for generated anonymous session identities. */
+export const ANONYMOUS_VISITOR_EMAIL_DOMAIN = "visitor.local";
+
+const ANONYMOUS_EMAIL_RE = /^anon-[a-f0-9]+@visitor\.local$/i;
+
+/** True for generated anonymous placeholder emails (not legacy guest fallback). */
+export function isAnonymousVisitor(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ANONYMOUS_EMAIL_RE.test(email.trim());
+}
+
+/** Build a unique anonymous email for a new chat session. */
+export function generateAnonymousVisitorEmail(): string {
+  const id = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  return `anon-${id}@${ANONYMOUS_VISITOR_EMAIL_DOMAIN}`;
+}
+
+export interface VisitorIdentityInput {
+  visitorName?: string;
+  visitorEmail?: string;
+}
+
+export interface ResolvedVisitorIdentity {
+  visitorName: string;
+  visitorEmail: string;
+  anonymous: boolean;
+}
+
+/**
+ * Resolve session identity from request body + project setting.
+ * Throws Error with message suitable for 400 responses.
+ */
+export function resolveVisitorIdentity(
+  input: VisitorIdentityInput,
+  allowAnonymousSessions: boolean,
+): ResolvedVisitorIdentity {
+  const name = input.visitorName?.trim() ?? "";
+  const email = input.visitorEmail?.trim() ?? "";
+  const hasName = name.length > 0;
+  const hasEmail = email.length > 0;
+
+  if (hasName && hasEmail) {
+    if (name.length > 120) throw new Error("Name must be at most 120 characters");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email address");
+    return { visitorName: name, visitorEmail: email, anonymous: false };
+  }
+
+  if (hasName !== hasEmail) {
+    throw new Error("Both name and email are required, or leave both empty for anonymous chat");
+  }
+
+  if (!allowAnonymousSessions) {
+    throw new Error("Name and email are required to start a chat");
+  }
+
+  return {
+    visitorName: ANONYMOUS_VISITOR_NAME,
+    visitorEmail: generateAnonymousVisitorEmail(),
+    anonymous: true,
+  };
+}

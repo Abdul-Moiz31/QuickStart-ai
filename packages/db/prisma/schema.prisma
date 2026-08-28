@@ -66,6 +66,8 @@ model Project {
   toolsWebSearch  Boolean         @default(false)
   toolsHumanHandoff Boolean       @default(true)
   toolsLeadCapture  Boolean       @default(false)
+  /** When true, widget visitors may chat without providing name/email upfront. */
+  allowAnonymousSessions Boolean  @default(false)
   /** ProactiveTriggersConfig — see packages/shared proactiveTriggersConfigSchema */
   proactiveTriggers Json          @default("{\"maxFiresPerDay\":3,\"rules\":[]}")
   allowedOrigins  String[]        @default([])

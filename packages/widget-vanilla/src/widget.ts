@@ -252,6 +252,9 @@ export function mountQuickStartChat(opts: MountOptions) {
     open = !open;
     panel.style.display = open ? "flex" : "none";
     toggle.textContent = open ? "×" : "💬";
+    if (open && allowAnonymous && phase === "chat" && body.childElementCount === 0) {
+      addBubble("assistant", welcomeMessage);
+    }
   };
 
   function onTriggerFire(rule: ProactiveTriggerRule) {
@@ -267,6 +270,14 @@ export function mountQuickStartChat(opts: MountOptions) {
   client
     .getConfig()
     .then((res) => {
+      if (res.config.welcomeMessage?.trim()) {
+        welcomeMessage = res.config.welcomeMessage.trim();
+      }
+      if (res.config.allowAnonymousSessions) {
+        allowAnonymous = true;
+        phase = "chat";
+        syncLayout();
+      }
       const rules = res.config.proactiveTriggers?.rules;
       if (!rules?.length) return;
       triggerEngine = new TriggerEngine(res.config.proactiveTriggers!, { onFire: onTriggerFire });
@@ -280,6 +291,14 @@ export function mountQuickStartChat(opts: MountOptions) {
     if (!skipUserBubble) addBubble("user", text);
     loading = true;
     try {
+      if (!sessionId) {
+        sessionId = await client.ensureSession(null);
+        phase = "chat";
+        triggerEngine?.stop();
+        triggerEngine = null;
+        syncLayout();
+        subscribe();
+      }
       const res = await client.sendMessage(sessionId, text);
       if (res.answer) addBubble("assistant", res.answer);
     } catch (e) {
@@ -325,8 +344,16 @@ export function mountQuickStartChat(opts: MountOptions) {
     const text = msgInput.value.trim();
     if (!text || loading) return;
     msgInput.value = "";
-    pendingQuestion = text;
     addBubble("user", text);
+
+    if (allowAnonymous) {
+      pendingQuestion = text;
+      await sendChatMessage(text, true);
+      pendingQuestion = null;
+      return;
+    }
+
+    pendingQuestion = text;
     phase = "proactive_details";
     triggerEngine?.stop();
     triggerEngine = null;
@@ -342,12 +369,14 @@ export function mountQuickStartChat(opts: MountOptions) {
       return;
     }
 
-    if (!sessionId) return;
+    if (phase !== "chat" && !allowAnonymous) return;
     msgInput.value = "";
     await sendChatMessage(text);
   }
 
-  /** Live channel: agent replies and handoff status pushed from the inbox. */
+  let allowAnonymous = false;
+  let welcomeMessage = "Hello! How can I assist you today?";
+
   function subscribe() {
     if (!sessionId || unsubscribe) return;
     unsubscribe = client.subscribeToSession(sessionId, (event) => {

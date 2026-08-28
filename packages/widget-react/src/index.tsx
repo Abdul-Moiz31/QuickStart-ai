@@ -408,6 +408,7 @@ export function ChatBot({
   );
 
   const [open, setOpen] = useState(false);
+  const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [started, setStarted] = useState(false);
   const [projectName, setProjectName] = useState("QuickStart AI");
   const [proactiveTriggers, setProactiveTriggers] = useState<ProactiveTriggersConfig | null>(null);
@@ -454,6 +455,9 @@ export function ChatBot({
         }
         if (cfg?.proactiveTriggers?.rules?.length) {
           setProactiveTriggers(cfg.proactiveTriggers);
+        }
+        if (cfg?.allowAnonymousSessions) {
+          setAllowAnonymous(true);
         }
       })
       .catch(() => {
@@ -551,6 +555,18 @@ export function ChatBot({
     return null;
   }
 
+  const chatReady = started || allowAnonymous;
+
+  const beginSession = async (): Promise<string> => {
+    if (sessionId) return sessionId;
+    const sid = await client.ensureSession(null);
+    setSessionId(sid);
+    setStarted(true);
+    setProactivePhase(null);
+    setPendingQuestion(null);
+    return sid;
+  };
+
   const streamAssistantReply = async (sid: string, text: string) => {
     setLoading(true);
     try {
@@ -606,13 +622,31 @@ export function ChatBot({
     }
   };
 
-  const submitProactiveQuestion = () => {
+  const submitProactiveQuestion = async () => {
     const text = input.trim();
-    if (!text) return;
-    setPendingQuestion(text);
+    if (!text || loading) return;
     setInput("");
-    setProactivePhase("details");
     setProactiveEngaged(true);
+
+    if (allowAnonymous) {
+      setMessages((m) => [
+        ...m,
+        { role: "user", content: text },
+        { role: "assistant", content: "", streaming: true },
+      ]);
+      setLoading(true);
+      try {
+        const sid = await beginSession();
+        await streamAssistantReply(sid, text);
+      } catch (e) {
+        console.error(e);
+        alert("Could not start chat session");
+      }
+      return;
+    }
+
+    setPendingQuestion(text);
+    setProactivePhase("details");
   };
 
   const start = async () => {
@@ -678,9 +712,27 @@ export function ChatBot({
   };
 
   const send = async () => {
-    if (!input.trim() || loading || !sessionId) return;
+    if (!input.trim() || loading) return;
+    if (proactivePhase === "question") {
+      await submitProactiveQuestion();
+      return;
+    }
     const text = input.trim();
     setInput("");
+
+    let sid = sessionId;
+    if (!sid) {
+      setLoading(true);
+      try {
+        sid = await beginSession();
+      } catch (e) {
+        console.error(e);
+        alert("Could not start chat session");
+        setLoading(false);
+        return;
+      }
+    }
+
     setMessages((m) =>
       humanActive
         ? [...m, { role: "user", content: text }]
@@ -690,7 +742,7 @@ export function ChatBot({
             { role: "assistant", content: "", streaming: true },
           ],
     );
-    await streamAssistantReply(sessionId, text);
+    await streamAssistantReply(sid, text);
   };
 
   const posKey = resolvedPosition === "left" ? "left" : "right";
@@ -780,7 +832,7 @@ export function ChatBot({
           </div>
         </div>
 
-        {!started ? (
+        {!chatReady ? (
           proactivePhase === "question" ? (
             <>
               <div className="qs-widget-messages">
