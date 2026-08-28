@@ -15,6 +15,9 @@ const sessionSchema = new Schema(
     projectId: { type: String, required: true, index: true },
     visitorName: { type: String, required: true },
     visitorEmail: { type: String, required: true },
+    /** Where this session originated. Non-web sessions carry externalId to correlate follow-up messages. */
+    channel: { type: String, enum: ["web", "whatsapp", "sms", "instagram"], default: "web" },
+    externalId: { type: String },
     messages: { type: [messageSchema], default: [] },
     memorySummary: { type: String, default: "" },
     metadata: { type: Schema.Types.Mixed, default: {} },
@@ -37,6 +40,10 @@ const sessionSchema = new Schema(
 // SSE reconnect, so both flags are indexed alongside projectId.
 sessionSchema.index({ projectId: 1, humanPending: 1, updatedAt: -1 });
 sessionSchema.index({ projectId: 1, humanActive: 1, updatedAt: -1 });
+
+// Channel webhooks look up the session for a returning WhatsApp/SMS/Instagram
+// sender by (projectId, channel, externalId) instead of a client-held sessionId.
+sessionSchema.index({ projectId: 1, channel: 1, externalId: 1 });
 
 export type ChatMessageDoc = InferSchemaType<typeof messageSchema>;
 export type ChatSessionDoc = InferSchemaType<typeof sessionSchema> & {

@@ -159,6 +159,25 @@ export const createDiscordIntegrationSchema = z.object({
   enabled: z.boolean().optional().default(true),
 });
 
+export const createWhatsappIntegrationSchema = z.object({
+  label: z.string().min(1).max(120).optional().default("WhatsApp"),
+  description: z.string().max(500).optional().default(""),
+  phoneNumberId: z.string().min(1).max(200),
+  accessToken: z.string().min(1).max(4000),
+  appSecret: z.string().min(1).max(500),
+  verifyToken: z.string().min(1).max(200),
+  enabled: z.boolean().optional().default(true),
+});
+
+export const createTwilioIntegrationSchema = z.object({
+  label: z.string().min(1).max(120).optional().default("SMS"),
+  description: z.string().max(500).optional().default(""),
+  accountSid: z.string().min(1).max(200),
+  authToken: z.string().min(1).max(500),
+  fromNumber: z.string().min(1).max(30),
+  enabled: z.boolean().optional().default(true),
+});
+
 export const updateIntegrationSchema = z.object({
   label: z.string().min(1).max(120).optional(),
   description: z.string().max(500).optional(),
