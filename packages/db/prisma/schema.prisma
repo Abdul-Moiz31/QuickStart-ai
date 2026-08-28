@@ -66,6 +66,8 @@ model Project {
   toolsWebSearch  Boolean         @default(false)
   toolsHumanHandoff Boolean       @default(true)
   toolsLeadCapture  Boolean       @default(false)
+  /** ProactiveTriggersConfig — see packages/shared proactiveTriggersConfigSchema */
+  proactiveTriggers Json          @default("{\"maxFiresPerDay\":3,\"rules\":[]}")
   allowedOrigins  String[]        @default([])
   plan            PlanTier        @default(free)
   credits         Int             @default(200)
