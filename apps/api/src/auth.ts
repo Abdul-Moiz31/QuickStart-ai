@@ -39,7 +39,8 @@ export function setAuthCookie(reply: FastifyReply, token: string) {
 export async function requireAuth(req: FastifyRequest) {
   const header = req.headers.authorization;
   const bearer = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
-  const token = bearer || req.cookies.token;
+  const queryToken = (req.query as { token?: string }).token;
+  const token = bearer || req.cookies.token || queryToken;
   if (!token) throw new UnauthorizedError("Please login");
 
   try {

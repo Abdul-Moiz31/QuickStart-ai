@@ -52,7 +52,7 @@ export interface ChatMessage {
 export type StreamEvent =
   | { type: "meta"; sessionId: string; confidence?: string; humanActive?: boolean }
   | { type: "token"; content: string }
-  | { type: "done"; toolsUsed?: string[] }
+  | { type: "done"; toolsUsed?: string[]; handoffPending?: boolean }
   | { type: "error"; message: string };
 
 /** Pushed on the per-session channel while a human agent is involved. */
@@ -249,7 +249,6 @@ export class QuickStartClient {
     if (buffer.trim()) flushLine(buffer.trim());
   }
 
-  /** Reconciles after a reconnect: pub/sub has no replay, so gaps are only recoverable here. */
   async getSessionMessages(sessionId: string) {
     const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/messages`);
     url.searchParams.set("clientId", this.opts.clientId);
@@ -258,15 +257,11 @@ export class QuickStartClient {
     return res.json() as Promise<{
       success: boolean;
       humanActive: boolean;
+      humanPending: boolean;
       messages: { role: ChatMessage["role"]; content: string }[];
     }>;
   }
 
-  /**
-   * EventSource rather than a fetch reader: it reconnects on its own after a drop.
-   * It cannot send headers, so the client id travels in the query string —
-   * requireClient accepts that form and the id is public.
-   */
   subscribeToSession(
     sessionId: string,
     onEvent: (event: SessionLiveEvent) => void,
@@ -279,13 +274,15 @@ export class QuickStartClient {
     let sawOpen = false;
 
     source.onopen = () => {
-      // Only later opens are recoveries; the first is the initial connection.
       if (sawOpen) onReconnect?.();
       sawOpen = true;
     };
     source.onmessage = (ev: MessageEvent<string>) => {
-      const parsed = parseSsePayload(ev.data);
-      if (parsed) onEvent(parsed as unknown as SessionLiveEvent);
+      try {
+        onEvent(JSON.parse(ev.data) as SessionLiveEvent);
+      } catch {
+        // ignore malformed frames
+      }
     };
 
     return () => {
@@ -294,7 +291,22 @@ export class QuickStartClient {
     };
   }
 
-  /** Visitor typing ping. Throttled by the caller; failures are ignored by design. */
+  async requestHandoff(sessionId: string) {
+    const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/request-handoff`);
+    url.searchParams.set("clientId", this.opts.clientId);
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+    return res.json() as Promise<{
+      success: boolean;
+      humanPending: boolean;
+      humanActive?: boolean;
+    }>;
+  }
+
   async notifyVisitorTyping(sessionId: string): Promise<void> {
     const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/typing`);
     url.searchParams.set("clientId", this.opts.clientId);

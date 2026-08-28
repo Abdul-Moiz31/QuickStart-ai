@@ -307,16 +307,16 @@ export default function ConversationsPage() {
       )}
 
       <div className="mt-8 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
-        <div className="grid min-h-[580px] lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid h-[calc(100vh-11rem)] min-h-[580px] lg:grid-cols-[320px_minmax(0,1fr)]">
           {/* Inbox */}
-          <aside className="border-b border-ink/[0.08] bg-clay/50 lg:border-b-0 lg:border-r lg:border-ink/[0.08]">
-            <div className="flex items-center justify-between border-b border-ink/[0.06] px-4 py-3.5">
+          <aside className="flex min-h-0 flex-col overflow-hidden border-b border-ink/[0.08] bg-clay/50 lg:border-b-0 lg:border-r lg:border-ink/[0.08]">
+            <div className="flex shrink-0 items-center justify-between border-b border-ink/[0.06] px-4 py-3.5">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute">Inbox</p>
               <span className="rounded-full bg-white px-2.5 py-0.5 font-mono text-[10px] text-mute ring-1 ring-ink/[0.06]">
                 {sessions.length}
               </span>
             </div>
-            <ul className="max-h-[280px] overflow-y-auto lg:max-h-[calc(580px-52px)]">
+            <ul className="min-h-0 flex-1 overflow-y-auto">
               {loadingList && (
                 <li className="px-4 py-10 text-center text-sm text-mute">Loading conversations…</li>
               )}
@@ -367,10 +367,10 @@ export default function ConversationsPage() {
           </aside>
 
           {/* Thread */}
-          <section className="flex min-h-[360px] flex-col bg-porcelain">
+          <section className="flex min-h-0 flex-col overflow-hidden bg-porcelain">
             {selectedMeta ? (
               <>
-                <header className="border-b border-ink/[0.06] bg-white px-5 py-4">
+                <header className="sticky top-0 z-10 shrink-0 border-b border-ink/[0.06] bg-white px-5 py-4">
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white">
                       {initials(selectedMeta.visitorName || selectedMeta.visitorEmail)}
@@ -390,7 +390,7 @@ export default function ConversationsPage() {
                   </p>
                 </header>
 
-                <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-5">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-5">
                   {loadingThread ? (
                     <div className="flex items-center justify-center py-16">
                       <p className="text-sm text-mute">Loading messages…</p>

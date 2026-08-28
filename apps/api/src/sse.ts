@@ -1,5 +1,53 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { subscribeChannel } from "./realtime.js";
+import { env } from "./env.js";
+
+/** Match @fastify/cors allowlist (plus localhost in dev). */
+export function resolveCorsOrigin(req: FastifyRequest): string | undefined {
+  const origin = req.headers.origin;
+  if (typeof origin !== "string" || !origin) return undefined;
+  if (env.corsOrigins.includes(origin)) return origin;
+  if (
+    process.env.NODE_ENV !== "production" &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+  ) {
+    return origin;
+  }
+  return undefined;
+}
+
+function sseHeaders(req: FastifyRequest): Record<string, string | number> {
+  const origin = resolveCorsOrigin(req);
+  const headers: Record<string, string | number> = {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  };
+  if (origin) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+    headers.Vary = "Origin";
+  }
+  return headers;
+}
+
+/** Hijack the reply and write SSE headers including CORS (required when using reply.raw). */
+export function beginSseReply(req: FastifyRequest, reply: FastifyReply): void {
+  reply.hijack();
+  reply.raw.writeHead(200, sseHeaders(req));
+}
+
+export function writeSseEvent(
+  reply: FastifyReply,
+  event: Record<string, unknown>,
+): void {
+  reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+export function endSse(reply: FastifyReply): void {
+  reply.raw.end();
+}
 
 /** Proxies and load balancers drop idle connections at roughly 30-60s. */
 const HEARTBEAT_MS = 25_000;
@@ -18,15 +66,9 @@ export async function streamChannels(opts: {
 }): Promise<void> {
   const { req, reply, channels, initialEvent } = opts;
 
-  reply.raw.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
+  reply.hijack();
+  reply.raw.writeHead(200, sseHeaders(req));
 
-  // Tracked separately: a failed write means the socket is gone, which is not the
-  // same as teardown having run. Conflating them lets a write error skip cleanup.
   let writable = true;
   let closed = false;
   let unsubscribes: (() => void)[] = [];
@@ -43,9 +85,6 @@ export async function streamChannels(opts: {
     onClosed?.();
   };
 
-  // Attached before any await. Subscribing touches Redis, and a client that
-  // disconnects during that window would otherwise never be observed, leaking the
-  // heartbeat and holding the channel subscription open for the process lifetime.
   req.raw.on("close", teardown);
   req.raw.on("error", teardown);
   reply.raw.on("close", teardown);
@@ -65,8 +104,6 @@ export async function streamChannels(opts: {
     channels.map((channel) => subscribeChannel(channel, write)),
   );
 
-  // The client may have gone while we were subscribing; teardown has already run,
-  // so release these directly rather than storing them.
   if (closed) {
     for (const unsubscribe of handles) unsubscribe();
     return;

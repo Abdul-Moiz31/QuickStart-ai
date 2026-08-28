@@ -1,4 +1,5 @@
 import {
+  buildEmbeddingsRuntimeConfig,
   buildLlmRuntimeConfig,
   getLlmPublicModelLabel,
   maskApiKey,
@@ -8,10 +9,27 @@ import {
 import { decryptSecret } from "@quickstart-ai/shared/secrets";
 import type { LlmRuntimeConfig } from "@quickstart-ai/rag";
 
-export function getProjectLlmRuntime(project: ProjectLlmFields): Partial<LlmRuntimeConfig> | undefined {
+/** BYOK override for chat completions (Groq, OpenAI, etc.). */
+export function getProjectChatRuntime(
+  project: ProjectLlmFields,
+): Partial<LlmRuntimeConfig> | undefined {
   const cfg = buildLlmRuntimeConfig(project, decryptSecret);
   if (!cfg) return undefined;
   return cfg;
+}
+
+/** BYOK override for embeddings — platform keys when provider is chat-only. */
+export function getProjectEmbeddingsRuntime(
+  project: ProjectLlmFields,
+): Partial<LlmRuntimeConfig> | undefined {
+  const cfg = buildEmbeddingsRuntimeConfig(project, decryptSecret);
+  if (!cfg) return undefined;
+  return cfg;
+}
+
+/** @deprecated Use getProjectChatRuntime */
+export function getProjectLlmRuntime(project: ProjectLlmFields): Partial<LlmRuntimeConfig> | undefined {
+  return getProjectChatRuntime(project);
 }
 
 export function getProjectLlmPublicSettings(project: ProjectLlmFields) {

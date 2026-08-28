@@ -160,6 +160,23 @@ function computeConfidence(chunks: RetrievedChunk[]): AgentResult["confidence"] 
   return avgScore >= 0.55 ? "high" : avgScore >= 0.3 ? "medium" : "low";
 }
 
+/** Appended to every agent reply so answers fit the embed widget. */
+export const WIDGET_REPLY_GUIDELINES = [
+  "Reply format: small chat widget — keep it scannable.",
+  "Default length: 2–4 short sentences OR at most 4 bullet points.",
+  "Never write essays, long tutorials, or numbered lists longer than 4 items.",
+  "No markdown headings (#). Use **bold** only for short labels.",
+  "Code: max 3 lines in `backticks`, or point to docs instead of pasting blocks.",
+  "Tone: friendly and direct, like texting — not a manual.",
+].join("\n");
+
+export function buildAgentSystemPrompt(projectName: string, custom?: string): string {
+  const base =
+    custom?.trim() ||
+    `You are QuickStart AI, a helpful customer support agent for ${projectName}.`;
+  return `${base}\n\n${WIDGET_REPLY_GUIDELINES}`;
+}
+
 interface ToolLoopPrelude {
   toolsUsed: string[];
   eventsEmitted: ToolEventPayload[];
@@ -269,7 +286,7 @@ async function runToolLoop(opts: {
 
   const answer = await opts.chat.chat(answerMessages, {
     temperature: 0.2,
-    maxTokens: 700,
+    maxTokens: 400,
     modelChainRotate: opts.modelChainRotate,
   });
 
@@ -332,9 +349,7 @@ export async function runAgenticRag(opts: {
     }
   }
 
-  const system =
-    opts.systemPrompt ||
-    `You are QuickStart AI, a helpful customer support agent for ${opts.projectName}.`;
+  const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 
   const { answer, toolsUsed, eventsEmitted: loopEvents } = await runToolLoop({
     tools,
@@ -412,9 +427,7 @@ export async function* runAgenticRagStream(
     }
   }
 
-  const system =
-    opts.systemPrompt ||
-    `You are QuickStart AI, a helpful customer support agent for ${opts.projectName}.`;
+  const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 
   const { toolsUsed, eventsEmitted: loopEvents, answerMessages } = await runToolLoopPrelude({
     tools,
@@ -432,7 +445,7 @@ export async function* runAgenticRagStream(
   if (opts.chat.chatStream) {
     for await (const token of opts.chat.chatStream(answerMessages, {
       temperature: 0.2,
-      maxTokens: 700,
+      maxTokens: 400,
       modelChainRotate: opts.modelChainRotate,
     })) {
       yield token;
@@ -440,7 +453,7 @@ export async function* runAgenticRagStream(
   } else {
     const answer = await opts.chat.chat(answerMessages, {
       temperature: 0.2,
-      maxTokens: 700,
+      maxTokens: 400,
       modelChainRotate: opts.modelChainRotate,
     });
     yield answer;

@@ -4,7 +4,8 @@ export type LlmProviderId =
   | "openai"
   | "google"
   | "anthropic"
-  | "xai";
+  | "xai"
+  | "groq";
 
 export type LlmModelTier = "free" | "budget" | "balanced";
 
@@ -23,6 +24,8 @@ export type LlmProviderOption = {
   keyHint: string;
   keyLabel: string;
   defaultBaseUrl: string;
+  /** Chat-only providers (e.g. Groq) — embeddings stay on platform keys. */
+  supportsEmbeddings?: boolean;
   models: LlmModelPreset[];
 };
 
@@ -187,6 +190,7 @@ export const LLM_PROVIDER_OPTIONS: LlmProviderOption[] = [
     keyHint: "xai-…",
     keyLabel: "xAI API key",
     defaultBaseUrl: "https://api.x.ai/v1",
+    supportsEmbeddings: false,
     models: [
       {
         id: "grok-2-1212",
@@ -203,10 +207,47 @@ export const LLM_PROVIDER_OPTIONS: LlmProviderOption[] = [
       },
     ],
   },
+  {
+    id: "groq",
+    label: "Groq Cloud",
+    description: "Ultra-fast chat inference. Knowledge search uses platform embedding keys.",
+    keyHint: "gsk_…",
+    keyLabel: "Groq API key",
+    defaultBaseUrl: "https://api.groq.com/openai/v1",
+    supportsEmbeddings: false,
+    models: [
+      {
+        id: "openai/gpt-oss-120b",
+        label: "GPT-OSS 120B",
+        description: "Groq's recommended production model — replaces Llama 3.3 70B.",
+        tier: "balanced",
+        recommended: true,
+      },
+      {
+        id: "openai/gpt-oss-20b",
+        label: "GPT-OSS 20B",
+        description: "Fast and cheap — replaces Llama 3.1 8B Instant.",
+        tier: "budget",
+      },
+      {
+        id: "qwen/qwen3.6-27b",
+        label: "Qwen 3.6 27B",
+        description: "Strong reasoning — Groq preview tier.",
+        tier: "balanced",
+      },
+    ],
+  },
 ];
 
 export function getProviderOption(id: string): LlmProviderOption | undefined {
   return LLM_PROVIDER_OPTIONS.find((p) => p.id === id);
+}
+
+/** BYOK providers that only expose chat completions (not embeddings). */
+export function providerSupportsEmbeddings(providerId: string): boolean {
+  const provider = getProviderOption(providerId);
+  if (!provider) return true;
+  return provider.supportsEmbeddings !== false;
 }
 
 export function getProviderModels(providerId: string): LlmModelPreset[] {
@@ -227,10 +268,21 @@ export function getModelPreset(providerId: string, modelId: string): LlmModelPre
   return getProviderModels(providerId).find((m) => m.id === modelId);
 }
 
+/** Groq retired several Llama IDs on 2026-08-16 — map stored values to live models. */
+const GROQ_DEPRECATED_MODEL_MAP: Record<string, string> = {
+  "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+  "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+  "llama-3.1-70b-versatile": "openai/gpt-oss-120b",
+  "gemma2-9b-it": "openai/gpt-oss-20b",
+};
+
 /** Pick a valid stored model or fall back to provider default. */
 export function resolveModelId(providerId: string, stored: string | null | undefined): string {
   const models = getProviderModels(providerId);
   if (!models.length) return "";
+  if (providerId === "groq" && stored && GROQ_DEPRECATED_MODEL_MAP[stored]) {
+    stored = GROQ_DEPRECATED_MODEL_MAP[stored];
+  }
   if (stored && models.some((m) => m.id === stored)) return stored;
   return getDefaultModelId(providerId);
 }
@@ -276,6 +328,16 @@ export function buildLlmRuntimeConfig(
       project.llmProvider === "anthropic" ||
       baseUrl.includes("openrouter"),
   };
+}
+
+/** Runtime override for embeddings — omitted for chat-only BYOK providers (Groq, xAI). */
+export function buildEmbeddingsRuntimeConfig(
+  project: ProjectLlmFields,
+  decryptKey: (enc: string) => string,
+): LlmRuntimeConfig | undefined {
+  if (!project.useOwnLlmKey || project.llmProvider === "platform") return undefined;
+  if (!providerSupportsEmbeddings(project.llmProvider)) return undefined;
+  return buildLlmRuntimeConfig(project, decryptKey);
 }
 
 export function getLlmPublicModelLabel(providerId: string, modelId: string | null): string {
