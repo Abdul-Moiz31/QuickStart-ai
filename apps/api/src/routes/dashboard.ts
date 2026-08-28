@@ -31,6 +31,12 @@ import {
   periodToSince,
 } from "../knowledge-gaps.js";
 import { groupAndResolve } from "../knowledge-gap-grouping.js";
+import {
+  analyticsCacheKey,
+  ANALYTICS_PERIODS,
+  computeProjectAnalytics,
+  type AnalyticsPeriod,
+} from "../analytics.js";
 
 const playgroundMessageSchema = z.object({
   message: z.string().min(1).max(4000),
@@ -40,6 +46,7 @@ const playgroundMessageSchema = z.object({
 const MAX_EVAL_CASES = 15;
 const MAX_GAP_GROUPS = 20;
 const GAP_CACHE_TTL_SECONDS = 600;
+const ANALYTICS_CACHE_TTL_SECONDS = 600;
 const GAP_PERIODS: string[] = [...GAP_CACHE_PERIODS];
 
 async function loadKnowledgeQaCases(projectId: string): Promise<{
@@ -399,34 +406,40 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/analytics", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
+    const rawPeriod = (req.query as { period?: string }).period ?? "30d";
+    const period = ANALYTICS_PERIODS.includes(rawPeriod as AnalyticsPeriod)
+      ? (rawPeriod as AnalyticsPeriod)
+      : "30d";
     const project = await prisma.project.findFirst({
       where: { id, ownerId: req.user!.id },
     });
     if (!project) throw new NotFoundError("Project not found");
 
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const events = await prisma.usageEvent.groupBy({
-      by: ["kind"],
-      where: { projectId: id, createdAt: { gte: since } },
-      _sum: { units: true },
-      _count: true,
-    });
+    const cacheKey = analyticsCacheKey(id, period);
+    const redis = getRedis();
+    try {
+      if (redis.status !== "ready") await redis.connect();
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch {
+      // Cache is an optimisation; fall through and compute.
+    }
 
     await connectMongo();
-    const Session = getChatSessionModel();
-    const sessionCount = await Session.countDocuments({ projectId: id });
-    const docCount = await prisma.knowledgeDocument.count({ where: { projectId: id } });
+    const analytics = await computeProjectAnalytics({
+      projectId: id,
+      since: periodToSince(period),
+    });
 
-    return {
-      success: true,
-      analytics: {
-        sessionCount,
-        documentCount: docCount,
-        credits: project.credits,
-        plan: project.plan,
-        usage: events,
-      },
-    };
+    const payload = { success: true, period, analytics };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(payload), "EX", ANALYTICS_CACHE_TTL_SECONDS);
+    } catch {
+      // ignore cache write failures
+    }
+
+    return payload;
   });
 
   /**
