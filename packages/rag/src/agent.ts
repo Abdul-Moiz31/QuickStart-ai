@@ -1,5 +1,5 @@
 import type { ChatClient, EmbeddingsClient, LLMMessage } from "./llm.js";
-import { BUILTIN_EVENT_TYPES } from "@quickstart-ai/shared";
+import { BUILTIN_EVENT_TYPES, HANDOFF_AGENT_GUIDELINES, looksLikeGibberish, visitorRequestsHumanHelp } from "@quickstart-ai/shared";
 import { fetchWebsiteSummary } from "./website.js";
 import { hybridRetrieve, rerankChunks, type RetrievedChunk } from "./retrieve.js";
 import {
@@ -236,7 +236,36 @@ export function buildAgentSystemPrompt(projectName: string, custom?: string): st
   const base =
     custom?.trim() ||
     `You are QuickStart AI, a helpful customer support agent for ${projectName}.`;
-  return `${base}\n\n${WIDGET_REPLY_GUIDELINES}`;
+  return `${base}\n\n${WIDGET_REPLY_GUIDELINES}\n\n${HANDOFF_AGENT_GUIDELINES}`;
+}
+
+async function maybeEscalateForVisitorIntent(
+  tools: AgentTool[],
+  query: string,
+  toolsHumanHandoff?: boolean,
+  alreadyEscalated = false,
+): Promise<ToolEventPayload[]> {
+  if (
+    alreadyEscalated ||
+    toolsHumanHandoff === false ||
+    looksLikeGibberish(query) ||
+    !visitorRequestsHumanHelp(query)
+  ) {
+    return [];
+  }
+  const escalate = tools.find((t) => t.name === "escalate_to_human");
+  if (!escalate) return [];
+  const esc = await escalate.execute({ reason: "visitor requested human support" });
+  return esc.event ? [esc.event] : [];
+}
+
+function gibberishAnswerNote(query: string): string | null {
+  if (!looksLikeGibberish(query)) return null;
+  return [
+    "The visitor message looks unclear or nonsensical.",
+    "Politely ask them to rephrase with a specific question about the business.",
+    "Do NOT offer human support or call escalate_to_human for gibberish.",
+  ].join(" ");
 }
 
 interface ToolLoopPrelude {
@@ -271,6 +300,8 @@ async function runToolLoopPrelude(opts: {
         "You may call tools to answer. Reply with JSON only:",
         '{"tools":["tool_name"],"args":{"tool_name":{"key":"value"}},"reason":"brief"}',
         "Pick 0-2 tools besides search_knowledge when helpful.",
+        "If the visitor asks for a human, agent, or support person, include escalate_to_human.",
+        "Do not call escalate_to_human for gibberish or nonsense messages.",
         "For capture_lead include name and email in args when known.",
         `Available tools:\n${toolCatalog}`,
         `Retrieval confidence: ${opts.confidence}.`,
@@ -324,12 +355,16 @@ async function runToolLoopPrelude(opts: {
       content: [
         opts.systemPrompt,
         "Answer ONLY using the provided knowledge and tool results.",
-        "If unsure, say you don't know and offer escalation.",
+        "If unsure about a legitimate question, say you don't know and offer escalation.",
         "Never invent policies, prices, or contact details.",
+        "Never claim you forwarded or notified the team unless escalate_to_human appears in tool results.",
+        gibberishAnswerNote(opts.query),
         `Retrieval confidence: ${opts.confidence}.`,
         "Tool results:",
         toolResults.join("\n\n---\n\n"),
-      ].join("\n\n"),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     },
     ...opts.history.slice(-8),
     { role: "user", content: opts.query },
@@ -423,13 +458,21 @@ export async function runAgenticRag(opts: {
   const confidence = computeConfidence(chunks);
   const eventsEmitted: ToolEventPayload[] = [];
 
-  if (confidence === "low" && chunks.length === 0) {
+  if (confidence === "low" && chunks.length === 0 && !looksLikeGibberish(opts.query)) {
     const escalate = tools.find((t) => t.name === "escalate_to_human");
     if (escalate) {
       const esc = await escalate.execute({ reason: "insufficient knowledge base coverage" });
       if (esc.event) eventsEmitted.push(esc.event);
     }
   }
+
+  const intentEvents = await maybeEscalateForVisitorIntent(
+    tools,
+    opts.query,
+    opts.toolsHumanHandoff,
+    eventsEmitted.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF),
+  );
+  eventsEmitted.push(...intentEvents);
 
   const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 
@@ -519,13 +562,21 @@ export async function* runAgenticRagStream(
   const confidence = computeConfidence(chunks);
   const preEventsEmitted: ToolEventPayload[] = [];
 
-  if (confidence === "low" && chunks.length === 0) {
+  if (confidence === "low" && chunks.length === 0 && !looksLikeGibberish(opts.query)) {
     const escalate = tools.find((t) => t.name === "escalate_to_human");
     if (escalate) {
       const esc = await escalate.execute({ reason: "insufficient knowledge base coverage" });
       if (esc.event) preEventsEmitted.push(esc.event);
     }
   }
+
+  const intentEvents = await maybeEscalateForVisitorIntent(
+    tools,
+    opts.query,
+    opts.toolsHumanHandoff,
+    preEventsEmitted.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF),
+  );
+  preEventsEmitted.push(...intentEvents);
 
   const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 

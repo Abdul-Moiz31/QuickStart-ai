@@ -30,6 +30,7 @@ export const env = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   mailFrom: process.env.MAIL_FROM ?? "QuickStart AI <onboarding@resend.dev>",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
 };
 
 // The JWT default is publicly known (committed to the repo). Any deployment

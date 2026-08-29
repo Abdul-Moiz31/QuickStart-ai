@@ -7,4 +7,5 @@ export * from "./knowledge-sections.js";
 export * from "./llm-providers.js";
 export * from "./business-profile.js";
 export * from "./events.js";
+export * from "./handoff-intent.js";
 export * from "./member-role.js";

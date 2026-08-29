@@ -268,6 +268,17 @@ export class QuickStartClient {
     if (buffer.trim()) flushLine(buffer.trim());
   }
 
+  /** Sends a recorded audio clip for transcription; returns the recognized text. */
+  async transcribeAudio(sessionId: string | undefined, audioBase64: string, mimeType: string) {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/transcribe`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ sessionId, audioBase64, mimeType }),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+    return res.json() as Promise<{ success: boolean; text: string }>;
+  }
+
   async getSessionMessages(sessionId: string) {
     const url = new URL(`${this.opts.apiUrl}/api/v1/chat/sessions/${sessionId}/messages`);
     url.searchParams.set("clientId", this.opts.clientId);
