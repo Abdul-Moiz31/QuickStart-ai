@@ -428,9 +428,20 @@ export function ChatBot({
   const [handoffPending, setHandoffPending] = useState(false);
   const [handoffBusy, setHandoffBusy] = useState(false);
   const [agentTyping, setAgentTyping] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [speakReplies, setSpeakReplies] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const agentTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingPing = useRef(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const micSupported =
+    typeof navigator !== "undefined" &&
+    !!navigator.mediaDevices?.getUserMedia &&
+    typeof MediaRecorder !== "undefined";
+  const speechSupported = typeof window !== "undefined" && "speechSynthesis" in window;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -569,9 +580,11 @@ export function ChatBot({
 
   const streamAssistantReply = async (sid: string, text: string) => {
     setLoading(true);
+    let finalAnswer = "";
     try {
       await client.sendMessageStream(sid, text, (event) => {
         if (event.type === "token") {
+          finalAnswer += event.content;
           setMessages((m) => {
             const copy = [...m];
             const last = copy[copy.length - 1];
@@ -600,6 +613,10 @@ export function ChatBot({
         }
         return copy;
       });
+      if (speakReplies && speechSupported && finalAnswer.trim()) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(finalAnswer));
+      }
     } catch (e) {
       console.error(e);
       const errMsg =
@@ -711,14 +728,9 @@ export function ChatBot({
     }
   };
 
-  const send = async () => {
-    if (!input.trim() || loading) return;
-    if (proactivePhase === "question") {
-      await submitProactiveQuestion();
-      return;
-    }
-    const text = input.trim();
-    setInput("");
+  /** Runs one message through the chat pipeline, bypassing the input box — used by both typed send and voice transcripts. */
+  const sendText = async (text: string) => {
+    if (!text.trim() || loading) return;
 
     let sid = sessionId;
     if (!sid) {
@@ -743,6 +755,68 @@ export function ChatBot({
           ],
     );
     await streamAssistantReply(sid, text);
+  };
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    if (proactivePhase === "question") {
+      await submitProactiveQuestion();
+      return;
+    }
+    const text = input.trim();
+    setInput("");
+    await sendText(text);
+  };
+
+  const startRecording = async () => {
+    if (recording || transcribing || loading) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        void transcribeRecordedClip(recorder.mimeType || "audio/webm");
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch (e) {
+      console.error(e);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Couldn't access your microphone. Check your browser permissions and try again." },
+      ]);
+    }
+  };
+
+  const stopRecording = () => {
+    if (!recording) return;
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+  };
+
+  const transcribeRecordedClip = async (mimeType: string) => {
+    const blob = new Blob(audioChunksRef.current, { type: mimeType });
+    audioChunksRef.current = [];
+    if (blob.size === 0) return;
+
+    setTranscribing(true);
+    try {
+      const audioBase64 = await blobToBase64(blob);
+      const res = await client.transcribeAudio(sessionId || undefined, audioBase64, mimeType);
+      if (res.text?.trim()) await sendText(res.text.trim());
+    } catch (e) {
+      console.error(e);
+      const message =
+        e instanceof ChatRequestError ? e.message : "Could not transcribe that recording. Please try again.";
+      setMessages((m) => [...m, { role: "assistant", content: message }]);
+    } finally {
+      setTranscribing(false);
+    }
   };
 
   const posKey = resolvedPosition === "left" ? "left" : "right";
@@ -1064,14 +1138,48 @@ export function ChatBot({
                   notifyTyping();
                 }}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-                placeholder="Type a message…"
-                disabled={loading}
+                placeholder={recording ? "Listening…" : "Type a message…"}
+                disabled={loading || recording || transcribing}
                 style={{ ...inputStyle(surface), margin: 0, borderRadius: 9999 }}
               />
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={() => setSpeakReplies((v) => !v)}
+                  title={speakReplies ? "Stop speaking replies aloud" : "Speak replies aloud"}
+                  className="qs-widget-speak-btn"
+                  style={{
+                    ...sendBtnStyle,
+                    background: speakReplies ? surface.accent.bg : surface.panel.bg,
+                    color: speakReplies ? surface.accent.text : surface.input.text,
+                    border: `1px solid ${surface.input.border}`,
+                  }}
+                >
+                  {speakReplies ? "🔊" : "🔇"}
+                </button>
+              )}
+              {micSupported && (
+                <button
+                  type="button"
+                  onClick={recording ? stopRecording : startRecording}
+                  disabled={transcribing || loading}
+                  title={recording ? "Stop recording" : "Record a voice message"}
+                  className="qs-widget-mic-btn"
+                  style={{
+                    ...sendBtnStyle,
+                    background: recording ? "#DC2626" : surface.panel.bg,
+                    color: recording ? "#ffffff" : surface.input.text,
+                    border: `1px solid ${surface.input.border}`,
+                    opacity: transcribing ? 0.55 : 1,
+                  }}
+                >
+                  {transcribing ? "…" : recording ? "■" : "🎤"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={send}
-                disabled={loading || !input.trim()}
+                disabled={loading || recording || transcribing || !input.trim()}
                 className="qs-widget-send-btn"
                 style={{
                   ...sendBtnStyle,
@@ -1088,6 +1196,18 @@ export function ChatBot({
       </div>
     </>
   );
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 function inputStyle(surface: ReturnType<typeof resolveWidgetSurface>): React.CSSProperties {
