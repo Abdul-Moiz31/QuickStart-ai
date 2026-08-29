@@ -53,4 +53,12 @@ export async function ensurePgvector() {
     ALTER TABLE "Project"
     ADD COLUMN IF NOT EXISTS "llmBaseUrl" TEXT
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "IntegrationConnection"
+    ADD COLUMN IF NOT EXISTS "externalId" TEXT
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS integration_connection_provider_external_id
+    ON "IntegrationConnection" (provider, "externalId")
+  `);
 }
