@@ -1,0 +1,4 @@
+
+> @quickstart-ai/shared@0.1.0 build /home/aqib/quickstart-ai/packages/shared
+> tsc -p tsconfig.json
+

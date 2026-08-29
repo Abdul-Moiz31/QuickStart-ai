@@ -1,0 +1,4 @@
+
+> @quickstart-ai/widget-react@0.1.0 build /home/aqib/quickstart-ai/packages/widget-react
+> tsc -p tsconfig.json
+

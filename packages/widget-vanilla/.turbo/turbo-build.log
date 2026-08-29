@@ -1,0 +1,8 @@
+
+> @quickstart-ai/widget-vanilla@0.1.0 build /home/aqib/quickstart-ai/packages/widget-vanilla
+> esbuild src/widget.ts --bundle --minify --format=iife --global-name=QuickStartWidget --outfile=dist/widget.js
+
+
+  [37mdist/[0m[1mwidget.js[0m  [36m13.8kb[0m
+
+⚡ [32mDone in 12ms[0m

@@ -1,0 +1,4 @@
+
+> @quickstart-ai/rag@0.1.0 build /home/aqib/quickstart-ai/packages/rag
+> tsc -p tsconfig.json
+

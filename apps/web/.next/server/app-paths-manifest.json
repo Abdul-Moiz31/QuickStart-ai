@@ -1,0 +1,11 @@
+{
+  "/page": "app/page.js",
+  "/login/page": "app/login/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/projects/[id]/settings/page": "app/dashboard/projects/[id]/settings/page.js",
+  "/dashboard/projects/[id]/conversations/page": "app/dashboard/projects/[id]/conversations/page.js",
+  "/dashboard/projects/[id]/inbox/page": "app/dashboard/projects/[id]/inbox/page.js",
+  "/dashboard/projects/[id]/analytics/page": "app/dashboard/projects/[id]/analytics/page.js",
+  "/dashboard/projects/[id]/eval/page": "app/dashboard/projects/[id]/eval/page.js",
+  "/dashboard/projects/[id]/knowledge/page": "app/dashboard/projects/[id]/knowledge/page.js"
+}

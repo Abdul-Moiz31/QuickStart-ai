@@ -1,0 +1,4 @@
+
+> @quickstart-ai/worker@0.1.0 build /home/aqib/quickstart-ai/apps/worker
+> tsc -p tsconfig.json
+

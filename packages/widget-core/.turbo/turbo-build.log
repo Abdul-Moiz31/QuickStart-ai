@@ -1,0 +1,4 @@
+
+> @quickstart-ai/widget-core@0.1.0 build /home/aqib/quickstart-ai/packages/widget-core
+> tsc -p tsconfig.json
+

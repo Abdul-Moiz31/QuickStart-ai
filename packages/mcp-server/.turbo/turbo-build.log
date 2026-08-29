@@ -1,0 +1,4 @@
+
+> @quickstart-ai/mcp-server@0.1.0 build /home/aqib/quickstart-ai/packages/mcp-server
+> tsc -p tsconfig.json
+

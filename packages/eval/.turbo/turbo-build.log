@@ -1,0 +1,4 @@
+
+> @quickstart-ai/eval@0.1.0 build /home/aqib/quickstart-ai/packages/eval
+> tsc -p tsconfig.json
+

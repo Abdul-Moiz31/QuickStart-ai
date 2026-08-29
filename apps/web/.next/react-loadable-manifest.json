@@ -1,0 +1,14 @@
+{
+  "components/SiteChatbot.tsx -> @quickstart-ai/widget-react": {
+    "id": "components/SiteChatbot.tsx -> @quickstart-ai/widget-react",
+    "files": [
+      "static/chunks/_app-pages-browser_packages_widget-react_dist_index_js-_77ef0.js"
+    ]
+  },
+  "components/dashboard/DashboardChatbot.tsx -> @quickstart-ai/widget-react": {
+    "id": "components/dashboard/DashboardChatbot.tsx -> @quickstart-ai/widget-react",
+    "files": [
+      "static/chunks/_app-pages-browser_packages_widget-react_dist_index_js-_77ef1.js"
+    ]
+  }
+}
