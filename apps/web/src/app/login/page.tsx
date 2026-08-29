@@ -11,6 +11,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
+  const inviteEmail = searchParams.get("email") ?? "";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,9 +44,11 @@ function LoginForm() {
       eyebrow="Welcome back"
       title="Sign in"
       subtitle={
-        nextPath?.startsWith("/oauth/")
-          ? "Sign in to approve the ChatGPT MCP connection."
-          : "Access your projects, knowledge base, and embed credentials."
+        nextPath?.startsWith("/invite")
+          ? `Sign in with ${inviteEmail || "the invited email"} to accept the team invite.`
+          : nextPath?.startsWith("/oauth/")
+            ? "Sign in to approve the ChatGPT MCP connection."
+            : "Access your projects, knowledge base, and embed credentials."
       }
       footer={
         <>
@@ -64,6 +67,7 @@ function LoginForm() {
             type="email"
             required
             autoComplete="email"
+            defaultValue={inviteEmail}
             placeholder="you@company.com"
             className="qs-field bg-clay/40"
           />

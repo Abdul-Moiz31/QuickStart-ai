@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, setStoredToken } from "@/lib/api";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next");
+  const inviteEmail = searchParams.get("email") ?? "";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +33,9 @@ export default function RegisterPage() {
         }),
       });
       setStoredToken(res.token);
-      router.push("/dashboard");
+      const safeNext =
+        nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : null;
+      router.push(safeNext ?? "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -38,15 +43,26 @@ export default function RegisterPage() {
     }
   }
 
+  const loginHref =
+    nextPath && inviteEmail
+      ? `/login?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(inviteEmail)}`
+      : nextPath
+        ? `/login?next=${encodeURIComponent(nextPath)}`
+        : "/login";
+
   return (
     <AuthShell
       eyebrow="Get started"
       title="Create your account"
-      subtitle="Set up your workspace in a minute, then configure your first project whenever you're ready."
+      subtitle={
+        nextPath?.startsWith("/invite")
+          ? `Register with ${inviteEmail || "the invited email"} to join the team.`
+          : "Set up your workspace in a minute, then configure your first project whenever you're ready."
+      }
       footer={
         <>
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-ink underline-offset-2 hover:underline">
+          <Link href={loginHref} className="font-medium text-ink underline-offset-2 hover:underline">
             Sign in
           </Link>
         </>
@@ -64,6 +80,8 @@ export default function RegisterPage() {
             type="email"
             required
             autoComplete="email"
+            defaultValue={inviteEmail}
+            readOnly={Boolean(inviteEmail)}
             placeholder="you@company.com"
             className="qs-field bg-clay/40"
           />
@@ -78,13 +96,19 @@ export default function RegisterPage() {
             placeholder="At least 8 characters"
           />
         </label>
-        {error && (
-          <p className="rounded-xl border border-ink/10 bg-clay px-3 py-2 text-sm text-ink">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={loading} className="qs-btn-primary w-full">
-          {loading ? "Creating…" : "Create account"}
+          {loading ? "Creating account…" : "Create account"}
         </button>
       </form>
     </AuthShell>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }

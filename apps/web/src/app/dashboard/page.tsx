@@ -145,11 +145,18 @@ export default function DashboardHomePage() {
                 </p>
                 <div className="mt-6 flex gap-4 border-t border-ink/[0.08] pt-4 text-xs text-mute">
                   <span>
-                    <strong className="text-ink">{p._count.documents}</strong> docs
+                    <strong className="text-ink">{p._count?.documents ?? 0}</strong> docs
                   </span>
-                  <span>
-                    <strong className="text-ink">{p.credits}</strong> credits
-                  </span>
+                  {p.isOwner && p.credits !== undefined && (
+                    <span>
+                      <strong className="text-ink">{p.credits}</strong> credits
+                    </span>
+                  )}
+                  {!p.isOwner && p.memberRole && (
+                    <span>
+                      Role: <strong className="text-ink">{p.memberRole}</strong>
+                    </span>
+                  )}
                 </div>
               </Link>
             ))}
