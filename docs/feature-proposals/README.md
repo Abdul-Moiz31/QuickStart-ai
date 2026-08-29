@@ -14,3 +14,5 @@ Product-level feature proposals for QuickStart AI. Each file is a standalone iss
 | 08 | [Visitor Identity & CRM Sync](./08-visitor-identity-crm-sync.md) | Integrations | Medium |
 | 09 | [File & Image Upload in Chat](./09-file-image-upload.md) | Widget | Low |
 | 10 | [Team & Multi-agent Access](./10-team-multi-agent-access.md) | Platform | Low |
+
+See also the [product roadmap](../roadmap/README.md) for the Aug 2026 co-founder backlog (onboarding, dashboard IA, billing, admin, etc.).
