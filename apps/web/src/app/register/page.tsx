@@ -40,8 +40,9 @@ export default function RegisterPage() {
 
   return (
     <AuthShell
-      title="Create account"
-      subtitle="Create an account, then set up your default project when you're ready."
+      eyebrow="Get started"
+      title="Create your account"
+      subtitle="Set up your workspace in a minute, then configure your first project whenever you're ready."
       footer={
         <>
           Already have an account?{" "}

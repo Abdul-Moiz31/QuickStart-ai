@@ -40,11 +40,12 @@ function LoginForm() {
 
   return (
     <AuthShell
+      eyebrow="Welcome back"
       title="Sign in"
       subtitle={
         nextPath?.startsWith("/oauth/")
           ? "Sign in to approve the ChatGPT MCP connection."
-          : "Access your projects, knowledge, and embed credentials."
+          : "Access your projects, knowledge base, and embed credentials."
       }
       footer={
         <>
