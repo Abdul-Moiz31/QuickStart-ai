@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import jwt from "jsonwebtoken";
 import { prisma } from "@quickstart-ai/db";
-import { UnauthorizedError, ForbiddenError } from "@quickstart-ai/shared";
+import { UnauthorizedError, ForbiddenError, RateLimitError } from "@quickstart-ai/shared";
 import { env } from "./env.js";
 import { hashSecret, timingSafeEqualHex } from "./credentials.js";
 import { assertRateLimit } from "./redis.js";
@@ -39,8 +39,7 @@ export function setAuthCookie(reply: FastifyReply, token: string) {
 export async function requireAuth(req: FastifyRequest) {
   const header = req.headers.authorization;
   const bearer = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
-  const queryToken = (req.query as { token?: string }).token;
-  const token = bearer || req.cookies.token || queryToken;
+  const token = bearer || req.cookies.token;
   if (!token) throw new UnauthorizedError("Please login");
 
   try {
@@ -58,6 +57,26 @@ export async function requireAuth(req: FastifyRequest) {
 export async function requireAdmin(req: FastifyRequest) {
   await requireAuth(req);
   if (req.user?.role !== "ADMIN") throw new ForbiddenError("Admin only");
+}
+
+/**
+ * Rate-limits login/register attempts by IP, and additionally by email for
+ * login so a distributed credential-stuffing attack against one account
+ * can't just rotate IPs to dodge the per-IP bucket.
+ */
+export async function assertAuthRateLimit(req: FastifyRequest, email?: string) {
+  const ip = req.ip || "unknown";
+  const byIp = await assertRateLimit(`auth:ip:${ip}`, env.rateLimitMaxAuthIp, env.rateLimitWindowMs);
+  if (!byIp.allowed) throw new RateLimitError("Too many attempts. Try again shortly.");
+
+  if (email) {
+    const byEmail = await assertRateLimit(
+      `auth:email:${email.toLowerCase()}`,
+      env.rateLimitMaxAuthEmail,
+      env.rateLimitWindowMs,
+    );
+    if (!byEmail.allowed) throw new RateLimitError("Too many attempts. Try again shortly.");
+  }
 }
 
 export interface ClientAuthOptions {
