@@ -29,6 +29,7 @@
     "ioredis": "^5.4.2",
     "jsonwebtoken": "^9.0.2",
     "nanoid": "^5.0.9",
+    "twilio": "^5.4.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

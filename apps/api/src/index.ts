@@ -18,6 +18,7 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { integrationsRoutes } from "./routes/integrations.js";
 import { projectIntegrationsRoutes } from "./routes/project-integrations.js";
 import { customToolsRoutes } from "./routes/custom-tools.js";
+import { channelsRoutes } from "./routes/channels.js";
 import { mcpOAuthRoutes } from "./routes/mcp-oauth.js";
 import { mcpHttpRoutes } from "./routes/mcp-http.js";
 
@@ -108,6 +109,7 @@ async function main() {
   await dashboardRoutes(app);
   await integrationsRoutes(app);
   await projectIntegrationsRoutes(app);
+await channelsRoutes(app);
   await customToolsRoutes(app);
   await mcpOAuthRoutes(app);
   await mcpHttpRoutes(app);

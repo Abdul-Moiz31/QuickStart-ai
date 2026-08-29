@@ -6,18 +6,36 @@ import { buildEventEnvelope } from "./payload.js";
 import { formatSlackMessage, postToSlack } from "./deliver/slack.js";
 import { formatDiscordMessage, postToDiscord } from "./deliver/discord.js";
 import { nextRetryDelay, postWebhook } from "./deliver/webhook.js";
+import { verifyTwilioCredentials } from "./deliver/twilio.js";
+import { verifyInstagramCredentials, verifyWhatsappCredentials } from "./deliver/whatsapp.js";
 
 async function deliverIntegration(
   provider: string,
   configEnc: string,
   envelope: ReturnType<typeof buildEventEnvelope>,
 ): Promise<number> {
-  const config = JSON.parse(decryptSecret(configEnc)) as { webhookUrl: string };
-  if (provider === "slack") {
-    return postToSlack(config.webhookUrl, formatSlackMessage(envelope));
-  }
-  if (provider === "discord") {
+  if (provider === "slack" || provider === "discord") {
+    const config = JSON.parse(decryptSecret(configEnc)) as { webhookUrl: string };
+    if (provider === "slack") {
+      return postToSlack(config.webhookUrl, formatSlackMessage(envelope));
+    }
     return postToDiscord(config.webhookUrl, formatDiscordMessage(envelope));
+  }
+  // WhatsApp/SMS aren't notification targets for the domain-event broadcaster
+  // (they never subscribe to `events`) — the "test connection" button is the
+  // only caller that reaches these two, so it validates stored credentials
+  // instead of sending an actual message (there's no recipient to send to).
+  if (provider === "sms") {
+    const config = JSON.parse(decryptSecret(configEnc)) as { accountSid: string; authToken: string };
+    return verifyTwilioCredentials(config.accountSid, config.authToken);
+  }
+  if (provider === "whatsapp") {
+    const config = JSON.parse(decryptSecret(configEnc)) as { phoneNumberId: string; accessToken: string };
+    return verifyWhatsappCredentials(config.phoneNumberId, config.accessToken);
+  }
+  if (provider === "instagram") {
+    const config = JSON.parse(decryptSecret(configEnc)) as { pageId: string; pageAccessToken: string };
+    return verifyInstagramCredentials(config.pageId, config.pageAccessToken);
   }
   throw new Error(`Unknown integration provider: ${provider}`);
 }

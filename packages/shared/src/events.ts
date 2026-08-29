@@ -6,6 +6,8 @@ export const BUILTIN_EVENT_TYPES = {
   ISSUE_REPORTED: "issue.reported",
   KNOWLEDGE_GAP: "knowledge.gap",
   TEST_PING: "test.ping",
+  CHANNEL_WHATSAPP_MESSAGE: "channel.whatsapp_message",
+  CHANNEL_SMS_MESSAGE: "channel.sms_message",
 } as const;
 
 export type BuiltinEventType = (typeof BUILTIN_EVENT_TYPES)[keyof typeof BUILTIN_EVENT_TYPES];
@@ -61,6 +63,20 @@ export const EVENT_CATALOG: EventCatalogEntry[] = [
     description: "Manual test event from the Integrations dashboard.",
     llmHint: "System-only test event; never emitted from live chat.",
     category: "system",
+  },
+  {
+    type: BUILTIN_EVENT_TYPES.CHANNEL_WHATSAPP_MESSAGE,
+    name: "WhatsApp Message",
+    description: "An inbound WhatsApp message was received and answered.",
+    llmHint: "Fires for each inbound message on a connected WhatsApp Business number.",
+    category: "conversation",
+  },
+  {
+    type: BUILTIN_EVENT_TYPES.CHANNEL_SMS_MESSAGE,
+    name: "SMS Message",
+    description: "An inbound SMS message was received and answered.",
+    llmHint: "Fires for each inbound message on a connected SMS number.",
+    category: "conversation",
   },
 ];
 

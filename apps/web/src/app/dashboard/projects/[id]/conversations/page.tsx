@@ -25,11 +25,32 @@ type SessionRow = {
   id: string;
   visitorName: string;
   visitorEmail: string;
+  channel?: string;
   messageCount: number;
   lastMessage: string;
   updatedAt?: string;
   createdAt?: string;
 };
+
+const CHANNEL_BADGE: Record<string, { label: string; className: string }> = {
+  whatsapp: { label: "WA", className: "bg-emerald-600 text-white" },
+  sms: { label: "SMS", className: "bg-sky-600 text-white" },
+  instagram: { label: "IG", className: "bg-fuchsia-600 text-white" },
+};
+
+function ChannelBadge({ channel }: { channel?: string }) {
+  if (!channel || channel === "web") return null;
+  const badge = CHANNEL_BADGE[channel];
+  if (!badge) return null;
+  return (
+    <span
+      title={badge.label}
+      className={`absolute -bottom-1 -right-1 rounded-full px-1 py-0.5 text-[9px] font-bold leading-none ${badge.className}`}
+    >
+      {badge.label}
+    </span>
+  );
+}
 
 function formatWhen(value?: string) {
   if (!value) return "";
@@ -334,12 +355,15 @@ export default function ConversationsPage() {
                           active ? "bg-white shadow-[inset_3px_0_0_0_#0A0A0A]" : "hover:bg-white/70"
                         }`}
                       >
-                        <span
-                          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-                            active ? "bg-ink text-white" : "bg-white text-ink ring-1 ring-ink/10"
-                          }`}
-                        >
-                          {initials(s.visitorName || s.visitorEmail || "?")}
+                        <span className="relative mt-0.5 shrink-0">
+                          <span
+                            className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold ${
+                              active ? "bg-ink text-white" : "bg-white text-ink ring-1 ring-ink/10"
+                            }`}
+                          >
+                            {initials(s.visitorName || s.visitorEmail || "?")}
+                          </span>
+                          <ChannelBadge channel={s.channel} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex items-baseline justify-between gap-2">

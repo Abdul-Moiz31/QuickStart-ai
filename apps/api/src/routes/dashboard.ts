@@ -97,6 +97,7 @@ type SessionLean = {
   projectId?: string;
   visitorName?: string;
   visitorEmail?: string;
+  channel?: string;
   messages?: { role?: string; content?: string; createdAt?: Date }[];
   memorySummary?: string;
   metadata?: unknown;
@@ -119,6 +120,7 @@ function formatSessionSummary(s: SessionLean) {
     id: String(s._id),
     visitorName: s.visitorName,
     visitorEmail: s.visitorEmail,
+    channel: s.channel ?? "web",
     messageCount: s.messages?.length ?? 0,
     lastMessage: s.messages?.[s.messages.length - 1]?.content ?? "",
     updatedAt: s.updatedAt,
@@ -131,6 +133,7 @@ function formatSessionDetail(s: SessionLean) {
     id: String(s._id),
     visitorName: s.visitorName,
     visitorEmail: s.visitorEmail,
+    channel: s.channel ?? "web",
     memorySummary: s.memorySummary ?? "",
     messageCount: s.messages?.length ?? 0,
     messages: (s.messages ?? []).map((m) => ({
