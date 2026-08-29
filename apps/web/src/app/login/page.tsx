@@ -5,11 +5,13 @@ import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, setStoredToken } from "@/lib/api";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
+  const inviteEmail = searchParams.get("email") ?? "";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -39,11 +41,14 @@ function LoginForm() {
 
   return (
     <AuthShell
+      eyebrow="Welcome back"
       title="Sign in"
       subtitle={
-        nextPath?.startsWith("/oauth/")
-          ? "Sign in to approve the ChatGPT MCP connection."
-          : "Access your projects, knowledge, and embed credentials."
+        nextPath?.startsWith("/invite")
+          ? `Sign in with ${inviteEmail || "the invited email"} to accept the team invite.`
+          : nextPath?.startsWith("/oauth/")
+            ? "Sign in to approve the ChatGPT MCP connection."
+            : "Access your projects, knowledge base, and embed credentials."
       }
       footer={
         <>
@@ -62,19 +67,18 @@ function LoginForm() {
             type="email"
             required
             autoComplete="email"
+            defaultValue={inviteEmail}
             placeholder="you@company.com"
             className="qs-field bg-clay/40"
           />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-ink">Password</span>
-          <input
+          <PasswordInput
             name="password"
-            type="password"
             required
             autoComplete="current-password"
             placeholder="Your password"
-            className="qs-field bg-clay/40"
           />
         </label>
         {error && (

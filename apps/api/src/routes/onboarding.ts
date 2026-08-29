@@ -363,22 +363,32 @@ Answer only from the business knowledge provided. Be clear, helpful, and brief (
         },
       });
     } else {
-      project = await prisma.project.create({
-        data: {
-          ownerId: req.user!.id,
-          name: body.projectName,
-          description: body.projectDescription ?? body.businessDescription.slice(0, 500),
-          category: body.businessIndustry,
-          systemPrompt,
-          credentials: {
-            create: {
-              clientId,
-              clientSecretHash: hashSecret(clientSecret),
-              label: "default",
+      project = await prisma.$transaction(async (tx) => {
+        const created = await tx.project.create({
+          data: {
+            ownerId: req.user!.id,
+            name: body.projectName,
+            description: body.projectDescription ?? body.businessDescription.slice(0, 500),
+            category: body.businessIndustry,
+            systemPrompt,
+            credentials: {
+              create: {
+                clientId,
+                clientSecretHash: hashSecret(clientSecret),
+                label: "default",
+              },
             },
           },
-        },
-        include: { credentials: { where: { revokedAt: null }, take: 1 } },
+          include: { credentials: { where: { revokedAt: null }, take: 1 } },
+        });
+        await tx.projectMember.create({
+          data: {
+            projectId: created.id,
+            userId: req.user!.id,
+            role: "owner",
+          },
+        });
+        return created;
       });
     }
 

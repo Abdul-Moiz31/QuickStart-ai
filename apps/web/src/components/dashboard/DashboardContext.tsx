@@ -16,8 +16,10 @@ export type DashProject = {
   id: string;
   name: string;
   description: string;
-  credits: number;
+  credits?: number;
   plan: string;
+  memberRole: "owner" | "admin" | "agent";
+  isOwner: boolean;
   primaryColor?: string;
   welcomeMessage?: string;
   widgetTheme?: string;
@@ -25,8 +27,8 @@ export type DashProject = {
   toolsWebSearch?: boolean;
   chatbotEnabled?: boolean;
   evalPassedAt?: string | null;
-  credentials: { clientId: string; label: string }[];
-  _count: { documents: number };
+  credentials?: { clientId: string; label: string }[];
+  _count?: { documents: number };
 };
 
 type DashUser = {

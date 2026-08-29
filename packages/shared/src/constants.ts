@@ -44,9 +44,9 @@ export const EVENT_LIMITS = {
 } as const;
 
 export const PLAN_LIMITS = {
-  free: { messagesPerDay: 200, documents: 20, projects: 2, voiceTranscriptionsPerDay: 0 },
-  pro: { messagesPerDay: 5000, documents: 500, projects: 20, voiceTranscriptionsPerDay: 200 },
-  enterprise: { messagesPerDay: 100_000, documents: 10_000, projects: 200, voiceTranscriptionsPerDay: 2000 },
+  free: { messagesPerDay: 200, documents: 20, projects: 2, teamMembers: 1 },
+  pro: { messagesPerDay: 5000, documents: 500, projects: 20, teamMembers: 5 },
+  enterprise: { messagesPerDay: 100_000, documents: 10_000, projects: 200, teamMembers: 10_000 },
 } as const;
 
 export const CUSTOM_TOOL_LIMITS = {
