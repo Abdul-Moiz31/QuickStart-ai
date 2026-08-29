@@ -350,6 +350,9 @@ importers:
 
   packages/widget-react:
     dependencies:
+      '@quickstart-ai/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@quickstart-ai/widget-core':
         specifier: workspace:*
         version: link:../widget-core

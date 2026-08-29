@@ -10,6 +10,7 @@ import {
   type ProactiveTriggersConfig,
   type WidgetTheme,
 } from "@quickstart-ai/widget-core";
+import { looksLikeHandoffOffer, visitorRequestsHumanHelp } from "@quickstart-ai/shared";
 
 export interface ChatBotProps {
   clientId: string;
@@ -154,6 +155,29 @@ const markdownStyles = `
   font-weight: 600;
   background: rgba(10,10,10,0.06);
   color: rgba(10,10,10,0.62);
+}
+.qs-session-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: center;
+  width: 100%;
+  padding: 6px 0;
+}
+.qs-session-divider::before,
+.qs-session-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(10,10,10,0.12);
+}
+.qs-session-divider span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5C5A56;
+  white-space: nowrap;
 }
 .qs-widget-fab {
   position: fixed;
@@ -318,6 +342,35 @@ const markdownStyles = `
   0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
   30% { transform: translateY(-3px); opacity: 1; }
 }
+@keyframes qs-rec-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+@keyframes qs-transcribe-dot {
+  0%, 80%, 100% { opacity: 0.28; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+.qs-widget-mic-btn--recording {
+  animation: qs-rec-pulse 1.4s ease-out infinite;
+}
+.qs-transcribe-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 18px;
+  height: 18px;
+}
+.qs-transcribe-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: qs-transcribe-dot 0.9s ease-in-out infinite;
+}
+.qs-transcribe-dots span:nth-child(2) { animation-delay: 0.12s; }
+.qs-transcribe-dots span:nth-child(3) { animation-delay: 0.24s; }
 `;
 
 function MessageCircleIcon() {
@@ -334,17 +387,118 @@ function MessageCircleIcon() {
   );
 }
 
+function WidgetIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
+function SpeakerOnIcon() {
+  return (
+    <WidgetIcon>
+      <path
+        d="M11 5L6 9H3v6h3l5 4V5z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15.5 8.5a4.5 4.5 0 0 1 0 7"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      <path
+        d="M18.5 5.5a8.5 8.5 0 0 1 0 13"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </WidgetIcon>
+  );
+}
+
+function SpeakerOffIcon() {
+  return (
+    <WidgetIcon>
+      <path
+        d="M11 5L6 9H3v6h3l5 4V5z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 9l5 5M21 9l-5 5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </WidgetIcon>
+  );
+}
+
+/** Studio mic on stand — matches widget stroke style. */
+function MicStandIcon() {
+  return (
+    <WidgetIcon>
+      <rect
+        x="9"
+        y="2"
+        width="6"
+        height="11"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <path
+        d="M5 11a7 7 0 0 0 14 0"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 18v3M8 21h8"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </WidgetIcon>
+  );
+}
+
+function StopRecordingIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function TranscribingIcon() {
+  return (
+    <span className="qs-transcribe-dots" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
 function projectInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   return name.slice(0, 2).toUpperCase() || "QS";
 }
 
-function looksLikeHandoffOffer(text: string): boolean {
-  return /connect you with|support team|speak to (a |an )?(human|person|agent|representative)|talk to someone|forward.*(support|agent)|human agent|live agent/i.test(
-    text,
-  );
-}
+type SessionDividerKind = "team_joined" | "team_left";
+
+type WidgetMessage =
+  | ChatMessage
+  | { role: "divider"; kind: SessionDividerKind };
 
 function MarkdownContent({ content }: { content: string }) {
   return (
@@ -352,6 +506,29 @@ function MarkdownContent({ content }: { content: string }) {
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   );
+}
+
+function SessionDivider({ kind }: { kind: SessionDividerKind }) {
+  const label = kind === "team_joined" ? "Team joined" : "Team left";
+  return (
+    <div className="qs-session-divider" role="separator" aria-label={label}>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function shouldAppendSessionDivider(messages: WidgetMessage[], kind: SessionDividerKind): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg?.role !== "divider") continue;
+    return msg.kind !== kind;
+  }
+  return kind === "team_joined";
+}
+
+function appendSessionDivider(messages: WidgetMessage[], kind: SessionDividerKind): WidgetMessage[] {
+  if (!shouldAppendSessionDivider(messages, kind)) return messages;
+  return [...messages, { role: "divider", kind }];
 }
 
 function TypingIndicator() {
@@ -421,7 +598,7 @@ export function ChatBot({
   const [sessionId, setSessionId] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<WidgetMessage[]>([
     { role: "assistant", content: "Hi! How can I help you today?" },
   ]);
   const [humanActive, setHumanActive] = useState(false);
@@ -436,6 +613,21 @@ export function ChatBot({
   const lastTypingPing = useRef(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const sessionIdRef = useRef("");
+  const humanActiveRef = useRef(false);
+  const loadingRef = useRef(false);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
+    humanActiveRef.current = humanActive;
+  }, [humanActive]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
 
   const micSupported =
     typeof navigator !== "undefined" &&
@@ -504,7 +696,14 @@ export function ChatBot({
         .then((res) => {
           setHumanActive(res.humanActive);
           setHandoffPending(res.humanPending);
-          setMessages(res.messages.map((m) => ({ role: m.role, content: m.content })));
+          let next: WidgetMessage[] = res.messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+          if (res.humanActive) {
+            next = appendSessionDivider(next, "team_joined");
+          }
+          setMessages(next);
         })
         .catch(() => {
           // Keep whatever is on screen; the next event or reconnect tries again.
@@ -516,18 +715,27 @@ export function ChatBot({
       (event) => {
         if (event.type === "connected") {
           setHumanActive(event.humanActive);
+          if (event.humanActive) {
+            setMessages((m) => appendSessionDivider(m, "team_joined"));
+          }
           return;
         }
         if (event.type === "human_active") {
           setHumanActive(true);
           setHandoffPending(false);
-          setMessages((m) => m.filter((msg) => !msg.streaming));
+          setMessages((m) =>
+            appendSessionDivider(
+              m.filter((msg) => msg.role === "divider" || !msg.streaming),
+              "team_joined",
+            ),
+          );
           setLoading(false);
           return;
         }
         if (event.type === "human_released") {
           setHumanActive(false);
           setAgentTyping(false);
+          setMessages((m) => appendSessionDivider(m, "team_left"));
           return;
         }
         if (event.type === "agent_typing") {
@@ -569,13 +777,33 @@ export function ChatBot({
   const chatReady = started || allowAnonymous;
 
   const beginSession = async (): Promise<string> => {
-    if (sessionId) return sessionId;
+    if (sessionIdRef.current) return sessionIdRef.current;
     const sid = await client.ensureSession(null);
+    sessionIdRef.current = sid;
     setSessionId(sid);
     setStarted(true);
     setProactivePhase(null);
     setPendingQuestion(null);
     return sid;
+  };
+
+  /** Forwards a visitor message to the human agent — no bot reply or TTS. */
+  const sendToHumanAgent = async (sid: string, text: string) => {
+    setLoading(true);
+    try {
+      await client.sendMessageStream(sid, text, (event) => {
+        if (event.type === "meta" && event.humanActive) setHumanActive(true);
+      });
+    } catch (e) {
+      console.error(e);
+      const errMsg =
+        e instanceof ChatRequestError
+          ? e.message
+          : "Could not send your message to support. Please try again.";
+      setMessages((m) => [...m, { role: "assistant", content: errMsg }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const streamAssistantReply = async (sid: string, text: string) => {
@@ -674,6 +902,7 @@ export function ChatBot({
       const sid = res.session.id;
       const question = pendingQuestion;
       const opener = proactiveMessage;
+      sessionIdRef.current = sid;
       setSessionId(sid);
       setStarted(true);
       setProactivePhase(null);
@@ -728,11 +957,11 @@ export function ChatBot({
     }
   };
 
-  /** Runs one message through the chat pipeline, bypassing the input box — used by both typed send and voice transcripts. */
+  /** Runs one message through chat — typed or voice. Routes to human agent when handoff is active. */
   const sendText = async (text: string) => {
-    if (!text.trim() || loading) return;
+    if (!text.trim() || loadingRef.current) return;
 
-    let sid = sessionId;
+    let sid = sessionIdRef.current;
     if (!sid) {
       setLoading(true);
       try {
@@ -745,8 +974,10 @@ export function ChatBot({
       }
     }
 
+    const toHuman = humanActiveRef.current;
+
     setMessages((m) =>
-      humanActive
+      toHuman
         ? [...m, { role: "user", content: text }]
         : [
             ...m,
@@ -754,6 +985,12 @@ export function ChatBot({
             { role: "assistant", content: "", streaming: true },
           ],
     );
+
+    if (toHuman) {
+      await sendToHumanAgent(sid, text);
+      return;
+    }
+
     await streamAssistantReply(sid, text);
   };
 
@@ -807,7 +1044,8 @@ export function ChatBot({
     setTranscribing(true);
     try {
       const audioBase64 = await blobToBase64(blob);
-      const res = await client.transcribeAudio(sessionId || undefined, audioBase64, mimeType);
+      const sid = sessionIdRef.current || undefined;
+      const res = await client.transcribeAudio(sid, audioBase64, mimeType);
       if (res.text?.trim()) await sendText(res.text.trim());
     } catch (e) {
       console.error(e);
@@ -826,17 +1064,32 @@ export function ChatBot({
 
   const lastAssistantIdx = (() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i]?.role === "assistant" && !messages[i]?.streaming) return i;
+      const msg = messages[i];
+      if (msg?.role === "assistant" && !msg.streaming) return i;
     }
     return -1;
   })();
-  const lastAssistant = lastAssistantIdx >= 0 ? messages[lastAssistantIdx] : null;
+  const lastUserIdx = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]?.role === "user") return i;
+    }
+    return -1;
+  })();
+  const lastAssistant =
+    lastAssistantIdx >= 0 && messages[lastAssistantIdx]?.role === "assistant"
+      ? messages[lastAssistantIdx]
+      : null;
+  const lastUser =
+    lastUserIdx >= 0 && messages[lastUserIdx]?.role === "user" ? messages[lastUserIdx] : null;
+  const visitorAskedForHuman =
+    lastUser?.role === "user" && visitorRequestsHumanHelp(lastUser.content);
+  const assistantOfferedHandoff =
+    lastAssistant?.role === "assistant" && looksLikeHandoffOffer(lastAssistant.content);
   const showHandoffButton =
     !humanActive &&
     !handoffPending &&
     !loading &&
-    lastAssistant != null &&
-    looksLikeHandoffOffer(lastAssistant.content);
+    (assistantOfferedHandoff || visitorAskedForHuman);
 
   return (
     <>
@@ -1049,10 +1302,10 @@ export function ChatBot({
             <div
               className="qs-widget-messages"
             >
-              {humanActive && (
-                <div className="qs-human-banner">You&rsquo;re connected to a support agent</div>
-              )}
               {messages.map((m, i) => {
+                if (m.role === "divider") {
+                  return <SessionDivider key={`divider-${i}`} kind={m.kind} />;
+                }
                 const isStreamingEmpty =
                   m.role === "assistant" && m.streaming && !m.content.trim();
                 if (isStreamingEmpty) {
@@ -1096,30 +1349,35 @@ export function ChatBot({
                         )}
                       </div>
                     </div>
-                    {i === lastAssistantIdx && showHandoffButton && (
-                      <div className="qs-handoff-actions">
-                        <button
-                          type="button"
-                          className="qs-handoff-btn"
-                          disabled={handoffBusy}
-                          onClick={confirmHandoff}
-                          style={{
-                            background: surface.accent.bg,
-                            color: surface.accent.text,
-                          }}
-                        >
-                          {handoffBusy ? "Connecting…" : "Connect to support"}
-                        </button>
-                      </div>
-                    )}
                   </React.Fragment>
                 );
               })}
               {handoffPending && !humanActive && (
                 <div className="qs-handoff-actions">
                   <p className="qs-handoff-status">
-                    A support agent has been notified. Please wait — someone will join shortly.
+                    Your request has been forwarded to our support team. Please wait — an agent will join shortly.
                   </p>
+                </div>
+              )}
+              {showHandoffButton && (
+                <div className="qs-handoff-actions">
+                  <p className="qs-handoff-status">
+                    {visitorAskedForHuman
+                      ? "Tap below to connect with a support agent."
+                      : "Need to speak with someone?"}
+                  </p>
+                  <button
+                    type="button"
+                    className="qs-handoff-btn"
+                    disabled={handoffBusy}
+                    onClick={confirmHandoff}
+                    style={{
+                      background: surface.accent.bg,
+                      color: surface.accent.text,
+                    }}
+                  >
+                    {handoffBusy ? "Connecting…" : "Connect to support"}
+                  </button>
                 </div>
               )}
               {agentTyping && (
@@ -1147,15 +1405,17 @@ export function ChatBot({
                   type="button"
                   onClick={() => setSpeakReplies((v) => !v)}
                   title={speakReplies ? "Stop speaking replies aloud" : "Speak replies aloud"}
+                  aria-label={speakReplies ? "Disable spoken replies" : "Enable spoken replies"}
+                  aria-pressed={speakReplies}
                   className="qs-widget-speak-btn"
                   style={{
-                    ...sendBtnStyle,
+                    ...iconBtnStyle,
                     background: speakReplies ? surface.accent.bg : surface.panel.bg,
-                    color: speakReplies ? surface.accent.text : surface.input.text,
-                    border: `1px solid ${surface.input.border}`,
+                    color: speakReplies ? "#ffffff" : surface.input.text,
+                    border: `1px solid ${speakReplies ? surface.accent.bg : surface.input.border}`,
                   }}
                 >
-                  {speakReplies ? "🔊" : "🔇"}
+                  {speakReplies ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
                 </button>
               )}
               {micSupported && (
@@ -1164,16 +1424,23 @@ export function ChatBot({
                   onClick={recording ? stopRecording : startRecording}
                   disabled={transcribing || loading}
                   title={recording ? "Stop recording" : "Record a voice message"}
-                  className="qs-widget-mic-btn"
+                  aria-label={recording ? "Stop recording" : "Record a voice message"}
+                  className={`qs-widget-mic-btn${recording ? " qs-widget-mic-btn--recording" : ""}`}
                   style={{
-                    ...sendBtnStyle,
+                    ...iconBtnStyle,
                     background: recording ? "#DC2626" : surface.panel.bg,
                     color: recording ? "#ffffff" : surface.input.text,
-                    border: `1px solid ${surface.input.border}`,
+                    border: `1px solid ${recording ? "#DC2626" : surface.input.border}`,
                     opacity: transcribing ? 0.55 : 1,
                   }}
                 >
-                  {transcribing ? "…" : recording ? "■" : "🎤"}
+                  {transcribing ? (
+                    <TranscribingIcon />
+                  ) : recording ? (
+                    <StopRecordingIcon />
+                  ) : (
+                    <MicStandIcon />
+                  )}
                 </button>
               )}
               <button
@@ -1232,6 +1499,16 @@ const sendBtnStyle: React.CSSProperties = {
   fontSize: 13,
   flexShrink: 0,
   touchAction: "manipulation",
+};
+
+const iconBtnStyle: React.CSSProperties = {
+  ...sendBtnStyle,
+  width: 40,
+  height: 40,
+  padding: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 export default ChatBot;
