@@ -9,12 +9,13 @@ import {
   registerSchema,
   UnauthorizedError,
 } from "@quickstart-ai/shared";
-import { requireAuth, setAuthCookie, signToken } from "../auth.js";
+import { assertAuthRateLimit, requireAuth, setAuthCookie, signToken } from "../auth.js";
 import { env } from "../env.js";
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/api/v1/auth/register", async (req, reply) => {
     const body = registerSchema.parse(req.body);
+    await assertAuthRateLimit(req, body.email);
     const existing = await prisma.user.findUnique({ where: { email: body.email } });
     if (existing) throw new AppError("User already exists", 400);
 
@@ -54,6 +55,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/auth/login", async (req, reply) => {
     const body = loginSchema.parse(req.body);
+    await assertAuthRateLimit(req, body.email);
     const user = await prisma.user.findUnique({ where: { email: body.email } });
     if (!user) throw new UnauthorizedError("Invalid email or password");
     const ok = await bcrypt.compare(body.password, user.passwordHash);
