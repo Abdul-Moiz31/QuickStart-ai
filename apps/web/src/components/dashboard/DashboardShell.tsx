@@ -24,7 +24,9 @@ import {
   Settings2,
   Zap,
   Sparkles,
+  Users,
 } from "lucide-react";
+import type { MemberRole } from "@quickstart-ai/shared";
 import { api, getStoredToken, resolvePublicApiUrl } from "@/lib/api";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { OnboardingModal } from "@/components/dashboard/OnboardingModal";
@@ -48,7 +50,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   const current = projects.find((p) => p.id === currentProjectId) ?? projects[0] ?? null;
   const activeId = currentProjectId ?? current?.id ?? null;
-  const needsOnboarding = Boolean(user && !user.onboardingCompleted);
+  const memberRole: MemberRole = current?.memberRole ?? "owner";
+  const needsOnboarding = Boolean(user && !user.onboardingCompleted && current?.isOwner !== false);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -118,20 +121,24 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   const projectNav = [
-    { id: "knowledge", label: "Knowledge", icon: FileText },
-    { id: "conversations", label: "Conversations", icon: MessageSquare },
-    { id: "inbox", label: "Inbox", icon: Headset },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "eval", label: "Eval", icon: FlaskConical },
-    { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "embed", label: "Embed", icon: Code2 },
-    { id: "settings", label: "Settings", icon: Settings2 },
-    { id: "tools", label: "Tools", icon: Puzzle },
-{ id: "triggers", label: "Triggers", icon: Zap },
-    { id: "channels", label: "Channels", icon: MessageCircle },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "custom-events", label: "Custom events", icon: Sparkles },
+    { id: "knowledge", label: "Knowledge", icon: FileText, minRole: "admin" as MemberRole },
+    { id: "conversations", label: "Conversations", icon: MessageSquare, minRole: "agent" as MemberRole },
+    { id: "inbox", label: "Inbox", icon: Headset, minRole: "agent" as MemberRole },
+    { id: "analytics", label: "Analytics", icon: BarChart3, minRole: "agent" as MemberRole },
+    { id: "eval", label: "Eval", icon: FlaskConical, minRole: "admin" as MemberRole },
+    { id: "appearance", label: "Appearance", icon: Palette, minRole: "admin" as MemberRole },
+    { id: "embed", label: "Embed", icon: Code2, minRole: "admin" as MemberRole },
+    { id: "settings", label: "Settings", icon: Settings2, minRole: "admin" as MemberRole },
+    { id: "team", label: "Team", icon: Users, minRole: "admin" as MemberRole },
+    { id: "tools", label: "Tools", icon: Puzzle, minRole: "admin" as MemberRole },
+    { id: "triggers", label: "Triggers", icon: Zap, minRole: "admin" as MemberRole },
+    { id: "channels", label: "Channels", icon: MessageCircle, minRole: "admin" as MemberRole },
+    { id: "notifications", label: "Notifications", icon: Bell, minRole: "admin" as MemberRole },
+    { id: "custom-events", label: "Custom events", icon: Sparkles, minRole: "admin" as MemberRole },
   ] as const;
+
+  const roleRank: Record<MemberRole, number> = { agent: 1, admin: 2, owner: 3 };
+  const visibleNav = projectNav.filter((item) => roleRank[memberRole] >= roleRank[item.minRole]);
 
   return (
     <div className="min-h-screen bg-white text-ink">
@@ -182,9 +189,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => {
+                    onClick={() => {
                     setMenuOpen(false);
-                    router.push(`/dashboard/projects/${p.id}/knowledge`);
+                    const section = p.memberRole === "agent" ? "inbox" : "knowledge";
+                    router.push(`/dashboard/projects/${p.id}/${section}`);
                   }}
                   className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${
                     p.id === activeId
@@ -193,7 +201,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   }`}
                 >
                   <span className="truncate">{p.name}</span>
-                  <span className="ml-2 font-mono text-[10px] opacity-60">{p.credits}</span>
+                  {p.isOwner && p.credits !== undefined && (
+                    <span className="ml-2 font-mono text-[10px] opacity-60">{p.credits}</span>
+                  )}
                 </button>
               ))}
               {projects.length === 0 && (
@@ -224,7 +234,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   Project
                 </p>
               )}
-              {projectNav.map((item) => {
+              {visibleNav.map((item) => {
                 const Icon = item.icon;
                 const active = isSection(item.id);
                 return (
@@ -269,7 +279,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-ink/[0.08] p-3">
-          {current && !collapsed && (
+          {current && !collapsed && current.isOwner && current.credits !== undefined && (
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-ink/[0.08] bg-white px-3 py-2.5">
               <Coins className="h-4 w-4 text-mute" strokeWidth={1.75} />
               <div className="min-w-0">
@@ -278,7 +288,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           )}
-          {collapsed && current && (
+          {collapsed && current && current.isOwner && current.credits !== undefined && (
             <div className="mb-2 flex justify-center" title={`${current.credits} credits`}>
               <Coins className="h-4 w-4 text-mute" />
             </div>

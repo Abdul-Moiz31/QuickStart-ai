@@ -21,7 +21,7 @@ export function DashboardChatbot() {
 
   const project =
     projects.find((p) => p.id === currentProjectId) ?? projects[0] ?? null;
-  const clientId = project?.credentials[0]?.clientId;
+  const clientId = project?.credentials?.[0]?.clientId;
 
   if (loading || !clientId || !apiUrl) return null;
 
