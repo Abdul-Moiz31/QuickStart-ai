@@ -19,18 +19,13 @@ export function AuthShell({
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-clay text-ink">
-      <header className="px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-5">
-        <div className="mx-auto max-w-3xl min-w-0">
-          <Link
-            href="/"
-            className="inline-block truncate pl-1.5 font-display text-sm font-bold tracking-tight text-ink sm:pl-2 sm:text-base"
-          >
-            QuickStart AI
-          </Link>
-        </div>
-      </header>
-
-      <div className="mx-auto flex w-full max-w-md min-w-0 flex-col px-4 pb-14 pt-8 sm:px-6 sm:pb-16 sm:pt-10 md:pt-14">
+      <div className="mx-auto flex w-full max-w-md min-w-0 flex-col px-4 pb-14 pt-10 sm:px-6 sm:pb-16 sm:pt-14 md:pt-16">
+        <Link
+          href="/"
+          className="mx-auto mb-6 inline-block truncate font-display text-base font-bold tracking-tight text-ink sm:mb-8"
+        >
+          QuickStart AI
+        </Link>
         <motion.div
           className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft sm:p-8"
           initial={reduce ? false : { opacity: 0, y: 16 }}
