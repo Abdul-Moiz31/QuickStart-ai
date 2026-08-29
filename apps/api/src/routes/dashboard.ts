@@ -21,6 +21,7 @@ import {
 } from "@quickstart-ai/shared";
 import type { EvalCase } from "@quickstart-ai/eval";
 import { requireAuth } from "../auth.js";
+import { requireProjectAccess } from "../project-access.js";
 import { loadEnabledCustomTools } from "./custom-tools.js";
 import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { env } from "../env.js";
@@ -150,19 +151,19 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function requireOwnedProject(projectId: string, ownerId: string) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, ownerId },
-  });
-  if (!project) throw new NotFoundError("Project not found");
-  return project;
+async function requireProjectAgent(projectId: string, userId: string) {
+  return requireProjectAccess(projectId, userId, { minRole: "agent" });
+}
+
+async function requireProjectAdmin(projectId: string, userId: string) {
+  return requireProjectAccess(projectId, userId, { minRole: "admin" });
 }
 
 export async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/sessions", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireOwnedProject(id, req.user!.id);
+    await requireProjectAgent(id, req.user!.id);
     const limitRaw = Number((req.query as { limit?: string }).limit ?? 100);
     const limit = Math.min(Math.max(limitRaw || 100, 1), 100);
     await connectMongo();
@@ -183,7 +184,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/sessions/search", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireOwnedProject(id, req.user!.id);
+    await requireProjectAgent(id, req.user!.id);
     const q = String((req.query as { q?: string }).q ?? "").trim();
     if (!q) throw new AppError("Query parameter q is required", 400);
     const limitRaw = Number((req.query as { limit?: string }).limit ?? 50);
@@ -215,7 +216,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/sessions/:sessionId", async (req) => {
     await requireAuth(req);
     const { id, sessionId } = req.params as { id: string; sessionId: string };
-    await requireOwnedProject(id, req.user!.id);
+    await requireProjectAgent(id, req.user!.id);
     await connectMongo();
     const Session = getChatSessionModel();
     const session = await Session.findById(sessionId).lean();
@@ -227,8 +228,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/playground/message", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
+    const access = await requireProjectAdmin(id, req.user!.id);
     const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
+      where: { id: access.project.id },
       include: { owner: { select: { businessWebsite: true } } },
     });
     if (!project) throw new NotFoundError("Project not found");
@@ -390,10 +392,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/playground/reset", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const access = await requireProjectAdmin(id, req.user!.id);
+    const project = access.project;
     const welcome = project.welcomeMessage?.trim() || "Hi — how can I help?";
     await connectMongo();
     const Session = getChatSessionModel();
@@ -419,10 +419,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const period = ANALYTICS_PERIODS.includes(rawPeriod as AnalyticsPeriod)
       ? (rawPeriod as AnalyticsPeriod)
       : "30d";
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    await requireProjectAgent(id, req.user!.id);
 
     const cacheKey = analyticsCacheKey(id, period);
     const redis = getRedis();
@@ -465,12 +462,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
     // back in the response, and periodToSince silently coerces anything unknown.
     const rawPeriod = (req.query as { period?: string }).period ?? "30d";
     const period = GAP_PERIODS.includes(rawPeriod) ? rawPeriod : "30d";
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const access = await requireProjectAdmin(id, req.user!.id);
+    const project = access.project;
 
-    // Each uncached build costs an embedding batch plus a vector search per group,
+    // Each uncached build costs an embedding batch
     // and the sidebar is not polling this, so a short cache is enough to keep
     // repeat visits and period toggles cheap.
     const cacheKey = gapCacheKey(id, period);
@@ -525,10 +520,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/eval/status", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const access = await requireProjectAdmin(id, req.user!.id);
+    const project = access.project;
 
     const { pairs, readyDocCount } = await loadKnowledgeQaCases(id);
     const qaCount = pairs.length;
@@ -596,10 +589,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/eval/run", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const access = await requireProjectAdmin(id, req.user!.id);
+    const project = access.project;
 
     const active = await prisma.evalRun.findFirst({
       where: { projectId: id, status: { in: ["queued", "running"] } },

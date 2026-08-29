@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@quickstart-ai/db";
 import { NotFoundError } from "@quickstart-ai/shared";
 import { requireAuth } from "../auth.js";
+import { requireProjectAccess } from "../project-access.js";
 import { env } from "../env.js";
 
 const MCP_TOOLS = [
@@ -43,8 +44,9 @@ export async function integrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/mcp", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
+      where: { id },
       select: { id: true, name: true },
     });
     if (!project) throw new NotFoundError("Project not found");

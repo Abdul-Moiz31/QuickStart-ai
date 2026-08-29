@@ -25,28 +25,21 @@ import {
 } from "@quickstart-ai/shared";
 import { encryptSecret } from "@quickstart-ai/shared/secrets";
 import { requireAuth } from "../auth.js";
+import { requireProjectAccess } from "../project-access.js";
 import { env } from "../env.js";
-
-async function requireProject(projectId: string, ownerId: string) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, ownerId },
-  });
-  if (!project) throw new NotFoundError("Project not found");
-  return project;
-}
 
 export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/integrations/catalog", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     return { success: true, catalog: EVENT_CATALOG };
   });
 
   app.get("/api/v1/projects/:id/webhooks", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const rows = await prisma.webhookEndpoint.findMany({
       where: { projectId: id },
       orderBy: { createdAt: "desc" },
@@ -68,7 +61,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/webhooks", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createWebhookSchema.parse(req.body);
 
     const count = await prisma.webhookEndpoint.count({ where: { projectId: id } });
@@ -107,7 +100,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.patch("/api/v1/projects/:id/webhooks/:wid", async (req) => {
     await requireAuth(req);
     const { id, wid } = req.params as { id: string; wid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = updateWebhookSchema.parse(req.body);
 
     const existing = await prisma.webhookEndpoint.findFirst({
@@ -143,7 +136,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.delete("/api/v1/projects/:id/webhooks/:wid", async (req) => {
     await requireAuth(req);
     const { id, wid } = req.params as { id: string; wid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const existing = await prisma.webhookEndpoint.findFirst({
       where: { id: wid, projectId: id },
     });
@@ -155,7 +148,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/webhooks/:wid/test", async (req) => {
     await requireAuth(req);
     const { id, wid } = req.params as { id: string; wid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const existing = await prisma.webhookEndpoint.findFirst({
       where: { id: wid, projectId: id },
     });
@@ -178,7 +171,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/integrations", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const rows = await prisma.integrationConnection.findMany({
       where: { projectId: id },
       orderBy: { createdAt: "desc" },
@@ -200,7 +193,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/integrations/slack", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createSlackIntegrationSchema.parse(req.body);
 
     const count = await prisma.integrationConnection.count({ where: { projectId: id } });
@@ -240,7 +233,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/integrations/discord", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createDiscordIntegrationSchema.parse(req.body);
 
     const count = await prisma.integrationConnection.count({ where: { projectId: id } });
@@ -280,7 +273,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/integrations/sms", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createTwilioIntegrationSchema.parse(req.body);
 
     const count = await prisma.integrationConnection.count({ where: { projectId: id } });
@@ -328,7 +321,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/integrations/whatsapp", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createWhatsappIntegrationSchema.parse(req.body);
 
     const count = await prisma.integrationConnection.count({ where: { projectId: id } });
@@ -375,7 +368,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/integrations/instagram", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createInstagramIntegrationSchema.parse(req.body);
 
     const count = await prisma.integrationConnection.count({ where: { projectId: id } });
@@ -422,7 +415,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.patch("/api/v1/projects/:id/integrations/:iid", async (req) => {
     await requireAuth(req);
     const { id, iid } = req.params as { id: string; iid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = updateIntegrationSchema.parse(req.body);
     const existing = await prisma.integrationConnection.findFirst({
       where: { id: iid, projectId: id },
@@ -455,7 +448,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.delete("/api/v1/projects/:id/integrations/:iid", async (req) => {
     await requireAuth(req);
     const { id, iid } = req.params as { id: string; iid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const existing = await prisma.integrationConnection.findFirst({
       where: { id: iid, projectId: id },
     });
@@ -467,7 +460,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/integrations/:iid/test", async (req) => {
     await requireAuth(req);
     const { id, iid } = req.params as { id: string; iid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const existing = await prisma.integrationConnection.findFirst({
       where: { id: iid, projectId: id },
     });
@@ -490,7 +483,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/event-rules", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const rules = await prisma.eventRule.findMany({
       where: { projectId: id },
       orderBy: { createdAt: "desc" },
@@ -501,7 +494,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/event-rules", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = createEventRuleSchema.parse(req.body);
 
     const count = await prisma.eventRule.count({ where: { projectId: id } });
@@ -529,7 +522,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.patch("/api/v1/projects/:id/event-rules/:rid", async (req) => {
     await requireAuth(req);
     const { id, rid } = req.params as { id: string; rid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = updateEventRuleSchema.parse(req.body);
     const existing = await prisma.eventRule.findFirst({
       where: { id: rid, projectId: id },
@@ -553,7 +546,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.delete("/api/v1/projects/:id/event-rules/:rid", async (req) => {
     await requireAuth(req);
     const { id, rid } = req.params as { id: string; rid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const existing = await prisma.eventRule.findFirst({
       where: { id: rid, projectId: id },
     });
@@ -565,7 +558,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/events", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const q = req.query as { type?: string; limit?: string; cursor?: string };
     const limit = Math.min(Number(q.limit ?? 30), 100);
 
@@ -605,7 +598,7 @@ export async function projectIntegrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/deliveries", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const q = req.query as { status?: string; limit?: string };
     const limit = Math.min(Number(q.limit ?? 50), 100);
 

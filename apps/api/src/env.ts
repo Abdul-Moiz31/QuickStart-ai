@@ -27,6 +27,8 @@ export const env = {
   rateLimitMaxAuthEmail: Number(process.env.RATE_LIMIT_MAX_AUTH_EMAIL ?? 5),
   publicApiUrl: process.env.PUBLIC_API_URL ?? "http://localhost:3100",
   webAppUrl: process.env.WEB_APP_URL ?? "http://localhost:3000",
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  mailFrom: process.env.MAIL_FROM ?? "QuickStart AI <onboarding@resend.dev>",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
 };
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { api, getStoredToken } from "@/lib/api";
 import { DashBtn, DashField, DashPanel } from "@/components/dashboard/DashboardShell";
+import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { McpConnectionSection } from "@/components/dashboard/McpConnectionSection";
 import {
   LLM_PROVIDER_OPTIONS,
@@ -35,10 +36,13 @@ const SAVED_KEY_MASK = "••••••••••••••••";
 
 export default function SettingsPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const { projects } = useDashboard();
+  const memberRole = projects.find((p) => p.id === id)?.memberRole ?? "owner";
+
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-
   const [creds, setCreds] = useState<{ id: string; clientId: string; label: string }[]>([]);
   const [llmProvider, setLlmProvider] = useState("openrouter");
   const [useOwnLlmKey, setUseOwnLlmKey] = useState(false);
@@ -50,6 +54,12 @@ export default function SettingsPage() {
   const [hasLlmKey, setHasLlmKey] = useState(false);
   const [allowAnonymousSessions, setAllowAnonymousSessions] = useState(false);
   const [visitorAccessLoaded, setVisitorAccessLoaded] = useState(false);
+
+  useEffect(() => {
+    if (memberRole === "agent") {
+      router.replace(`/dashboard/projects/${id}/inbox`);
+    }
+  }, [memberRole, id, router]);
 
   const byokProviders = useMemo(
     () => LLM_PROVIDER_OPTIONS.filter((p) => p.id !== "platform"),
@@ -89,8 +99,9 @@ export default function SettingsPage() {
   }, [id]);
 
   useEffect(() => {
+    if (memberRole === "agent") return;
     load().catch((e) => setMsg(e instanceof Error ? e.message : "Failed to load"));
-  }, [load]);
+  }, [load, memberRole]);
 
   function onProviderChange(next: string) {
     setLlmProvider(next);
@@ -170,6 +181,10 @@ export default function SettingsPage() {
 
   const selectClass =
     "w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ink/40";
+
+  if (memberRole === "agent") {
+    return null;
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">

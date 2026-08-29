@@ -14,20 +14,13 @@ import { executeCustomTool } from "@quickstart-ai/rag";
 import { requireAuth } from "../auth.js";
 import { env } from "../env.js";
 import { serializeCustomTool, toCustomToolRuntime } from "../custom-tools.js";
-
-async function requireProject(projectId: string, ownerId: string) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, ownerId },
-  });
-  if (!project) throw new NotFoundError("Project not found");
-  return project;
-}
+import { requireProjectAccess } from "../project-access.js";
 
 export async function customToolsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/custom-tools", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const rows = await prisma.customTool.findMany({
       where: { projectId: id },
@@ -39,7 +32,7 @@ export async function customToolsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/custom-tools", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const body = createCustomToolSchema.parse(req.body);
     assertPublicHttpsUrl(body.url);
@@ -73,7 +66,7 @@ export async function customToolsRoutes(app: FastifyInstance) {
   app.patch("/api/v1/projects/:id/custom-tools/:tid", async (req) => {
     await requireAuth(req);
     const { id, tid } = req.params as { id: string; tid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const existing = await prisma.customTool.findFirst({
       where: { id: tid, projectId: id },
@@ -110,7 +103,7 @@ export async function customToolsRoutes(app: FastifyInstance) {
   app.delete("/api/v1/projects/:id/custom-tools/:tid", async (req) => {
     await requireAuth(req);
     const { id, tid } = req.params as { id: string; tid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const existing = await prisma.customTool.findFirst({
       where: { id: tid, projectId: id },
@@ -124,7 +117,7 @@ export async function customToolsRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/custom-tools/:tid/test", async (req) => {
     await requireAuth(req);
     const { id, tid } = req.params as { id: string; tid: string };
-    await requireProject(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const existing = await prisma.customTool.findFirst({
       where: { id: tid, projectId: id },

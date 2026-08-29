@@ -20,20 +20,33 @@ export async function authRoutes(app: FastifyInstance) {
     if (existing) throw new AppError("User already exists", 400);
 
     const passwordHash = await bcrypt.hash(body.password, 12);
-    const user = await prisma.user.create({
-      data: {
-        name: body.name,
-        email: body.email,
-        passwordHash,
-        onboardingCompleted: false,
-        projects: {
-          create: {
-            name: "Default project",
-            description: "Your first chatbot — finish onboarding to train it.",
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name: body.name,
+          email: body.email,
+          passwordHash,
+          onboardingCompleted: false,
+          projects: {
+            create: {
+              name: "Default project",
+              description: "Your first chatbot — finish onboarding to train it.",
+            },
           },
         },
-      },
-      include: { projects: { select: { id: true, name: true }, take: 1 } },
+        include: { projects: { select: { id: true, name: true }, take: 1 } },
+      });
+      const defaultProject = created.projects[0];
+      if (defaultProject) {
+        await tx.projectMember.create({
+          data: {
+            projectId: defaultProject.id,
+            userId: created.id,
+            role: "owner",
+          },
+        });
+      }
+      return created;
     });
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });

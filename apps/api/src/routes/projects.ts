@@ -3,13 +3,13 @@ import { prisma } from "@quickstart-ai/db";
 import {
   AppError,
   createProjectSchema,
-  NotFoundError,
   PLAN_LIMITS,
   updateLlmSettingsSchema,
   updateProjectSchema,
   getProviderOption,
   getModelPreset,
   resolveModelId,
+  type MemberRole,
 } from "@quickstart-ai/shared";
 import { requireAuth } from "../auth.js";
 import {
@@ -20,29 +20,63 @@ import {
 import { encryptSecret } from "../crypto.js";
 import { getProjectLlmPublicSettings } from "../project-llm.js";
 import { env } from "../env.js";
+import { requireProjectAccess, stripProjectForMember } from "../project-access.js";
 
-async function assertProjectOwner(projectId: string, userId: string) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, ownerId: userId },
-  });
-  if (!project) throw new NotFoundError("Project not found");
-  return project;
+function formatProjectListItem(
+  project: {
+    ownerId: string;
+    llmApiKeyEnc?: string | null;
+    credits: number;
+    [key: string]: unknown;
+  },
+  membership: { role: MemberRole },
+  userId: string,
+  credentials?: { id: string; clientId: string; label: string; lastUsedAt: Date | null; createdAt: Date }[],
+  docCount?: number,
+) {
+  const isOwner = project.ownerId === userId;
+  const { llmApiKeyEnc: _key, ...rest } = project;
+  const base = isOwner ? rest : { ...rest, credits: undefined };
+  return {
+    ...base,
+    memberRole: membership.role,
+    isOwner,
+    ...(isOwner && credentials ? { credentials } : {}),
+    ...(docCount !== undefined ? { _count: { documents: docCount } } : {}),
+  };
 }
 
 export async function projectRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects", async (req) => {
     await requireAuth(req);
-    const projects = await prisma.project.findMany({
-      where: { ownerId: req.user!.id },
-      orderBy: { createdAt: "desc" },
+    const userId = req.user!.id;
+
+    const memberships = await prisma.projectMember.findMany({
+      where: { userId },
       include: {
-        credentials: {
-          where: { revokedAt: null },
-          select: { id: true, clientId: true, label: true, lastUsedAt: true, createdAt: true },
+        project: {
+          include: {
+            credentials: {
+              where: { revokedAt: null },
+              select: { id: true, clientId: true, label: true, lastUsedAt: true, createdAt: true },
+            },
+            _count: { select: { documents: true } },
+          },
         },
-        _count: { select: { documents: true } },
       },
+      orderBy: { joinedAt: "desc" },
     });
+
+    const projects = memberships.map((m) =>
+      formatProjectListItem(
+        m.project,
+        { role: m.role as MemberRole },
+        userId,
+        m.project.credentials,
+        m.project._count.documents,
+      ),
+    );
+
     return { success: true, projects };
   });
 
@@ -64,25 +98,35 @@ export async function projectRoutes(app: FastifyInstance) {
 
     const clientId = generateClientId();
     const clientSecret = generateClientSecret();
-    const project = await prisma.project.create({
-      data: {
-        ownerId: req.user!.id,
-        name: body.name,
-        description: body.description ?? "",
-        category: body.category ?? "",
-        credentials: {
-          create: {
-            clientId,
-            clientSecretHash: hashSecret(clientSecret),
-            label: "default",
+    const project = await prisma.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          ownerId: req.user!.id,
+          name: body.name,
+          description: body.description ?? "",
+          category: body.category ?? "",
+          credentials: {
+            create: {
+              clientId,
+              clientSecretHash: hashSecret(clientSecret),
+              label: "default",
+            },
           },
         },
-      },
+      });
+      await tx.projectMember.create({
+        data: {
+          projectId: created.id,
+          userId: req.user!.id,
+          role: "owner",
+        },
+      });
+      return created;
     });
 
     return {
       success: true,
-      project,
+      project: { ...project, memberRole: "owner" as const, isOwner: true },
       credentials: { clientId, clientSecret },
       message: "Store clientSecret now — it will not be shown again.",
     };
@@ -91,29 +135,40 @@ export async function projectRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await assertProjectOwner(id, req.user!.id);
-    const credentials = await prisma.apiCredential.findMany({
-      where: { projectId: id, revokedAt: null },
-      select: { id: true, clientId: true, label: true, lastUsedAt: true, createdAt: true },
-    });
-    const docs = await prisma.knowledgeDocument.findMany({
-      where: { projectId: id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    const access = await requireProjectAccess(id, req.user!.id, { minRole: "agent" });
+
+    const credentials = access.isOwner
+      ? await prisma.apiCredential.findMany({
+          where: { projectId: id, revokedAt: null },
+          select: { id: true, clientId: true, label: true, lastUsedAt: true, createdAt: true },
+        })
+      : [];
+
+    const docs =
+      access.role === "agent"
+        ? []
+        : await prisma.knowledgeDocument.findMany({
+            where: { projectId: id },
+            orderBy: { createdAt: "desc" },
+            take: 50,
+          });
+
+    const project = stripProjectForMember(access.project, access);
+
     return {
       success: true,
-      project,
+      project: { ...project, memberRole: access.role, isOwner: access.isOwner },
       credentials,
       documents: docs,
-      llm: getProjectLlmPublicSettings(project),
+      llm: access.isOwner ? getProjectLlmPublicSettings(access.project) : null,
     };
   });
 
   app.patch("/api/v1/projects/:id/llm", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await assertProjectOwner(id, req.user!.id);
+    const access = await requireProjectAccess(id, req.user!.id, { ownerOnly: true });
+    const project = access.project;
     const body = updateLlmSettingsSchema.parse(req.body);
     const providerId = body.useOwnLlmKey ? body.llmProvider : "platform";
     const provider = getProviderOption(providerId);
@@ -173,7 +228,7 @@ export async function projectRoutes(app: FastifyInstance) {
   app.patch("/api/v1/projects/:id", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await assertProjectOwner(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const body = updateProjectSchema.parse(req.body);
     const project = await prisma.project.update({
       where: { id },
@@ -200,7 +255,7 @@ export async function projectRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/credentials/rotate", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    await assertProjectOwner(id, req.user!.id);
+    await requireProjectAccess(id, req.user!.id, { ownerOnly: true });
 
     await prisma.apiCredential.updateMany({
       where: { projectId: id, revokedAt: null },
