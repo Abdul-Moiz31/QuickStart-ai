@@ -21,6 +21,7 @@ import {
 } from "@quickstart-ai/shared";
 import type { EvalCase } from "@quickstart-ai/eval";
 import { requireAuth } from "../auth.js";
+import { loadEnabledCustomTools } from "./custom-tools.js";
 import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { env } from "../env.js";
 import { getRedis } from "../redis.js";
@@ -298,6 +299,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
       content: m.content,
     }));
 
+    const customTools = await loadEnabledCustomTools(project.id);
+
     let result;
     try {
       result = await runAgenticRag({
@@ -312,6 +315,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
         toolsHumanHandoff: project.toolsHumanHandoff,
         toolsLeadCapture: project.toolsLeadCapture,
         businessWebsite: project.owner?.businessWebsite ?? undefined,
+        customTools,
+        redisUrl: env.redisUrl,
       });
     } catch (err) {
       const message =

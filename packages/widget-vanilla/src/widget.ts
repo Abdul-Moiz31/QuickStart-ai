@@ -30,6 +30,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+type WidgetPhase = "lead" | "proactive_question" | "proactive_details" | "chat";
+
 export function mountQuickStartChat(opts: MountOptions) {
   const theme = opts.theme ?? "primary";
   const position = opts.position ?? "right";
@@ -54,6 +56,8 @@ export function mountQuickStartChat(opts: MountOptions) {
   let loading = false;
   let triggerEngine: TriggerEngine | null = null;
   let proactiveMessage: string | null = null;
+  let pendingQuestion: string | null = null;
+  let phase: WidgetPhase = "lead";
 
   const toggle = el("button", { type: "button", "aria-label": "Open chat" }, ["💬"]);
   Object.assign(toggle.style, {
@@ -103,6 +107,7 @@ export function mountQuickStartChat(opts: MountOptions) {
     padding: "16px",
     overflowY: "auto",
     background: "#f8fafc",
+    display: "none",
   });
 
   const form = el("div");
@@ -134,28 +139,24 @@ export function mountQuickStartChat(opts: MountOptions) {
     }),
   );
 
-  const proactiveBubble = el("div");
-  Object.assign(proactiveBubble.style, {
-    display: "none",
-    maxWidth: "88%",
-    padding: "10px 12px",
-    borderRadius: "14px",
-    background: "#e2e8f0",
-    color: "#0f172a",
-    fontSize: "14px",
-    lineHeight: "1.45",
-  });
+  const leadLabel = el("p", { text: "Start a conversation" });
+  Object.assign(leadLabel.style, { margin: "0", color: "#64748b", fontSize: "14px" });
 
-  form.append(proactiveBubble, el("p", { text: "Start a conversation" }), nameInput, emailInput, startBtn);
+  const detailsLabel = el("p", { text: "Tell us who you are so we can reply" });
+  Object.assign(detailsLabel.style, { margin: "0", color: "#64748b", fontSize: "14px" });
+  detailsLabel.style.display = "none";
+
+  form.append(leadLabel, detailsLabel, nameInput, emailInput, startBtn);
 
   const composer = el("div");
   Object.assign(composer.style, {
     display: "none",
+    flexDirection: "row",
     gap: "8px",
     padding: "12px",
     borderTop: "1px solid #e2e8f0",
   });
-  const msgInput = el("input", { placeholder: "Type a message…" });
+  const msgInput = el("input", { placeholder: "Type your question…" });
   Object.assign(msgInput.style, {
     flex: "1",
     padding: "10px 12px",
@@ -174,7 +175,7 @@ export function mountQuickStartChat(opts: MountOptions) {
   });
   composer.append(msgInput, sendBtn);
 
-  panel.append(header, form, body, composer);
+  panel.append(header, body, form, composer);
   host.append(toggle, panel);
 
   function addBubble(role: "user" | "assistant" | "agent", content: string) {
@@ -192,7 +193,6 @@ export function mountQuickStartChat(opts: MountOptions) {
       fontSize: "14px",
       lineHeight: "1.45",
     });
-    // A human reply must not look like the bot's, or the handoff is invisible.
     if (role === "agent") {
       bubble.style.border = `1px solid ${colors.bg}`;
       const label = el("div", { text: "Support Team" });
@@ -212,6 +212,36 @@ export function mountQuickStartChat(opts: MountOptions) {
     body.scrollTop = body.scrollHeight;
   }
 
+  function syncLayout() {
+    if (phase === "lead") {
+      body.style.display = "none";
+      form.style.display = "flex";
+      form.style.flex = "1";
+      composer.style.display = "none";
+      leadLabel.style.display = "block";
+      detailsLabel.style.display = "none";
+      startBtn.textContent = "Start chat";
+      msgInput.placeholder = "Type your question…";
+    } else if (phase === "proactive_question") {
+      body.style.display = "block";
+      form.style.display = "none";
+      composer.style.display = "flex";
+    } else if (phase === "proactive_details") {
+      body.style.display = "block";
+      form.style.display = "flex";
+      form.style.flex = "0 0 auto";
+      composer.style.display = "none";
+      leadLabel.style.display = "none";
+      detailsLabel.style.display = "block";
+      startBtn.textContent = "Continue";
+    } else {
+      body.style.display = "block";
+      form.style.display = "none";
+      composer.style.display = "flex";
+      msgInput.placeholder = "Type a message…";
+    }
+  }
+
   function openPanel() {
     open = true;
     panel.style.display = "flex";
@@ -222,18 +252,32 @@ export function mountQuickStartChat(opts: MountOptions) {
     open = !open;
     panel.style.display = open ? "flex" : "none";
     toggle.textContent = open ? "×" : "💬";
+    if (open && allowAnonymous && phase === "chat" && body.childElementCount === 0) {
+      addBubble("assistant", welcomeMessage);
+    }
   };
 
   function onTriggerFire(rule: ProactiveTriggerRule) {
     proactiveMessage = rule.message;
-    proactiveBubble.textContent = rule.message;
-    proactiveBubble.style.display = "block";
+    pendingQuestion = null;
+    phase = "proactive_question";
+    body.textContent = "";
+    addBubble("assistant", rule.message);
+    syncLayout();
     openPanel();
   }
 
   client
     .getConfig()
     .then((res) => {
+      if (res.config.welcomeMessage?.trim()) {
+        welcomeMessage = res.config.welcomeMessage.trim();
+      }
+      if (res.config.allowAnonymousSessions) {
+        allowAnonymous = true;
+        phase = "chat";
+        syncLayout();
+      }
       const rules = res.config.proactiveTriggers?.rules;
       if (!rules?.length) return;
       triggerEngine = new TriggerEngine(res.config.proactiveTriggers!, { onFire: onTriggerFire });
@@ -243,39 +287,19 @@ export function mountQuickStartChat(opts: MountOptions) {
       // Triggers are an enhancement; a config fetch failure should not block the widget.
     });
 
-  startBtn.onclick = async () => {
-    if (loading) return;
-    loading = true;
-    startBtn.textContent = "Starting…";
-    try {
-      const res = await client.createSession(nameInput.value.trim(), emailInput.value.trim());
-      sessionId = res.session.id;
-      form.style.display = "none";
-      composer.style.display = "flex";
-      triggerEngine?.stop();
-      // Cosmetic-only until now — the proactive line becomes the real conversation
-      // opener the moment the visitor actually engages.
-      addBubble("assistant", proactiveMessage ?? "Hello! How can I assist you today?");
-      subscribe();
-    } catch (e) {
-      console.error(e);
-      alert("Could not start chat");
-    } finally {
-      loading = false;
-      startBtn.textContent = "Start chat";
-    }
-  };
-
-  async function send() {
-    const text = msgInput.value.trim();
-    if (!text || loading || !sessionId) return;
-    msgInput.value = "";
-    addBubble("user", text);
+  async function sendChatMessage(text: string, skipUserBubble = false) {
+    if (!skipUserBubble) addBubble("user", text);
     loading = true;
     try {
+      if (!sessionId) {
+        sessionId = await client.ensureSession(null);
+        phase = "chat";
+        triggerEngine?.stop();
+        triggerEngine = null;
+        syncLayout();
+        subscribe();
+      }
       const res = await client.sendMessage(sessionId, text);
-      // No answer comes back while a human holds the session; their reply arrives
-      // on the live channel instead.
       if (res.answer) addBubble("assistant", res.answer);
     } catch (e) {
       console.error(e);
@@ -285,7 +309,74 @@ export function mountQuickStartChat(opts: MountOptions) {
     }
   }
 
-  /** Live channel: agent replies and handoff status pushed from the inbox. */
+  startBtn.onclick = async () => {
+    if (loading) return;
+    loading = true;
+    startBtn.textContent = phase === "proactive_details" ? "Starting…" : "Starting…";
+    try {
+      const res = await client.createSession(nameInput.value.trim(), emailInput.value.trim());
+      sessionId = res.session.id;
+      phase = "chat";
+      triggerEngine?.stop();
+      triggerEngine = null;
+      syncLayout();
+      subscribe();
+
+      if (pendingQuestion) {
+        const question = pendingQuestion;
+        pendingQuestion = null;
+        await sendChatMessage(question, true);
+      } else if (proactiveMessage && body.textContent === "") {
+        addBubble("assistant", proactiveMessage);
+      } else if (!proactiveMessage) {
+        addBubble("assistant", "Hello! How can I assist you today?");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Could not start chat");
+    } finally {
+      loading = false;
+      startBtn.textContent = phase === "proactive_details" ? "Continue" : "Start chat";
+    }
+  };
+
+  async function submitProactiveQuestion() {
+    const text = msgInput.value.trim();
+    if (!text || loading) return;
+    msgInput.value = "";
+    addBubble("user", text);
+
+    if (allowAnonymous) {
+      pendingQuestion = text;
+      await sendChatMessage(text, true);
+      pendingQuestion = null;
+      return;
+    }
+
+    pendingQuestion = text;
+    phase = "proactive_details";
+    triggerEngine?.stop();
+    triggerEngine = null;
+    syncLayout();
+  }
+
+  async function send() {
+    const text = msgInput.value.trim();
+    if (!text || loading) return;
+
+    if (phase === "proactive_question") {
+      await submitProactiveQuestion();
+      return;
+    }
+
+    if (phase !== "chat" && !allowAnonymous) return;
+    msgInput.value = "";
+    await sendChatMessage(text);
+  }
+
+  let allowAnonymous = false;
+  let welcomeMessage = "Hello! How can I assist you today?";
+
   function subscribe() {
     if (!sessionId || unsubscribe) return;
     unsubscribe = client.subscribeToSession(sessionId, (event) => {
@@ -307,6 +398,8 @@ export function mountQuickStartChat(opts: MountOptions) {
   msgInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") void send();
   });
+
+  syncLayout();
 
   return {
     destroy: () => {

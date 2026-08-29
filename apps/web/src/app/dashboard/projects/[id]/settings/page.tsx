@@ -48,6 +48,8 @@ export default function SettingsPage() {
   const [llmKeyEditing, setLlmKeyEditing] = useState(false);
   const [llmKeyMasked, setLlmKeyMasked] = useState<string | null>(null);
   const [hasLlmKey, setHasLlmKey] = useState(false);
+  const [allowAnonymousSessions, setAllowAnonymousSessions] = useState(false);
+  const [visitorAccessLoaded, setVisitorAccessLoaded] = useState(false);
 
   const byokProviders = useMemo(
     () => LLM_PROVIDER_OPTIONS.filter((p) => p.id !== "platform"),
@@ -61,6 +63,7 @@ export default function SettingsPage() {
     if (!token) return;
     const res = await api<{
       credentials: typeof creds;
+      project: { allowAnonymousSessions?: boolean };
       llm: {
         llmProvider: string;
         useOwnLlmKey: boolean;
@@ -72,6 +75,8 @@ export default function SettingsPage() {
     }>(`/api/v1/projects/${id}`, { token });
 
     setCreds(res.credentials);
+    setAllowAnonymousSessions(Boolean(res.project?.allowAnonymousSessions));
+    setVisitorAccessLoaded(true);
     const provider = res.llm.useOwnLlmKey ? res.llm.llmProvider : "openrouter";
     setLlmProvider(provider === "platform" ? "openrouter" : provider);
     setUseOwnLlmKey(res.llm.useOwnLlmKey);
@@ -106,6 +111,26 @@ export default function SettingsPage() {
       await load();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Rotate failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveVisitorAccess(e: FormEvent) {
+    e.preventDefault();
+    const token = getStoredToken();
+    if (!token) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await api(`/api/v1/projects/${id}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ allowAnonymousSessions }),
+      });
+      setMsg("Visitor access settings saved.");
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Save failed");
     } finally {
       setBusy(false);
     }
@@ -301,6 +326,55 @@ export default function SettingsPage() {
 
             <DashBtn type="submit" disabled={busy || !llmLoaded} className="!px-4 !py-2 text-sm">
               {busy ? "Saving…" : "Save LLM settings"}
+            </DashBtn>
+          </DashPanel>
+        </form>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Visitor access"
+        description="Control whether visitors must share their name and email before chatting."
+      >
+        <form onSubmit={saveVisitorAccess}>
+          <DashPanel className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-medium text-ink">Allow anonymous chat</p>
+                <p className="mt-1 text-sm text-mute">
+                  When on, visitors can message immediately without a lead form. A session is
+                  created on their first message. Use{" "}
+                  <a
+                    href={`/dashboard/projects/${id}/tools`}
+                    className="font-medium text-ink underline underline-offset-2"
+                  >
+                    Lead capture
+                  </a>{" "}
+                  in Tools if the bot should collect contact details during the conversation.
+                </p>
+                <p className="mt-2 text-xs text-mute">
+                  Client rate limits still apply. Anonymous sessions appear in the inbox with an
+                  Anonymous badge.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={allowAnonymousSessions}
+                disabled={!visitorAccessLoaded}
+                onClick={() => setAllowAnonymousSessions((v) => !v)}
+                className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                  allowAnonymousSessions ? "bg-black" : "bg-ink/15"
+                } ${!visitorAccessLoaded ? "opacity-50" : ""}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${
+                    allowAnonymousSessions ? "left-5" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+            <DashBtn type="submit" disabled={busy || !visitorAccessLoaded} className="!px-4 !py-2 text-sm">
+              {busy ? "Saving…" : "Save visitor access"}
             </DashBtn>
           </DashPanel>
         </form>

@@ -104,20 +104,24 @@ export async function hydeRetrieve(opts: {
   topK?: number;
 }): Promise<RetrievedChunk[]> {
   const { projectId, query, embeddings, chat, topK = DEFAULT_TOP_K } = opts;
-  const hypo = await chat.chat(
-    [
-      {
-        role: "system",
-        content:
-          "Write a short hypothetical passage that would answer the user question as if from a business knowledge base. No preamble.",
-      },
-      { role: "user", content: query },
-    ],
-    { temperature: 0.2, maxTokens: 250 },
-  );
-  const [emb] = await embeddings.embed([hypo || query]);
-  if (!emb) return [];
-  return vectorSearch(projectId, emb, topK);
+  try {
+    const hypo = await chat.chat(
+      [
+        {
+          role: "system",
+          content:
+            "Write a short hypothetical passage that would answer the user question as if from a business knowledge base. No preamble.",
+        },
+        { role: "user", content: query },
+      ],
+      { temperature: 0.2, maxTokens: 250, textOnly: true },
+    );
+    const [emb] = await embeddings.embed([hypo || query]);
+    if (!emb) return [];
+    return vectorSearch(projectId, emb, topK);
+  } catch {
+    return [];
+  }
 }
 
 export async function hybridRetrieve(opts: {
@@ -177,7 +181,7 @@ export async function rerankChunks(
         },
         { role: "user", content: `Query: ${query}\n\nPassages:\n${numbered}` },
       ],
-      { temperature: 0, maxTokens: 200 },
+      { temperature: 0, maxTokens: 200, textOnly: true },
     );
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return candidates.slice(0, topK);

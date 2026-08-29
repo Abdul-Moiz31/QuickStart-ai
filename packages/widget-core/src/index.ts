@@ -160,18 +160,33 @@ export class QuickStartClient {
         primaryColor?: string;
         welcomeMessage?: string;
         proactiveTriggers?: ProactiveTriggersConfig;
+        allowAnonymousSessions?: boolean;
       };
     }>;
   }
 
-  async createSession(visitorName: string, visitorEmail: string) {
+  async createSession(visitorName?: string, visitorEmail?: string) {
+    const body: Record<string, string> = {};
+    if (visitorName?.trim()) body.visitorName = visitorName.trim();
+    if (visitorEmail?.trim()) body.visitorEmail = visitorEmail.trim();
     const res = await fetch(`${this.opts.apiUrl}/api/v1/chat/session`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ visitorName, visitorEmail }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error("Failed to create session");
     return res.json() as Promise<{ success: boolean; session: { id: string } }>;
+  }
+
+  /** Create a session on first message when none exists yet. */
+  async ensureSession(
+    existingSessionId: string | null | undefined,
+    visitorName?: string,
+    visitorEmail?: string,
+  ): Promise<string> {
+    if (existingSessionId) return existingSessionId;
+    const res = await this.createSession(visitorName, visitorEmail);
+    return res.session.id;
   }
 
   async sendMessage(sessionId: string, message: string) {

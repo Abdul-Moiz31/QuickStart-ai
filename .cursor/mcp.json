@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mongodb": {
+      "command": "node",
+      "args": ["node_modules/mongodb-mcp-server/dist/esm/index.js"],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": ""
+      }
+    }
+  }
+}
