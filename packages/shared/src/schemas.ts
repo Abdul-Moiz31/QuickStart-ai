@@ -291,3 +291,20 @@ export type ProactiveTriggersConfig = z.infer<typeof proactiveTriggersConfigSche
 export type CustomToolParameter = z.infer<typeof customToolParameterSchema>;
 export type CreateCustomToolInput = z.infer<typeof createCustomToolSchema>;
 export type UpdateCustomToolInput = z.infer<typeof updateCustomToolSchema>;
+
+export const createProjectInviteSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["admin", "agent"]),
+});
+
+export const updateProjectMemberRoleSchema = z.object({
+  role: z.enum(["admin", "agent"]),
+});
+
+export const acceptProjectInviteSchema = z.object({
+  token: z.string().length(64),
+});
+
+export type CreateProjectInviteInput = z.infer<typeof createProjectInviteSchema>;
+export type UpdateProjectMemberRoleInput = z.infer<typeof updateProjectMemberRoleSchema>;
+export type AcceptProjectInviteInput = z.infer<typeof acceptProjectInviteSchema>;

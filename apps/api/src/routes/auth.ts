@@ -9,30 +9,44 @@ import {
   registerSchema,
   UnauthorizedError,
 } from "@quickstart-ai/shared";
-import { requireAuth, setAuthCookie, signToken } from "../auth.js";
+import { assertAuthRateLimit, requireAuth, setAuthCookie, signToken } from "../auth.js";
 import { env } from "../env.js";
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/api/v1/auth/register", async (req, reply) => {
     const body = registerSchema.parse(req.body);
+    await assertAuthRateLimit(req, body.email);
     const existing = await prisma.user.findUnique({ where: { email: body.email } });
     if (existing) throw new AppError("User already exists", 400);
 
     const passwordHash = await bcrypt.hash(body.password, 12);
-    const user = await prisma.user.create({
-      data: {
-        name: body.name,
-        email: body.email,
-        passwordHash,
-        onboardingCompleted: false,
-        projects: {
-          create: {
-            name: "Default project",
-            description: "Your first chatbot — finish onboarding to train it.",
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name: body.name,
+          email: body.email,
+          passwordHash,
+          onboardingCompleted: false,
+          projects: {
+            create: {
+              name: "Default project",
+              description: "Your first chatbot — finish onboarding to train it.",
+            },
           },
         },
-      },
-      include: { projects: { select: { id: true, name: true }, take: 1 } },
+        include: { projects: { select: { id: true, name: true }, take: 1 } },
+      });
+      const defaultProject = created.projects[0];
+      if (defaultProject) {
+        await tx.projectMember.create({
+          data: {
+            projectId: defaultProject.id,
+            userId: created.id,
+            role: "owner",
+          },
+        });
+      }
+      return created;
     });
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
@@ -54,6 +68,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/auth/login", async (req, reply) => {
     const body = loginSchema.parse(req.body);
+    await assertAuthRateLimit(req, body.email);
     const user = await prisma.user.findUnique({ where: { email: body.email } });
     if (!user) throw new UnauthorizedError("Invalid email or password");
     const ok = await bcrypt.compare(body.password, user.passwordHash);

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "@quickstart-ai/db";
 import { requireAuth } from "../auth.js";
+import { requireProjectAccess } from "../project-access.js";
 import { env } from "../env.js";
 import {
   MCP_SCOPES,
@@ -144,12 +145,8 @@ export async function mcpOAuthRoutes(app: FastifyInstance) {
       return { success: false, message: "Invalid client or redirect URI" };
     }
 
-    const project = await prisma.project.findFirst({
-      where: { id: body.project_id, ownerId: user.id },
-    });
-    if (!project) {
-      return { success: false, message: "Project not found" };
-    }
+    const access = await requireProjectAccess(body.project_id, user.id, { minRole: "admin" });
+    const project = access.project;
 
     const scopes = body.scope?.split(" ").filter(Boolean) ?? [...MCP_SCOPES];
     const code = await createAuthorizationCode({

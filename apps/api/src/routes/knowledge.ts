@@ -13,6 +13,7 @@ import {
   updateKnowledgeQaSchema,
 } from "@quickstart-ai/shared";
 import { requireAuth } from "../auth.js";
+import { requireProjectAccess } from "../project-access.js";
 import { invalidateGapCache } from "../knowledge-gaps.js";
 import { env } from "../env.js";
 
@@ -44,10 +45,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/knowledge", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const { project } = await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const body = ingestTextSchema.parse(req.body);
     const doc = await prisma.knowledgeDocument.create({
@@ -83,10 +81,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:id/knowledge/:docId/retry", async (req) => {
     await requireAuth(req);
     const { id, docId } = req.params as { id: string; docId: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const { project } = await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const doc = await prisma.knowledgeDocument.findFirst({
       where: { id: docId, projectId: id },
@@ -122,10 +117,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/knowledge", async (req) => {
     await requireAuth(req);
     const { id } = req.params as { id: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const { project } = await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
     const documents = await prisma.knowledgeDocument.findMany({
       where: { projectId: id },
       orderBy: { createdAt: "desc" },
@@ -137,10 +129,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   app.patch("/api/v1/projects/:id/knowledge/:docId", async (req) => {
     await requireAuth(req);
     const { id, docId } = req.params as { id: string; docId: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const { project } = await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const doc = await prisma.knowledgeDocument.findFirst({
       where: { id: docId, projectId: id },
@@ -186,10 +175,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   app.delete("/api/v1/projects/:id/knowledge/:docId", async (req) => {
     await requireAuth(req);
     const { id, docId } = req.params as { id: string; docId: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const { project } = await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const doc = await prisma.knowledgeDocument.findFirst({
       where: { id: docId, projectId: id },
@@ -203,10 +189,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   app.delete("/api/v1/projects/:id/knowledge/:docId/qa", async (req) => {
     await requireAuth(req);
     const { id, docId } = req.params as { id: string; docId: string };
-    const project = await prisma.project.findFirst({
-      where: { id, ownerId: req.user!.id },
-    });
-    if (!project) throw new NotFoundError("Project not found");
+    const { project } = await requireProjectAccess(id, req.user!.id, { minRole: "admin" });
 
     const doc = await prisma.knowledgeDocument.findFirst({
       where: { id: docId, projectId: id },
