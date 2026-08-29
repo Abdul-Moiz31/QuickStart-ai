@@ -3,7 +3,6 @@ node_modules
 dist
 .next
 .turbo
-.env
 .env.*.local
 .env.tunnel
 *.log
