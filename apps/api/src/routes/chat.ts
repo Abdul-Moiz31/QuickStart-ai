@@ -23,6 +23,7 @@ import {
   createSessionSchema,
   NotFoundError,
   PLAN_LIMITS,
+  type PlanTier,
   resolveVisitorIdentity,
 } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
