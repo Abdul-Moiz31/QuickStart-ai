@@ -1,4 +1,8 @@
 import { nextui } from "@nextui-org/react";
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
