@@ -129,6 +129,12 @@ export const chatMessageSchema = z.object({
   stream: z.boolean().optional().default(true),
 });
 
+export const voiceTranscribeSchema = z.object({
+  sessionId: z.string().optional(),
+  audioBase64: z.string().min(1),
+  mimeType: z.string().min(1).max(100),
+});
+
 export const createSessionSchema = z.object({
   visitorName: z.string().max(120).optional(),
   visitorEmail: z.string().email().optional(),
@@ -278,6 +284,7 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
+export type VoiceTranscribeInput = z.infer<typeof voiceTranscribeSchema>;
 export type TriggerCondition = z.infer<typeof triggerConditionSchema>;
 export type ProactiveTriggerRule = z.infer<typeof proactiveTriggerRuleSchema>;
 export type ProactiveTriggersConfig = z.infer<typeof proactiveTriggersConfigSchema>;

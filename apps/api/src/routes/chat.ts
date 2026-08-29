@@ -25,6 +25,8 @@ import {
   PLAN_LIMITS,
   type PlanTier,
   resolveVisitorIdentity,
+  looksLikeGibberish,
+  visitorRequestsHumanHelp,
 } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
 import { loadEnabledCustomTools } from "./custom-tools.js";
@@ -81,6 +83,20 @@ function userFacingChatError(err: unknown): string {
 
 function didEscalate(events: { type: string }[]): boolean {
   return events.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF);
+}
+
+/** Catches cases where the model claims a handoff but skipped escalate_to_human. */
+function shouldForceEscalation(
+  escalated: boolean,
+  userMessage: string,
+  toolsHumanHandoff: boolean,
+): boolean {
+  return (
+    !escalated &&
+    toolsHumanHandoff !== false &&
+    visitorRequestsHumanHelp(userMessage) &&
+    !looksLikeGibberish(userMessage)
+  );
 }
 
 async function isStillBotControlled(
@@ -398,7 +414,10 @@ export async function chatRoutes(app: FastifyInstance) {
       }
 
       const stillBot = await isStillBotControlled(Session, sessionId);
-      const escalated = didEscalate(preamble.eventsEmitted);
+      let escalated = didEscalate(preamble.eventsEmitted);
+      if (shouldForceEscalation(escalated, body.message, project.toolsHumanHandoff)) {
+        escalated = true;
+      }
 
       session.messages.push({ role: "user", content: body.message });
       session.messages.push({
@@ -497,7 +516,10 @@ export async function chatRoutes(app: FastifyInstance) {
     }
 
     const stillBot = await isStillBotControlled(Session, sessionId);
-    const escalated = didEscalate(result.eventsEmitted);
+    let escalated = didEscalate(result.eventsEmitted);
+    if (shouldForceEscalation(escalated, body.message, project.toolsHumanHandoff)) {
+      escalated = true;
+    }
     const answer = result.answer.trim() || EMPTY_ANSWER_FALLBACK;
 
     session.messages.push({ role: "user", content: body.message });

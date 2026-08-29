@@ -19,6 +19,7 @@ import { integrationsRoutes } from "./routes/integrations.js";
 import { projectIntegrationsRoutes } from "./routes/project-integrations.js";
 import { customToolsRoutes } from "./routes/custom-tools.js";
 import { channelsRoutes } from "./routes/channels.js";
+import { voiceRoutes } from "./routes/voice.js";
 import { mcpOAuthRoutes } from "./routes/mcp-oauth.js";
 import { mcpHttpRoutes } from "./routes/mcp-http.js";
 import { projectTeamRoutes } from "./routes/project-team.js";
@@ -111,6 +112,7 @@ async function main() {
   await integrationsRoutes(app);
   await projectIntegrationsRoutes(app);
 await channelsRoutes(app);
+  await voiceRoutes(app);
   await customToolsRoutes(app);
   await projectTeamRoutes(app);
   await mcpOAuthRoutes(app);
