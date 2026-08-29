@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { DashBtn, DashPanel } from "@/components/dashboard/DashboardShell";
 
-/** Soft-gates project tabs until onboarding is finished. */
+/** Soft-gates project tabs until onboarding is finished (owners only). */
 export function ProjectOnboardingGate({ children }: { children: ReactNode }) {
-  const { user, loading, openOnboarding } = useDashboard();
+  const { user, loading, openOnboarding, projects, currentProjectId } = useDashboard();
   const router = useRouter();
+
+  const current = projects.find((p) => p.id === currentProjectId);
+  const skipForInvitedMember = Boolean(current && !current.isOwner);
 
   if (loading) {
     return (
@@ -18,7 +21,7 @@ export function ProjectOnboardingGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (user && !user.onboardingCompleted) {
+  if (user && !user.onboardingCompleted && !skipForInvitedMember) {
     return (
       <div className="mx-auto max-w-lg px-6 py-12 md:px-10">
         <DashPanel className="text-center">

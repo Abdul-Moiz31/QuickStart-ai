@@ -21,6 +21,7 @@ import { customToolsRoutes } from "./routes/custom-tools.js";
 import { channelsRoutes } from "./routes/channels.js";
 import { mcpOAuthRoutes } from "./routes/mcp-oauth.js";
 import { mcpHttpRoutes } from "./routes/mcp-http.js";
+import { projectTeamRoutes } from "./routes/project-team.js";
 
 async function main() {
   const app = Fastify({
@@ -111,6 +112,7 @@ async function main() {
   await projectIntegrationsRoutes(app);
 await channelsRoutes(app);
   await customToolsRoutes(app);
+  await projectTeamRoutes(app);
   await mcpOAuthRoutes(app);
   await mcpHttpRoutes(app);
 
