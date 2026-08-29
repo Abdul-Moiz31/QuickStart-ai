@@ -1,12 +1,14 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Headset, Send, UserCheck } from "lucide-react";
 import { api, getStoredToken, resolvePublicApiUrl } from "@/lib/api";
 import { isAnonymousVisitor } from "@quickstart-ai/shared";
 import { DashBtn } from "@/components/dashboard/DashboardShell";
 import { ChatMessageContent, ChatTypingIndicator } from "@/components/dashboard/ChatMessageContent";
+
+type AgentUser = { id: string; name: string; email: string };
 
 type InboxRow = {
   id: string;
@@ -15,6 +17,9 @@ type InboxRow = {
   humanPending: boolean;
   humanActive: boolean;
   agentId: string | null;
+  agent: AgentUser | null;
+  canTakeover: boolean;
+  canReply: boolean;
   escalatedAt: string | null;
   messageCount: number;
   lastMessage: { role: string; content: string } | null;
@@ -46,12 +51,17 @@ function initials(name: string) {
 
 export default function InboxPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const projectId = params?.id ?? "";
+  const deeplinkSession = searchParams.get("session");
 
   const [rows, setRows] = useState<InboxRow[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [transcript, setTranscript] = useState<TranscriptMsg[]>([]);
   const [humanActive, setHumanActive] = useState(false);
+  const [canReply, setCanReply] = useState(false);
+  const [canTakeover, setCanTakeover] = useState(true);
+  const [assignedAgent, setAssignedAgent] = useState<AgentUser | null>(null);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -87,10 +97,19 @@ export default function InboxPage() {
   const loadTranscript = useCallback(async (sessionId: string) => {
     try {
       const res = await api<{
-        session: { humanActive: boolean; messages: TranscriptMsg[] };
+        session: {
+          humanActive: boolean;
+          canReply: boolean;
+          canTakeover: boolean;
+          agent: AgentUser | null;
+          messages: TranscriptMsg[];
+        };
       }>(`/api/v1/agent/sessions/${sessionId}`, { token: getStoredToken() ?? undefined });
       setTranscript(res.session.messages);
       setHumanActive(res.session.humanActive);
+      setCanReply(res.session.canReply);
+      setCanTakeover(res.session.canTakeover);
+      setAssignedAgent(res.session.agent);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load the conversation");
     }
@@ -99,6 +118,12 @@ export default function InboxPage() {
   useEffect(() => {
     void loadInbox();
   }, [loadInbox]);
+
+  useEffect(() => {
+    if (deeplinkSession && rows.some((r) => r.id === deeplinkSession)) {
+      setActiveId(deeplinkSession);
+    }
+  }, [deeplinkSession, rows]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -164,6 +189,7 @@ export default function InboxPage() {
         token: getStoredToken() ?? undefined,
       });
       setHumanActive(true);
+      setCanReply(true);
       await loadInbox();
     } catch (e) {
       // A 409 here means another tab or agent claimed it first.
@@ -192,7 +218,7 @@ export default function InboxPage() {
   }
 
   function notifyTyping() {
-    if (!humanActive || !activeId) return;
+    if (!canReply || !activeId) return;
     const now = Date.now();
     // Same throttle as the widget side: this is one request per ping.
     if (now - lastTypingPing.current < 4000) return;
@@ -281,9 +307,9 @@ export default function InboxPage() {
                             waiting
                           </span>
                         )}
-                        {row.humanActive && (
-                          <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                            live
+                        {row.humanActive && row.agent && (
+                          <span className="shrink-0 rounded-full bg-ink/8 px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">
+                            {row.agent.name.split(" ")[0]}
                           </span>
                         )}
                       </span>
@@ -315,8 +341,13 @@ export default function InboxPage() {
                   <p className="truncate text-xs text-ink/55">
                     {isAnonymousVisitor(active.visitorEmail) ? "Anonymous visitor" : active.visitorEmail}
                   </p>
+                  {humanActive && assignedAgent && !canReply && (
+                    <p className="mt-1 text-xs font-medium text-amber-700">
+                      Taken by {assignedAgent.name}
+                    </p>
+                  )}
                 </div>
-                {humanActive ? (
+                {humanActive && canReply ? (
                   <DashBtn
                     type="button"
                     onClick={release}
@@ -325,7 +356,7 @@ export default function InboxPage() {
                   >
                     Hand back to bot
                   </DashBtn>
-                ) : (
+                ) : canTakeover ? (
                   <DashBtn
                     type="button"
                     onClick={takeover}
@@ -335,7 +366,7 @@ export default function InboxPage() {
                     <UserCheck className="mr-1 inline h-3.5 w-3.5" />
                     Take over
                   </DashBtn>
-                )}
+                ) : null}
               </div>
 
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -384,14 +415,18 @@ export default function InboxPage() {
                     notifyTyping();
                   }}
                   placeholder={
-                    humanActive ? "Reply as a person…" : "Take the conversation over to reply"
+                    canReply
+                      ? "Reply as a person…"
+                      : humanActive
+                        ? "Read-only — another agent is replying"
+                        : "Take the conversation over to reply"
                   }
-                  disabled={!humanActive || busy}
+                  disabled={!canReply || busy}
                   className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm outline-none focus:border-ink/40 disabled:bg-clay disabled:text-ink/40"
                 />
                 <DashBtn
                   type="submit"
-                  disabled={!humanActive || busy || !reply.trim()}
+                  disabled={!canReply || busy || !reply.trim()}
                   className="!px-4 !py-2 text-xs"
                 >
                   <Send className="h-3.5 w-3.5" />
