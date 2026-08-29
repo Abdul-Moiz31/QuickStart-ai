@@ -26,6 +26,7 @@ export const env = {
   publicApiUrl: process.env.PUBLIC_API_URL ?? "http://localhost:3100",
   webAppUrl: process.env.WEB_APP_URL ?? "http://localhost:3000",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
 };
 
 // The JWT default is publicly known (committed to the repo). Any deployment
