@@ -49,6 +49,7 @@ export const updateProjectSchema = createProjectSchema.partial().extend({
   toolsWebSearch: z.boolean().optional(),
   toolsHumanHandoff: z.boolean().optional(),
   toolsLeadCapture: z.boolean().optional(),
+  allowAnonymousSessions: z.boolean().optional(),
   proactiveTriggers: proactiveTriggersConfigSchema.optional(),
 });
 
@@ -129,8 +130,8 @@ export const chatMessageSchema = z.object({
 });
 
 export const createSessionSchema = z.object({
-  visitorName: z.string().min(1).max(120),
-  visitorEmail: z.string().email(),
+  visitorName: z.string().max(120).optional(),
+  visitorEmail: z.string().email().optional(),
 });
 
 export const createWebhookSchema = z.object({
@@ -238,6 +239,41 @@ export const createEventRuleSchema = z.object({
 
 export const updateEventRuleSchema = createEventRuleSchema.partial();
 
+const snakeCaseName = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[a-z][a-z0-9_]*$/, "Name must be snake_case (lowercase letters, numbers, underscores)");
+
+export const customToolParameterSchema = z.object({
+  name: snakeCaseName,
+  description: z.string().min(1).max(200),
+  required: z.boolean().optional().default(true),
+});
+
+export const createCustomToolSchema = z.object({
+  name: snakeCaseName,
+  description: z.string().min(1).max(2000),
+  httpMethod: z.enum(["GET", "POST", "PUT", "PATCH"]).default("POST"),
+  url: z.string().url().max(2000),
+  parameters: z.array(customToolParameterSchema).max(20).default([]),
+  responseKey: z.string().max(120).optional(),
+  /** Plaintext on write only — never returned from API */
+  authHeader: z.string().max(512).optional(),
+  enabled: z.boolean().optional().default(true),
+});
+
+export const updateCustomToolSchema = createCustomToolSchema
+  .partial()
+  .extend({
+    /** null clears stored auth header */
+    authHeader: z.string().max(512).nullable().optional(),
+  });
+
+export const testCustomToolSchema = z.object({
+  args: z.record(z.unknown()).default({}),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
@@ -245,3 +281,6 @@ export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
 export type TriggerCondition = z.infer<typeof triggerConditionSchema>;
 export type ProactiveTriggerRule = z.infer<typeof proactiveTriggerRuleSchema>;
 export type ProactiveTriggersConfig = z.infer<typeof proactiveTriggersConfigSchema>;
+export type CustomToolParameter = z.infer<typeof customToolParameterSchema>;
+export type CreateCustomToolInput = z.infer<typeof createCustomToolSchema>;
+export type UpdateCustomToolInput = z.infer<typeof updateCustomToolSchema>;

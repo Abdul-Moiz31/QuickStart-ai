@@ -34,7 +34,7 @@ interface ProactiveTriggersConfig {
   rules: TriggerRule[];
 }
 
-const HELP_SEEN_KEY = (projectId: string) => `qs-visitor-prompts-help-seen:${projectId}`;
+const HELP_SEEN_KEY = (projectId: string) => `qs-triggers-help-seen:${projectId}`;
 
 const CONDITION_LABELS: Record<ConditionType, string> = {
   time_on_page: "Stayed on page for…",
@@ -239,7 +239,7 @@ export default function TriggersPage() {
   }
 
   async function removeRule(ruleIdToRemove: string) {
-    if (!confirm("Delete this prompt?")) return;
+    if (!confirm("Delete this trigger?")) return;
     await persist({ maxFiresPerDay, rules: rules.filter((r) => r.id !== ruleIdToRemove) });
   }
 
@@ -258,7 +258,7 @@ export default function TriggersPage() {
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Visitor prompts</h1>
+          <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Triggers</h1>
           <p className="mt-2 text-sm leading-relaxed text-mute">
             Auto-open chat when a visitor matches your conditions, with a custom opening message.
           </p>
@@ -267,7 +267,7 @@ export default function TriggersPage() {
           type="button"
           onClick={() => setHelpOpen(true)}
           className="mt-1 shrink-0 rounded-xl border border-ink/10 p-2.5 text-mute transition hover:border-ink/20 hover:bg-clay hover:text-ink"
-          aria-label="How visitor prompts work"
+          aria-label="How triggers work"
         >
           <CircleHelp className="h-5 w-5" strokeWidth={1.75} />
         </button>
@@ -280,7 +280,7 @@ export default function TriggersPage() {
           <div>
             <label className="text-sm font-medium text-ink">Limit how often chat auto-opens</label>
             <p className="mt-1 text-xs leading-relaxed text-mute">
-              Max times per visitor per day that any prompt can open chat. Each prompt still fires
+              Max times per visitor per day that any trigger can open chat. Each trigger still fires
               once per visit.
             </p>
             <div className="mt-2 flex items-center gap-2">
@@ -302,12 +302,12 @@ export default function TriggersPage() {
         <DashPanel>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-medium text-ink">Your prompts</p>
+              <p className="font-medium text-ink">Your triggers</p>
               <p className="mt-0.5 text-xs text-mute">Active wherever your widget is embedded.</p>
             </div>
             {!showForm && (
               <DashBtn type="button" variant="ghost" onClick={() => setShowForm(true)}>
-                Add prompt
+                Add trigger
               </DashBtn>
             )}
           </div>
@@ -423,7 +423,7 @@ export default function TriggersPage() {
 
               <div className="flex gap-2">
                 <DashBtn type="submit" disabled={busy}>
-                  {busy ? "Saving…" : "Save prompt"}
+                  {busy ? "Saving…" : "Save trigger"}
                 </DashBtn>
                 <DashBtn
                   type="button"
@@ -442,9 +442,9 @@ export default function TriggersPage() {
 
           {rules.length === 0 ? (
             <div className="mt-4 rounded-xl border border-dashed border-ink/15 bg-clay/30 px-4 py-6 text-center">
-              <p className="text-sm font-medium text-ink">No prompts yet</p>
+              <p className="text-sm font-medium text-ink">No triggers yet</p>
               <p className="mt-1 text-sm text-mute">
-                Add your first prompt, or open the{" "}
+                Add your first trigger, or open the{" "}
                 <button
                   type="button"
                   onClick={() => setHelpOpen(true)}
@@ -473,7 +473,7 @@ export default function TriggersPage() {
                       type="button"
                       role="switch"
                       aria-checked={r.enabled}
-                      aria-label={r.enabled ? "Disable prompt" : "Enable prompt"}
+                      aria-label={r.enabled ? "Disable trigger" : "Enable trigger"}
                       onClick={() => toggleRule(r.id, !r.enabled)}
                       className={`relative h-6 w-11 shrink-0 rounded-full transition ${
                         r.enabled ? "bg-black" : "bg-ink/15"
@@ -489,7 +489,7 @@ export default function TriggersPage() {
                       type="button"
                       onClick={() => removeRule(r.id)}
                       className="rounded-lg border border-ink/10 p-2 text-mute hover:text-red-600"
-                      aria-label="Delete prompt"
+                      aria-label="Delete trigger"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -529,7 +529,7 @@ export default function TriggersPage() {
                 <div className="flex items-start justify-between gap-3 border-b border-ink/[0.06] px-5 py-4">
                   <div>
                     <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
-                      Visitor prompts
+                      Triggers
                     </p>
                     <DialogTitle className="mt-1 font-sans text-lg font-bold text-ink">
                       How it works

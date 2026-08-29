@@ -408,10 +408,14 @@ export function ChatBot({
   );
 
   const [open, setOpen] = useState(false);
+  const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [started, setStarted] = useState(false);
   const [projectName, setProjectName] = useState("QuickStart AI");
   const [proactiveTriggers, setProactiveTriggers] = useState<ProactiveTriggersConfig | null>(null);
   const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
+  const [proactivePhase, setProactivePhase] = useState<"question" | "details" | null>(null);
+  const [proactiveEngaged, setProactiveEngaged] = useState(false);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [sessionId, setSessionId] = useState("");
@@ -430,7 +434,7 @@ export function ChatBot({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, open]);
+  }, [messages, open, proactivePhase, pendingQuestion]);
 
   useEffect(() => {
     if (!id) return;
@@ -452,6 +456,9 @@ export function ChatBot({
         if (cfg?.proactiveTriggers?.rules?.length) {
           setProactiveTriggers(cfg.proactiveTriggers);
         }
+        if (cfg?.allowAnonymousSessions) {
+          setAllowAnonymous(true);
+        }
       })
       .catch(() => {
         // keep defaults
@@ -461,16 +468,17 @@ export function ChatBot({
   // Torn down once the visitor engages (started) — no need to keep watching page
   // signals for someone who is already talking to the bot.
   useEffect(() => {
-    if (!proactiveTriggers || started) return;
+    if (!proactiveTriggers || started || proactiveEngaged) return;
     const engine = new TriggerEngine(proactiveTriggers, {
       onFire: (rule) => {
         setProactiveMessage(rule.message);
+        setProactivePhase("question");
         setOpen(true);
       },
     });
     engine.start();
     return () => engine.stop();
-  }, [proactiveTriggers, started]);
+  }, [proactiveTriggers, started, proactiveEngaged]);
 
   useEffect(() => {
     if (primaryColorProp) setResolvedPrimary(primaryColorProp);
@@ -547,74 +555,22 @@ export function ChatBot({
     return null;
   }
 
-  const start = async () => {
-    if (!name.trim() || !email.trim()) return;
+  const chatReady = started || allowAnonymous;
+
+  const beginSession = async (): Promise<string> => {
+    if (sessionId) return sessionId;
+    const sid = await client.ensureSession(null);
+    setSessionId(sid);
+    setStarted(true);
+    setProactivePhase(null);
+    setPendingQuestion(null);
+    return sid;
+  };
+
+  const streamAssistantReply = async (sid: string, text: string) => {
     setLoading(true);
     try {
-      const res = await client.createSession(name.trim(), email.trim());
-      setSessionId(res.session.id);
-      setStarted(true);
-      // Cosmetic-only until now — the proactive line becomes the real conversation
-      // opener the moment the visitor actually engages.
-      if (proactiveMessage) {
-        setMessages((m) => [{ role: "assistant", content: proactiveMessage }, ...m.slice(1)]);
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Could not start chat session");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const notifyTyping = () => {
-    if (!humanActive || !sessionId) return;
-    const now = Date.now();
-    if (now - lastTypingPing.current < 4000) return;
-    lastTypingPing.current = now;
-    void client.notifyVisitorTyping(sessionId).catch(() => {
-      // Presence is cosmetic; never surface a failure to the visitor.
-    });
-  };
-
-  const confirmHandoff = async () => {
-    if (!sessionId || handoffBusy || humanActive) return;
-    setHandoffBusy(true);
-    try {
-      const res = await client.requestHandoff(sessionId);
-      setHandoffPending(res.humanPending);
-      if (res.humanActive) setHumanActive(true);
-    } catch (e) {
-      console.error(e);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: "Could not connect to support right now. Please try again.",
-        },
-      ]);
-    } finally {
-      setHandoffBusy(false);
-    }
-  };
-
-  const send = async () => {
-    if (!input.trim() || loading || !sessionId) return;
-    const text = input.trim();
-    setInput("");
-    setMessages((m) =>
-      humanActive
-        ? [...m, { role: "user", content: text }]
-        : [
-            ...m,
-            { role: "user", content: text },
-            { role: "assistant", content: "", streaming: true },
-          ],
-    );
-    setLoading(true);
-
-    try {
-      await client.sendMessageStream(sessionId, text, (event) => {
+      await client.sendMessageStream(sid, text, (event) => {
         if (event.type === "token") {
           setMessages((m) => {
             const copy = [...m];
@@ -664,6 +620,129 @@ export function ChatBot({
     } finally {
       setLoading(false);
     }
+  };
+
+  const submitProactiveQuestion = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput("");
+    setProactiveEngaged(true);
+
+    if (allowAnonymous) {
+      setMessages((m) => [
+        ...m,
+        { role: "user", content: text },
+        { role: "assistant", content: "", streaming: true },
+      ]);
+      setLoading(true);
+      try {
+        const sid = await beginSession();
+        await streamAssistantReply(sid, text);
+      } catch (e) {
+        console.error(e);
+        alert("Could not start chat session");
+      }
+      return;
+    }
+
+    setPendingQuestion(text);
+    setProactivePhase("details");
+  };
+
+  const start = async () => {
+    if (!name.trim() || !email.trim()) return;
+    setLoading(true);
+    try {
+      const res = await client.createSession(name.trim(), email.trim());
+      const sid = res.session.id;
+      const question = pendingQuestion;
+      const opener = proactiveMessage;
+      setSessionId(sid);
+      setStarted(true);
+      setProactivePhase(null);
+      setPendingQuestion(null);
+
+      if (opener && question) {
+        setMessages([
+          { role: "assistant", content: opener },
+          { role: "user", content: question },
+          { role: "assistant", content: "", streaming: true },
+        ]);
+        await streamAssistantReply(sid, question);
+      } else if (opener) {
+        setMessages([{ role: "assistant", content: opener }]);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Could not start chat session");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const notifyTyping = () => {
+    if (!humanActive || !sessionId) return;
+    const now = Date.now();
+    if (now - lastTypingPing.current < 4000) return;
+    lastTypingPing.current = now;
+    void client.notifyVisitorTyping(sessionId).catch(() => {
+      // Presence is cosmetic; never surface a failure to the visitor.
+    });
+  };
+
+  const confirmHandoff = async () => {
+    if (!sessionId || handoffBusy || humanActive) return;
+    setHandoffBusy(true);
+    try {
+      const res = await client.requestHandoff(sessionId);
+      setHandoffPending(res.humanPending);
+      if (res.humanActive) setHumanActive(true);
+    } catch (e) {
+      console.error(e);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content: "Could not connect to support right now. Please try again.",
+        },
+      ]);
+    } finally {
+      setHandoffBusy(false);
+    }
+  };
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    if (proactivePhase === "question") {
+      await submitProactiveQuestion();
+      return;
+    }
+    const text = input.trim();
+    setInput("");
+
+    let sid = sessionId;
+    if (!sid) {
+      setLoading(true);
+      try {
+        sid = await beginSession();
+      } catch (e) {
+        console.error(e);
+        alert("Could not start chat session");
+        setLoading(false);
+        return;
+      }
+    }
+
+    setMessages((m) =>
+      humanActive
+        ? [...m, { role: "user", content: text }]
+        : [
+            ...m,
+            { role: "user", content: text },
+            { role: "assistant", content: "", streaming: true },
+          ],
+    );
+    await streamAssistantReply(sid, text);
   };
 
   const posKey = resolvedPosition === "left" ? "left" : "right";
@@ -753,53 +832,144 @@ export function ChatBot({
           </div>
         </div>
 
-        {!started ? (
-          <div className="qs-widget-start-form" style={{ background: surface.panel.bg }}>
-            {proactiveMessage && (
-              <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                <div
+        {!chatReady ? (
+          proactivePhase === "question" ? (
+            <>
+              <div className="qs-widget-messages">
+                {proactiveMessage && (
+                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                    <div
+                      className="qs-widget-bubble qs-widget-bubble--assistant"
+                      style={{ color: surface.assistant.text }}
+                    >
+                      {proactiveMessage}
+                    </div>
+                  </div>
+                )}
+                <div ref={endRef} />
+              </div>
+              <div className="qs-widget-input-row">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitProactiveQuestion()}
+                  placeholder="Type your question…"
+                  style={{ ...inputStyle(surface), margin: 0, borderRadius: 9999 }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={submitProactiveQuestion}
+                  disabled={!input.trim()}
+                  className="qs-widget-send-btn"
                   style={{
-                    maxWidth: "88%",
-                    padding: "8px 12px",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    borderRadius: 16,
-                    borderTopLeftRadius: 4,
-                    background: surface.assistant.bg,
-                    color: surface.assistant.text,
+                    ...sendBtnStyle,
+                    background: surface.accent.bg,
+                    color: surface.accent.text,
+                    opacity: !input.trim() ? 0.55 : 1,
                   }}
                 >
-                  {proactiveMessage}
-                </div>
+                  <span className="qs-widget-send-label">Send</span>
+                </button>
               </div>
-            )}
-            <p style={{ color: "#5C5A56", margin: 0, fontSize: 14 }}>Start a conversation</p>
-            <input
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={inputStyle(surface)}
-            />
-            <input
-              placeholder="Your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle(surface)}
-            />
-            <button
-              type="button"
-              onClick={start}
-              disabled={loading}
-              style={{
-                ...sendBtnStyle,
-                background: surface.accent.bg,
-                color: surface.accent.text,
-                width: "100%",
-              }}
-            >
-              {loading ? "Starting…" : "Start chat"}
-            </button>
-          </div>
+            </>
+          ) : proactivePhase === "details" ? (
+            <>
+              <div className="qs-widget-messages">
+                {proactiveMessage && (
+                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                    <div
+                      className="qs-widget-bubble qs-widget-bubble--assistant"
+                      style={{ color: surface.assistant.text }}
+                    >
+                      {proactiveMessage}
+                    </div>
+                  </div>
+                )}
+                {pendingQuestion && (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <div
+                      className="qs-widget-bubble qs-widget-bubble--user"
+                      style={{
+                        background: surface.user.bg,
+                        color: surface.user.text,
+                      }}
+                    >
+                      {pendingQuestion}
+                    </div>
+                  </div>
+                )}
+                <div ref={endRef} />
+              </div>
+              <div
+                className="qs-widget-start-form"
+                style={{
+                  background: surface.panel.bg,
+                  flex: "0 0 auto",
+                  borderTop: "1px solid rgba(10,10,10,0.06)",
+                }}
+              >
+                <p style={{ color: "#5C5A56", margin: 0, fontSize: 14 }}>
+                  Tell us who you are so we can reply
+                </p>
+                <input
+                  placeholder="Your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={inputStyle(surface)}
+                />
+                <input
+                  placeholder="Your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={inputStyle(surface)}
+                />
+                <button
+                  type="button"
+                  onClick={start}
+                  disabled={loading || !name.trim() || !email.trim()}
+                  style={{
+                    ...sendBtnStyle,
+                    background: surface.accent.bg,
+                    color: surface.accent.text,
+                    width: "100%",
+                    opacity: loading || !name.trim() || !email.trim() ? 0.55 : 1,
+                  }}
+                >
+                  {loading ? "Starting…" : "Continue"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="qs-widget-start-form" style={{ background: surface.panel.bg }}>
+              <p style={{ color: "#5C5A56", margin: 0, fontSize: 14 }}>Start a conversation</p>
+              <input
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={inputStyle(surface)}
+              />
+              <input
+                placeholder="Your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={inputStyle(surface)}
+              />
+              <button
+                type="button"
+                onClick={start}
+                disabled={loading}
+                style={{
+                  ...sendBtnStyle,
+                  background: surface.accent.bg,
+                  color: surface.accent.text,
+                  width: "100%",
+                }}
+              >
+                {loading ? "Starting…" : "Start chat"}
+              </button>
+            </div>
+          )
         ) : (
           <>
             <div

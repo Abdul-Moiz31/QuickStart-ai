@@ -10,6 +10,7 @@ import {
   TransitionChild,
 } from "@headlessui/react";
 import { Inbox, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { isAnonymousVisitor } from "@quickstart-ai/shared";
 import { api, getStoredToken } from "@/lib/api";
 import { DashBtn } from "@/components/dashboard/DashboardShell";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
@@ -369,6 +370,11 @@ export default function ConversationsPage() {
                             <span className="truncate text-sm font-semibold text-ink">
                               {s.visitorName || "Visitor"}
                             </span>
+                            {isAnonymousVisitor(s.visitorEmail) && (
+                              <span className="shrink-0 rounded-full bg-ink/8 px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">
+                                Anonymous
+                              </span>
+                            )}
                           </span>
                           <span className="mt-1 block truncate text-xs text-mute">
                             {preview}
@@ -403,7 +409,11 @@ export default function ConversationsPage() {
                       <h2 className="truncate font-sans text-base font-bold text-ink">
                         {selectedMeta.visitorName || "Visitor"}
                       </h2>
-                      <p className="truncate text-sm text-mute">{selectedMeta.visitorEmail}</p>
+                      <p className="truncate text-sm text-mute">
+                        {isAnonymousVisitor(selectedMeta.visitorEmail)
+                          ? "Anonymous visitor"
+                          : selectedMeta.visitorEmail}
+                      </p>
                     </div>
                   </div>
                   <p className="mt-2.5 font-mono text-[11px] text-mute">
