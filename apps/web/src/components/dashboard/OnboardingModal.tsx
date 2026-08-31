@@ -9,7 +9,7 @@ import {
   Transition,
   TransitionChild,
 } from "@headlessui/react";
-import { PartyPopper, X } from "lucide-react";
+import { Loader2, PartyPopper, X } from "lucide-react";
 import { api, getStoredToken } from "@/lib/api";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { DashBtn, DashField, DashTextarea } from "@/components/dashboard/DashboardShell";
@@ -24,6 +24,13 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
+const GENERATING_MESSAGES = [
+  "Reading your business details…",
+  "Understanding your industry…",
+  "Drafting questions to train your chatbot…",
+  "Still working — almost ready…",
+];
+
 export function OnboardingModal() {
   const {
     user,
@@ -35,6 +42,7 @@ export function OnboardingModal() {
 
   const [step, setStep] = useState<Step>("welcome");
   const [busy, setBusy] = useState(false);
+  const [generatingMsgIndex, setGeneratingMsgIndex] = useState(0);
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
@@ -57,12 +65,22 @@ export function OnboardingModal() {
     }
   }, [onboardingOpen, user, projects]);
 
+  useEffect(() => {
+    if (!(busy && step === "business")) {
+      setGeneratingMsgIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setGeneratingMsgIndex((i) => Math.min(i + 1, GENERATING_MESSAGES.length - 1));
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [busy, step]);
+
   if (!user || user.onboardingCompleted) return null;
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
-  async function submitBusiness(e: FormEvent) {
-    e.preventDefault();
+  async function generateQuestions() {
     setError("");
     setBusy(true);
     try {
@@ -86,6 +104,11 @@ export function OnboardingModal() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function submitBusiness(e: FormEvent) {
+    e.preventDefault();
+    void generateQuestions();
   }
 
   async function submitAnswers(e: FormEvent) {
@@ -203,9 +226,18 @@ export function OnboardingModal() {
 
               <div className="overflow-y-auto px-5 py-5">
                 {error && (
-                  <p className="mb-4 rounded-xl border border-ink/[0.08] bg-clay px-4 py-3 text-sm text-ink">
-                    {error}
-                  </p>
+                  <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-ink/[0.08] bg-clay px-4 py-3 text-sm text-ink">
+                    <p>{error}</p>
+                    {step === "business" && (
+                      <button
+                        type="button"
+                        onClick={() => void generateQuestions()}
+                        className="shrink-0 rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-ink transition hover:bg-ink hover:text-porcelain"
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {step === "welcome" && (
@@ -238,7 +270,20 @@ export function OnboardingModal() {
                   </div>
                 )}
 
-                {step === "business" && (
+                {step === "business" && busy && (
+                  <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
+                    <Loader2 className="h-9 w-9 animate-spin text-ink" strokeWidth={1.75} aria-hidden />
+                    <p className="text-sm font-medium text-ink" aria-live="polite">
+                      {GENERATING_MESSAGES[generatingMsgIndex]}
+                    </p>
+                    <p className="text-xs text-mute">
+                      Your AI is putting together questions tailored to your business — this
+                      usually takes a few seconds.
+                    </p>
+                  </div>
+                )}
+
+                {step === "business" && !busy && (
                   <form onSubmit={submitBusiness} className="space-y-4">
                     <label className="block">
                       <span className="text-xs font-medium text-mute">Business name *</span>
