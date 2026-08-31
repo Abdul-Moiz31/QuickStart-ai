@@ -33,7 +33,31 @@ export const QUEUE_NAMES = {
   EVAL: "eval",
   EVENTS: "events",
   EVENTS_RETRY: "events-retry",
+  ONBOARDING_SCAN: "onboarding-scan",
 } as const;
+
+/** Ordered stages reported by the onboarding website-scan job's progress. */
+export const ONBOARDING_SCAN_STAGES = [
+  "reading",
+  "scanning",
+  "knowledge",
+  "questions",
+] as const;
+export type OnboardingScanStage = (typeof ONBOARDING_SCAN_STAGES)[number];
+
+export interface OnboardingScanProgress {
+  stage: OnboardingScanStage;
+  pct: number;
+}
+
+export interface OnboardingScanResult {
+  questions: string[];
+  model: string | null;
+  researchedWebsite: boolean;
+  scannedPageCount: number;
+  businessLocation?: string;
+  supportEmail?: string;
+}
 
 export const EVENT_LIMITS = {
   webhooksPerProject: 10,

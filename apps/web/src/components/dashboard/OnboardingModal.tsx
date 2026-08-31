@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Fragment, useEffect, useState } from "react";
+import { FormEvent, Fragment, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogPanel,
@@ -24,12 +24,29 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
-const GENERATING_MESSAGES = [
-  "Reading your business details…",
-  "Understanding your industry…",
-  "Drafting questions to train your chatbot…",
-  "Still working — almost ready…",
-];
+const SCAN_STAGE_MESSAGES: Record<string, string> = {
+  reading: "Reading your business details…",
+  scanning: "Scanning your website…",
+  knowledge: "Building your knowledge base…",
+  questions: "Drafting your onboarding questions…",
+};
+const SCAN_FALLBACK_MESSAGE = "Still working — almost ready…";
+const SCAN_POLL_INTERVAL_MS = 1200;
+
+interface ScanStatusResponse {
+  success: boolean;
+  state: "waiting" | "active" | "completed" | "failed" | "delayed" | "unknown";
+  progress: { stage: string; pct: number } | null;
+  result?: {
+    questions: string[];
+    model: string | null;
+    researchedWebsite: boolean;
+    scannedPageCount: number;
+    businessLocation?: string;
+    supportEmail?: string;
+  };
+  error?: string;
+}
 
 export function OnboardingModal() {
   const {
@@ -42,7 +59,8 @@ export function OnboardingModal() {
 
   const [step, setStep] = useState<Step>("welcome");
   const [busy, setBusy] = useState(false);
-  const [generatingMsgIndex, setGeneratingMsgIndex] = useState(0);
+  const [scanStage, setScanStage] = useState<string>("reading");
+  const cancelScanRef = useRef(false);
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
@@ -66,27 +84,62 @@ export function OnboardingModal() {
   }, [onboardingOpen, user, projects]);
 
   useEffect(() => {
-    if (!(busy && step === "business")) {
-      setGeneratingMsgIndex(0);
-      return;
-    }
-    const interval = setInterval(() => {
-      setGeneratingMsgIndex((i) => Math.min(i + 1, GENERATING_MESSAGES.length - 1));
-    }, 2200);
-    return () => clearInterval(interval);
-  }, [busy, step]);
+    return () => {
+      cancelScanRef.current = true;
+    };
+  }, []);
 
   if (!user || user.onboardingCompleted) return null;
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
-  async function generateQuestions() {
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function pollScanJob(jobId: string, token: string) {
+    while (!cancelScanRef.current) {
+      const status = await api<ScanStatusResponse>(`/api/v1/onboarding/scan/${jobId}`, {
+        token,
+      });
+      if (cancelScanRef.current) return;
+
+      if (status.progress?.stage) setScanStage(status.progress.stage);
+
+      if (status.state === "completed" && status.result) {
+        const { questions: generated, businessLocation, supportEmail } = status.result;
+        setQuestions(generated);
+        setAnswers(generated.map(() => ""));
+        setBusiness((b) => ({
+          ...b,
+          businessLocation: b.businessLocation || businessLocation || b.businessLocation,
+          supportEmail: b.supportEmail || supportEmail || b.supportEmail,
+        }));
+        if (!projectName.trim()) setProjectName(business.businessName);
+        setStep("questions");
+        setBusy(false);
+        return;
+      }
+
+      if (status.state === "failed") {
+        setError(status.error || "Failed to generate questions");
+        setBusy(false);
+        return;
+      }
+
+      await sleep(SCAN_POLL_INTERVAL_MS);
+    }
+  }
+
+  async function startWebsiteScan() {
     setError("");
     setBusy(true);
+    setScanStage("reading");
+    cancelScanRef.current = false;
     try {
       const token = getStoredToken();
       if (!token) throw new Error("Not signed in");
-      const res = await api<{ questions: string[] }>("/api/v1/onboarding/questions", {
+      const { jobId } = await api<{ jobId: string }>("/api/v1/onboarding/scan", {
         method: "POST",
         token,
         body: JSON.stringify({
@@ -95,20 +148,16 @@ export function OnboardingModal() {
           supportEmail: business.supportEmail || undefined,
         }),
       });
-      setQuestions(res.questions);
-      setAnswers(res.questions.map(() => ""));
-      if (!projectName.trim()) setProjectName(business.businessName);
-      setStep("questions");
+      await pollScanJob(jobId, token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate questions");
-    } finally {
       setBusy(false);
     }
   }
 
   function submitBusiness(e: FormEvent) {
     e.preventDefault();
-    void generateQuestions();
+    void startWebsiteScan();
   }
 
   async function submitAnswers(e: FormEvent) {
@@ -231,7 +280,7 @@ export function OnboardingModal() {
                     {step === "business" && (
                       <button
                         type="button"
-                        onClick={() => void generateQuestions()}
+                        onClick={() => void startWebsiteScan()}
                         className="shrink-0 rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-ink transition hover:bg-ink hover:text-porcelain"
                       >
                         Retry
@@ -274,11 +323,12 @@ export function OnboardingModal() {
                   <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
                     <Loader2 className="h-9 w-9 animate-spin text-ink" strokeWidth={1.75} aria-hidden />
                     <p className="text-sm font-medium text-ink" aria-live="polite">
-                      {GENERATING_MESSAGES[generatingMsgIndex]}
+                      {SCAN_STAGE_MESSAGES[scanStage] || SCAN_FALLBACK_MESSAGE}
                     </p>
                     <p className="text-xs text-mute">
-                      Your AI is putting together questions tailored to your business — this
-                      usually takes a few seconds.
+                      {business.businessWebsite
+                        ? "We're scanning your site and building your chatbot's knowledge base — this usually takes a few seconds."
+                        : "Your AI is putting together questions tailored to your business — this usually takes a few seconds."}
                     </p>
                   </div>
                 )}
