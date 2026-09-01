@@ -308,9 +308,7 @@ export default function ConversationsPage() {
     <div className="mx-auto max-w-6xl px-6 py-8 md:px-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-sans text-2xl font-bold tracking-tight text-ink md:text-3xl">
-            Conversations
-          </h1>
+          <h1 className="qs-h1">Conversations</h1>
           <p className="mt-2 max-w-xl text-sm text-mute">
             Visitor chats live here. Use the test button to privately check answers from your
             knowledge — tests never show in this list.
@@ -333,7 +331,7 @@ export default function ConversationsPage() {
           {/* Inbox */}
           <aside className="flex min-h-0 flex-col overflow-hidden border-b border-ink/[0.08] bg-clay/50 lg:border-b-0 lg:border-r lg:border-ink/[0.08]">
             <div className="flex shrink-0 items-center justify-between border-b border-ink/[0.06] px-4 py-3.5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute">Inbox</p>
+              <p className="qs-micro-label">Inbox</p>
               <span className="rounded-full bg-white px-2.5 py-0.5 font-mono text-[10px] text-mute ring-1 ring-ink/[0.06]">
                 {sessions.length}
               </span>
@@ -406,7 +404,7 @@ export default function ConversationsPage() {
                       {initials(selectedMeta.visitorName || selectedMeta.visitorEmail)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h2 className="truncate font-sans text-base font-bold text-ink">
+                      <h2 className="truncate font-display text-base font-bold text-ink">
                         {selectedMeta.visitorName || "Visitor"}
                       </h2>
                       <p className="truncate text-sm text-mute">
@@ -489,7 +487,7 @@ export default function ConversationsPage() {
               <DialogPanel className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
                 <div className="flex items-start justify-between gap-3 border-b border-ink/[0.06] bg-white px-4 py-3.5">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                    <p className="qs-micro-label">
                       Private test
                     </p>
                     <DialogTitle className="mt-0.5 font-sans text-base font-bold text-ink">

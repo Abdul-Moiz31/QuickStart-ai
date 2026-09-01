@@ -25,7 +25,7 @@ function SettingsSection({
 }) {
   return (
     <section className="mt-10 border-t border-ink/[0.08] pt-10 first:mt-8 first:border-t-0 first:pt-0">
-      <h2 className="font-sans text-lg font-bold text-ink">{title}</h2>
+      <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
       <p className="mt-1 text-sm text-mute">{description}</p>
       <div className="mt-4">{children}</div>
     </section>
@@ -210,7 +210,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Settings</h1>
+      <h1 className="qs-h1">Settings</h1>
       <p className="mt-2 text-sm text-mute">
         Project credentials, AI configuration, and MCP connections for ChatGPT / Claude.
       </p>
@@ -304,7 +304,7 @@ export default function SettingsPage() {
                 disabled={!llmLoaded}
                 onClick={() => setUseOwnLlmKey((v) => !v)}
                 className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-                  useOwnLlmKey ? "bg-black" : "bg-ink/15"
+                  useOwnLlmKey ? "bg-ink" : "bg-ink/15"
                 } ${!llmLoaded ? "opacity-50" : ""}`}
               >
                 <span
@@ -431,7 +431,7 @@ export default function SettingsPage() {
                 disabled={!visitorAccessLoaded}
                 onClick={() => setAllowAnonymousSessions((v) => !v)}
                 className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-                  allowAnonymousSessions ? "bg-black" : "bg-ink/15"
+                  allowAnonymousSessions ? "bg-ink" : "bg-ink/15"
                 } ${!visitorAccessLoaded ? "opacity-50" : ""}`}
               >
                 <span
