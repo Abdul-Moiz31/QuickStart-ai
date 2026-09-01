@@ -54,6 +54,8 @@ export default function SettingsPage() {
   const [hasLlmKey, setHasLlmKey] = useState(false);
   const [allowAnonymousSessions, setAllowAnonymousSessions] = useState(false);
   const [visitorAccessLoaded, setVisitorAccessLoaded] = useState(false);
+  const [codeCopied, setCodeCopied] = useState<string | null>(null);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3100";
 
   useEffect(() => {
     if (memberRole === "agent") {
@@ -177,6 +179,26 @@ export default function SettingsPage() {
     }
   }
 
+  const primaryClientId = creds[0]?.clientId ?? "YOUR_CLIENT_ID";
+  const reactEmbedCode = `import { ChatBot } from "@quickstart-ai/widget-react";
+
+<ChatBot
+  clientId="${primaryClientId}"
+  apiUrl="${apiUrl}"
+/>`;
+  const htmlEmbedCode = `<script
+  src="https://cdn.quickstart.ai/widget.js"
+  data-client-id="${primaryClientId}"
+  data-api-url="${apiUrl}"
+  async
+></script>`;
+
+  function copyEmbedCode(label: string, code: string) {
+    void navigator.clipboard.writeText(code);
+    setCodeCopied(label);
+    setTimeout(() => setCodeCopied(null), 1200);
+  }
+
   const showingSavedKey = hasLlmKey && !llmKeyEditing;
 
   const selectClass =
@@ -227,6 +249,37 @@ export default function SettingsPage() {
             Rotate credentials
           </DashBtn>
         </DashPanel>
+
+        <div className="mt-5 space-y-4">
+          <p className="text-sm text-mute">
+            Add the chatbot to your site with one line of code.
+          </p>
+          {[
+            { title: "React", code: reactEmbedCode },
+            { title: "HTML / JS", code: htmlEmbedCode },
+          ].map((b) => (
+            <div key={b.title} className="qs-code-frame">
+              <div className="qs-code-bar">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                  </div>
+                  <span className="text-sm text-ink">{b.title}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyEmbedCode(b.title, b.code)}
+                  className="font-mono text-[10px] uppercase tracking-wider text-sky-300/80"
+                >
+                  {codeCopied === b.title ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <pre className="qs-code-body whitespace-pre-wrap text-[12px]">{b.code}</pre>
+            </div>
+          ))}
+        </div>
       </SettingsSection>
 
       <SettingsSection
