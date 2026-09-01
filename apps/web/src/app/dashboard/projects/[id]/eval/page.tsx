@@ -172,7 +172,7 @@ export default function EvalPage() {
         />
       )}
 
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Eval</h1>
+      <h1 className="qs-h1">Eval</h1>
       <p className="mt-2 text-sm text-mute">
         Quality check across domain, details, relevance, and speed. Your chatbot always works —
         use this to see what to improve before production.
@@ -187,7 +187,7 @@ export default function EvalPage() {
       <DashPanel className="mt-6 text-center">
         {readiness && <RingProgress value={readiness.overallScore} />}
 
-        <h2 className="mt-6 font-sans text-lg font-bold text-ink">
+        <h2 className="mt-6 font-display text-lg font-bold text-ink">
           {readiness ? readinessLabel(readiness.overallScore, hasRun) : "Loading…"}
         </h2>
         <p className="mx-auto mt-1 max-w-sm text-sm text-mute">

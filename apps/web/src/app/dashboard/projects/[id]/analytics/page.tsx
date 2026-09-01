@@ -67,7 +67,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8 pb-10 md:px-10">
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Analytics</h1>
+      <h1 className="qs-h1">Analytics</h1>
       <p className="mt-2 text-sm text-mute">
         How your chatbot performed with real visitors — volume, answer quality, and where
         conversations needed a person.
@@ -136,7 +136,7 @@ export default function AnalyticsPage() {
             </div>
 
             <DashPanel className="mt-6">
-              <h2 className="font-sans text-lg font-bold text-ink">Message volume</h2>
+              <h2 className="font-display text-lg font-bold text-ink">Message volume</h2>
               <p className="mt-1 text-sm text-mute">
                 Visitor messages per day, averaging{" "}
                 {data.avgMessagesPerSession.toFixed(1)} per conversation.
@@ -148,7 +148,7 @@ export default function AnalyticsPage() {
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <DashPanel>
-                <h2 className="font-sans text-lg font-bold text-ink">Answer quality</h2>
+                <h2 className="font-display text-lg font-bold text-ink">Answer quality</h2>
                 <p className="mt-1 text-sm text-mute">
                   Across {data.analysedAnswers} answers. Replies a human took over are
                   excluded.
@@ -167,7 +167,7 @@ export default function AnalyticsPage() {
               </DashPanel>
 
               <DashPanel>
-                <h2 className="font-sans text-lg font-bold text-ink">Tools used</h2>
+                <h2 className="font-display text-lg font-bold text-ink">Tools used</h2>
                 <p className="mt-1 text-sm text-mute">
                   Actions the agent chose beyond searching your knowledge.
                 </p>

@@ -68,7 +68,7 @@ export function ChatbotAppearancePreview({
     <div className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
       <div className="flex items-center justify-between border-b border-ink/[0.06] px-4 py-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">Live preview</p>
+          <p className="qs-micro-label">Live preview</p>
           <p className="mt-0.5 text-sm font-medium text-ink">How visitors will see it</p>
         </div>
         <span className="rounded-md bg-clay px-2 py-0.5 font-mono text-[10px] uppercase text-mute">

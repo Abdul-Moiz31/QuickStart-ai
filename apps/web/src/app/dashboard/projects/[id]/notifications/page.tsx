@@ -186,7 +186,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Notifications</h1>
+      <h1 className="qs-h1">Notifications</h1>
       <p className="mt-2 text-sm text-mute">
         Connect Slack, Discord, or a webhook. Keyword triggers live in{" "}
         <Link href={`/dashboard/projects/${id}/custom-events`} className="text-ink underline underline-offset-2">
@@ -306,11 +306,11 @@ export default function NotificationsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-ink/[0.06] text-left">
-                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Event</th>
-                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Destination</th>
-                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Status</th>
-                    <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wide text-mute">Attempts</th>
-                    <th className="pb-2 font-mono text-[10px] uppercase tracking-wide text-mute">Time</th>
+                    <th className="pb-2 pr-4 qs-table-head">Event</th>
+                    <th className="pb-2 pr-4 qs-table-head">Destination</th>
+                    <th className="pb-2 pr-4 qs-table-head">Status</th>
+                    <th className="pb-2 pr-4 qs-table-head">Attempts</th>
+                    <th className="pb-2 qs-table-head">Time</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -318,7 +318,7 @@ export default function NotificationsPage() {
                     const s = d.status.toUpperCase();
                     const badge =
                       s === "SUCCESS"
-                        ? "bg-black text-white"
+                        ? "bg-ink text-white"
                         : s === "FAILED"
                           ? "border border-ink/20 text-ink"
                           : "bg-ink/10 text-mute";

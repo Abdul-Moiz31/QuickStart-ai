@@ -96,9 +96,9 @@ function AuthorizeInner() {
   }
 
   return (
-    <div className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute">Authorize MCP</p>
-      <h1 className="mt-2 font-sans text-xl font-bold text-ink">{clientName}</h1>
+    <div className="qs-panel">
+      <p className="qs-eyebrow">Authorize MCP</p>
+      <h1 className="mt-2 qs-h1">{clientName}</h1>
       <p className="mt-3 text-sm leading-relaxed text-mute">
         This app wants to manage your QuickStart AI business profile and FAQs via MCP tools.
       </p>

@@ -25,10 +25,8 @@ export function ProjectOnboardingGate({ children }: { children: ReactNode }) {
     return (
       <div className="mx-auto max-w-lg px-6 py-12 md:px-10">
         <DashPanel className="text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
-            Onboarding required
-          </p>
-          <h1 className="mt-3 font-sans text-2xl font-bold text-ink">
+          <p className="qs-eyebrow">Onboarding required</p>
+          <h1 className="mt-3 font-display text-2xl font-bold text-ink">
             Finish onboarding for this project first
           </h1>
           <p className="mt-3 text-sm text-mute">

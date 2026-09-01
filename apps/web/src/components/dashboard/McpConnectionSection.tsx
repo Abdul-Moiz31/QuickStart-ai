@@ -30,7 +30,7 @@ function CopyField({
 }) {
   return (
     <div className="rounded-xl border border-ink/[0.08] bg-clay/40 p-3.5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">{label}</p>
+      <p className="qs-micro-label">{label}</p>
       <div className="mt-1.5 flex items-start justify-between gap-2">
         <code className="min-w-0 flex-1 break-all font-mono text-sm text-ink">{value}</code>
         <button

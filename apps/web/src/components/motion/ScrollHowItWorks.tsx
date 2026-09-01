@@ -119,10 +119,10 @@ export function ScrollHowItWorks() {
       <div className="mx-auto flex max-w-6xl flex-col justify-center py-12 sm:py-16 lg:min-h-[100svh] lg:py-20">
         <div className="grid gap-8 sm:gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
           <div className="min-w-0">
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">
+            <p className="qs-eyebrow">
               How it works
             </p>
-            <h2 className="mt-3 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
+            <h2 className="mt-3 qs-section-title">
               Live in three steps
             </h2>
             <p className="mt-4 max-w-md text-sm text-mute sm:text-base md:text-lg">
@@ -131,7 +131,7 @@ export function ScrollHowItWorks() {
 
             <div className="mt-8 h-1 w-full max-w-sm overflow-hidden rounded-full bg-ink/10">
               <motion.div
-                className="h-full origin-left rounded-full bg-black"
+                className="h-full origin-left rounded-full bg-ink"
                 animate={{ scaleX: progress }}
                 transition={{ duration: 0.35, ease }}
                 style={{ transformOrigin: "left" }}
@@ -149,7 +149,7 @@ export function ScrollHowItWorks() {
                       <span
                         aria-hidden
                         className={`absolute left-[17px] top-10 h-[calc(100%-1.25rem)] w-px ${
-                          done ? "bg-black" : "bg-ink/15"
+                          done ? "bg-ink" : "bg-ink/15"
                         }`}
                       />
                     )}
@@ -161,9 +161,9 @@ export function ScrollHowItWorks() {
                       <span
                         className={`relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition ${
                           current
-                            ? "border-black bg-black text-white shadow-soft"
+                            ? "border-ink bg-ink text-white shadow-soft"
                             : done
-                              ? "border-black bg-black text-white"
+                              ? "border-ink bg-ink text-white"
                               : "border-ink/20 bg-white text-mute group-hover:border-ink/40"
                         }`}
                       >
@@ -176,14 +176,14 @@ export function ScrollHowItWorks() {
                       <span className="min-w-0 pt-1.5">
                         <span
                           className={`block text-[11px] font-mono uppercase tracking-[0.14em] ${
-                            current ? "text-black" : "text-mute"
+                            current ? "text-ink" : "text-mute"
                           }`}
                         >
                           Step 0{i + 1}
                         </span>
                         <span
                           className={`mt-1 block font-sans text-base font-bold transition ${
-                            current ? "text-black" : "text-mute group-hover:text-ink"
+                            current ? "text-ink" : "text-mute group-hover:text-ink"
                           }`}
                         >
                           {s.title}
@@ -205,13 +205,13 @@ export function ScrollHowItWorks() {
                 exit={reduce ? undefined : { opacity: 0, y: -12 }}
                 transition={{ duration: 0.35, ease }}
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-clay text-black sm:h-12 sm:w-12">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-clay text-ink sm:h-12 sm:w-12">
                   <StepIcon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.75} />
                 </div>
-                <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.18em] text-mute sm:mt-6">
+                <p className="qs-eyebrow mt-5 sm:mt-6">
                   Step 0{active + 1} of 0{STEPS.length}
                 </p>
-                <h3 className="mt-2 font-sans text-xl font-bold tracking-tight text-black sm:text-2xl md:text-3xl">
+                <h3 className="mt-2 font-display text-xl font-bold tracking-tight text-ink sm:text-2xl md:text-3xl">
                   {step.title}
                 </h3>
                 <p className="mt-3 max-w-lg text-sm leading-relaxed text-mute sm:mt-4 sm:text-base md:text-lg">

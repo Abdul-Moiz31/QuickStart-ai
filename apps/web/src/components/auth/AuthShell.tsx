@@ -29,15 +29,14 @@ export function AuthShell({
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
           <Link href="/" className="flex justify-center">
-            <span className="truncate font-display text-base font-bold tracking-tight text-ink">
+            <span className="truncate font-display text-sm font-bold tracking-tight text-ink">
               QuickStart AI
             </span>
           </Link>
 
-          <h1 className="mt-6 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl">
-            {title}
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-mute">{subtitle}</p>
+          <p className="qs-eyebrow mt-6 text-center">{eyebrow}</p>
+          <h1 className="qs-h2 mt-2 text-center sm:text-2xl">{title}</h1>
+          <p className="mt-2 text-center text-sm leading-relaxed text-mute">{subtitle}</p>
           <div className="mt-8">{children}</div>
           <div className="mt-6 border-t border-ink/[0.08] pt-6 text-sm text-mute">{footer}</div>
         </motion.div>

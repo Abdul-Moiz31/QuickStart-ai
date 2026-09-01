@@ -137,7 +137,7 @@ export default function TeamPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
-      <h1 className="font-display text-xl font-bold text-ink">Team</h1>
+      <h1 className="qs-h1">Team</h1>
       <p className="mt-1 text-sm text-mute">
         Invite teammates to monitor conversations and handle inbox escalations.
       </p>
@@ -150,7 +150,7 @@ export default function TeamPage() {
       )}
 
       <DashPanel className="mt-6">
-        <h2 className="font-sans text-sm font-bold text-ink">Members</h2>
+        <h2 className="font-display text-sm font-bold text-ink">Members</h2>
         <ul className="mt-4 divide-y divide-ink/[0.06]">
           {members.map((m) => (
             <li key={m.id} className="flex items-center justify-between gap-3 py-3">
@@ -180,7 +180,7 @@ export default function TeamPage() {
       </DashPanel>
 
       <DashPanel className="mt-6">
-        <h2 className="flex items-center gap-2 font-sans text-sm font-bold text-ink">
+        <h2 className="flex items-center gap-2 font-display text-sm font-bold text-ink">
           <UserPlus className="h-4 w-4" />
           Invite teammate
         </h2>
@@ -215,7 +215,7 @@ export default function TeamPage() {
 
       {invites.length > 0 && (
         <DashPanel className="mt-6">
-          <h2 className="flex items-center gap-2 font-sans text-sm font-bold text-ink">
+          <h2 className="flex items-center gap-2 font-display text-sm font-bold text-ink">
             <Mail className="h-4 w-4" />
             Pending invites
           </h2>

@@ -258,7 +258,7 @@ export default function TriggersPage() {
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Triggers</h1>
+          <h1 className="qs-h1">Triggers</h1>
           <p className="mt-2 text-sm leading-relaxed text-mute">
             Auto-open chat when a visitor matches your conditions, with a custom opening message.
           </p>
@@ -476,7 +476,7 @@ export default function TriggersPage() {
                       aria-label={r.enabled ? "Disable trigger" : "Enable trigger"}
                       onClick={() => toggleRule(r.id, !r.enabled)}
                       className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                        r.enabled ? "bg-black" : "bg-ink/15"
+                        r.enabled ? "bg-ink" : "bg-ink/15"
                       }`}
                     >
                       <span
@@ -528,7 +528,7 @@ export default function TriggersPage() {
               <DialogPanel className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
                 <div className="flex items-start justify-between gap-3 border-b border-ink/[0.06] px-5 py-4">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+                    <p className="qs-micro-label">
                       Triggers
                     </p>
                     <DialogTitle className="mt-1 font-sans text-lg font-bold text-ink">

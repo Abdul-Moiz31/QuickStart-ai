@@ -123,7 +123,7 @@ export default function AppearancePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8 md:px-10">
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Appearance</h1>
+      <h1 className="qs-h1">Appearance</h1>
       <p className="mt-2 text-sm text-mute">
         Choose either a preset theme or a custom primary color — not both.
       </p>

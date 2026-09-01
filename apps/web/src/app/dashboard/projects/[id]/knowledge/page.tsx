@@ -430,7 +430,7 @@ export default function KnowledgePage() {
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Knowledge</h1>
+          <h1 className="qs-h1">Knowledge</h1>
           <p className="mt-2 text-sm text-mute">Sources your chatbot answers from.</p>
         </div>
         <div className="relative" ref={menuRef}>
@@ -522,7 +522,7 @@ export default function KnowledgePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-sans text-sm font-bold text-ink">{doc.title}</h3>
+                        <h3 className="font-display text-sm font-bold text-ink">{doc.title}</h3>
                         <StatusPill status={doc.status} />
                       </div>
                       <p className="mt-1 text-xs text-mute">{statusLabel(doc.status)}</p>
@@ -542,7 +542,7 @@ export default function KnowledgePage() {
                   )}
                   {qaPairs.length > 0 && (
                     <div className="mt-4 border-t border-ink/[0.06] pt-4">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+                      <p className="qs-micro-label">
                         Onboarding Q&amp;A
                       </p>
                       <div className="mt-3 space-y-3">
@@ -705,7 +705,7 @@ export default function KnowledgePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-sans text-sm font-bold text-ink">{doc.title}</h3>
+                      <h3 className="font-display text-sm font-bold text-ink">{doc.title}</h3>
                       <StatusPill status={doc.status} />
                     </div>
                     <p className="mt-1 text-xs text-mute">

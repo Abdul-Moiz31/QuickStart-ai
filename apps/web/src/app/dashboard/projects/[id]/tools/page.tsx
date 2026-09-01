@@ -30,7 +30,7 @@ function ToolToggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-          checked ? "bg-black" : "bg-ink/15"
+          checked ? "bg-ink" : "bg-ink/15"
         }`}
       >
         <span
@@ -97,7 +97,7 @@ export default function ToolsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Tools</h1>
+      <h1 className="qs-h1">Tools</h1>
       <p className="mt-2 text-sm text-mute">
         Enable extras your chatbot can use while answering visitors.
       </p>
@@ -157,7 +157,7 @@ export default function ToolsPage() {
       <div className="mt-4 space-y-4">
         <CustomToolsSection projectId={id} />
         <DashPanel>
-          <p className="text-xs uppercase tracking-wide text-mute">Credits</p>
+          <p className="qs-micro-label">Credits</p>
           <p className="mt-1 font-mono text-2xl font-bold text-ink">{credits}</p>
           <p className="mt-1 text-sm text-mute">Remaining for this project.</p>
         </DashPanel>

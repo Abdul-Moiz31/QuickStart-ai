@@ -397,7 +397,7 @@ export function CustomToolsSection({ projectId }: { projectId: string }) {
                         aria-checked={tool.enabled}
                         onClick={() => void toggleEnabled(tool)}
                         className={`relative h-6 w-11 rounded-full transition ${
-                          tool.enabled ? "bg-black" : "bg-ink/15"
+                          tool.enabled ? "bg-ink" : "bg-ink/15"
                         }`}
                       >
                         <span
