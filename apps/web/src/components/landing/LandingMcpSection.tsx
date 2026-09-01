@@ -89,7 +89,7 @@ function McpConnectMock() {
             </div>
 
             <div className="mt-4 border-t border-ink/[0.06] pt-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+              <p className="qs-micro-label">
                 MCP tools
               </p>
               <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -120,12 +120,12 @@ export function LandingMcpSection() {
     <section className="border-t border-ink/[0.08] bg-clay px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
       <div className="mx-auto max-w-6xl min-w-0">
         <div className="grid items-center gap-8 sm:gap-10 lg:grid-cols-2 lg:gap-14">
-          <div className="min-w-0">
+          <div className="min-w-0 lg:order-2">
             <FadeIn>
-              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">
+              <p className="qs-eyebrow">
                 MCP Server
               </p>
-              <h2 className="mt-3 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
+              <h2 className="mt-3 qs-section-title">
                 Connect your chatbot to your favorite AI with MCP
               </h2>
               <p className="mt-4 max-w-lg text-sm leading-relaxed text-mute sm:text-base md:text-lg">
@@ -148,11 +148,11 @@ export function LandingMcpSection() {
                       className="absolute left-[15px] top-[2.75rem] h-[calc(100%-0.5rem)] w-px bg-ink/10"
                     />
                   )}
-                  <span className="relative z-[1] flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black bg-black font-mono text-[11px] font-semibold text-white">
+                  <span className="relative z-[1] flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink bg-ink font-mono text-[11px] font-semibold text-white">
                     {index + 1}
                   </span>
                   <div className="min-w-0 pt-0.5">
-                    <h3 className="font-sans text-base font-bold text-ink">{step.title}</h3>
+                    <h3 className="font-display text-base font-bold text-ink">{step.title}</h3>
                     <p className="mt-1.5 text-sm leading-relaxed text-mute">{step.body}</p>
                   </div>
                 </div>
@@ -175,13 +175,13 @@ export function LandingMcpSection() {
             </FadeIn>
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 lg:order-1">
             <McpConnectMock />
           </div>
         </div>
 
         <FadeIn delay={0.1} className="mt-10 border-t border-ink/[0.08] pt-8 sm:mt-14 sm:pt-10">
-          <p className="text-center font-mono text-[11px] uppercase tracking-[0.2em] text-mute">
+          <p className="qs-eyebrow text-center">
             Works with MCP clients
           </p>
           <div className="mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
