@@ -25,7 +25,10 @@ const LINE_STAGGER = 0.1;
 const PILL_BUFFER = 0.05;
 
 const SPARK_DURATION = 2.2;
-const SPARK_ROW_STAGGER = 0.35;
+// Fixed travel time shared by every line, regardless of its own length, so
+// all eight sparks leave the hub together and reach their pill together.
+const SPARK_TRAVEL = 1.6;
+const SPARK_ARRIVAL_FRACTION = SPARK_TRAVEL / SPARK_DURATION;
 
 function lineDelay(index: number) {
   return LINE_BASE_DELAY + index * LINE_STAGGER;
@@ -35,13 +38,9 @@ function pillDelay(index: number) {
   return lineDelay(index) + LINE_DURATION + PILL_BUFFER;
 }
 
-function sparkDelay(index: number) {
-  return index * SPARK_ROW_STAGGER;
-}
-
-function arrivalFractionOf(geo?: { startLength: number; totalLength: number }) {
-  if (!geo || geo.totalLength === 0) return 0.8;
-  return 1 - geo.startLength / geo.totalLength;
+// All eight sparks fire and arrive together, in lockstep — no per-row offset.
+function sparkDelay(_index: number) {
+  return 0;
 }
 
 const LEFT: { icon: LucideIcon; label: string }[] = [
@@ -97,19 +96,17 @@ function OrbitPill({
   item,
   index,
   pulsing,
-  arrivalFraction,
 }: {
   pillRef: (el: HTMLDivElement | null) => void;
   item: { icon: LucideIcon; label: string };
   index: number;
   pulsing: boolean;
-  arrivalFraction: number;
 }) {
   const reduce = useReducedMotion();
   const Icon = item.icon;
-  // Flash timing must land exactly when the spark visually arrives — i.e. at
-  // `arrivalFraction` of the shared cycle — not a fixed guess.
-  const flashAt = Math.min(0.97, Math.max(0.15, arrivalFraction));
+  // Every pill flashes at the same instant — the shared arrival fraction —
+  // since every spark now travels for the same fixed duration.
+  const flashAt = SPARK_ARRIVAL_FRACTION;
   const preFlashAt = Math.max(0, flashAt - 0.06);
 
   return (
@@ -169,7 +166,6 @@ function LineSpark({
   if (reduce || !path || totalLength === 0) return null;
 
   const comet = Math.min(COMET_LENGTH, (totalLength - startLength) * 0.6);
-  const visibleDuration = SPARK_DURATION * (1 - startLength / totalLength);
 
   return (
     <motion.path
@@ -183,10 +179,10 @@ function LineSpark({
       initial={{ strokeDashoffset: -startLength }}
       animate={{ strokeDashoffset: -(totalLength + comet) }}
       transition={{
-        duration: visibleDuration,
+        duration: SPARK_TRAVEL,
         delay: sparkDelay(index),
         repeat: Infinity,
-        repeatDelay: SPARK_DURATION - visibleDuration,
+        repeatDelay: SPARK_DURATION - SPARK_TRAVEL,
         ease: "linear",
       }}
     />
@@ -360,7 +356,6 @@ function InsightDiagram() {
               item={item}
               index={i}
               pulsing={pulsing}
-              arrivalFraction={arrivalFractionOf(sparkStart.left[i])}
               pillRef={(el) => {
                 leftRefs.current[i] = el;
               }}
@@ -398,7 +393,6 @@ function InsightDiagram() {
               item={item}
               index={i}
               pulsing={pulsing}
-              arrivalFraction={arrivalFractionOf(sparkStart.right[i])}
               pillRef={(el) => {
                 rightRefs.current[i] = el;
               }}
