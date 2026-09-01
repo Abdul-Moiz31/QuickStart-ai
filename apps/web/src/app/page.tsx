@@ -1,20 +1,20 @@
 import Link from "next/link";
-import {
-  Code2,
-  FileText,
-  Gift,
-  Globe,
-  KeyRound,
-  MessagesSquare,
-  Shield,
-  type LucideIcon,
-} from "lucide-react";
+import dynamic from "next/dynamic";
+import { Code2, FileText, MessagesSquare, type LucideIcon } from "lucide-react";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion/FadeIn";
-import { ScrollHowItWorks } from "@/components/motion/ScrollHowItWorks";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingHero } from "@/components/landing/LandingHero";
+import { LandingFeatureBento } from "@/components/landing/LandingFeatureBento";
+import { LandingFeatureStrip } from "@/components/landing/LandingFeatureStrip";
+import { LandingFooter } from "@/components/landing/LandingFooter";
+import { LandingInsightHub } from "@/components/landing/LandingInsightHub";
 import { LandingMcpSection } from "@/components/landing/LandingMcpSection";
 import { LandingNotificationsSection } from "@/components/landing/LandingNotificationsSection";
+
+const ScrollHowItWorks = dynamic(
+  () => import("@/components/motion/ScrollHowItWorks").then((m) => m.ScrollHowItWorks),
+  { loading: () => <div className="bg-clay lg:min-h-[100svh]" /> },
+);
 
 const BENEFITS: {
   title: string;
@@ -38,43 +38,6 @@ const BENEFITS: {
   },
 ];
 
-const FEATURES: {
-  title: string;
-  body: string;
-  icon: LucideIcon;
-}[] = [
-  {
-    title: "Trained on your docs",
-    body: "Upload FAQs, pricing, and policies. The chatbot answers from your content — not random guesses.",
-    icon: FileText,
-  },
-  {
-    title: "Totally free to start",
-    body: "Create a chatbot, add knowledge, and embed it at no cost. No credit card to get going.",
-    icon: Gift,
-  },
-  {
-    title: "Bring your own key",
-    body: "Use your own AI API key. You stay in control of usage and billing with your provider.",
-    icon: KeyRound,
-  },
-  {
-    title: "Secure by design",
-    body: "Public client ID for the widget. Your secret stays on the server — never in the browser.",
-    icon: Shield,
-  },
-  {
-    title: "Works on any website",
-    body: "React apps or plain HTML. Same chatbot everywhere your customers already visit.",
-    icon: Globe,
-  },
-  {
-    title: "See every conversation",
-    body: "Review chats from the dashboard so you know what visitors ask and improve your answers.",
-    icon: MessagesSquare,
-  },
-];
-
 export default function HomePage() {
   return (
     <main className="overflow-x-hidden bg-clay text-ink">
@@ -82,14 +45,16 @@ export default function HomePage() {
 
       <LandingHero />
 
+      <LandingFeatureStrip />
+
       {/* What is QuickStart AI */}
       <section className="border-t border-ink/[0.08] bg-white px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
         <div className="mx-auto max-w-3xl min-w-0 text-center">
           <FadeIn>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">
+            <p className="qs-eyebrow">
               What is QuickStart AI?
             </p>
-            <h2 className="mt-4 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
+            <h2 className="mt-4 qs-section-title">
               It’s a chatbot for your website.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-mute sm:mt-5 sm:text-base md:text-lg">
@@ -115,7 +80,7 @@ export default function HomePage() {
                     <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                   </div>
                   <div>
-                    <h3 className="font-sans text-lg font-bold text-ink">{b.title}</h3>
+                    <h3 className="font-display text-lg font-bold text-ink">{b.title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-mute">{b.body}</p>
                   </div>
                 </div>
@@ -131,43 +96,11 @@ export default function HomePage() {
         </FadeIn>
       </section>
 
+      <LandingInsightHub />
+
       <ScrollHowItWorks />
 
-      {/* Features */}
-      <section className="border-t border-ink/[0.08] bg-white px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
-        <div className="mx-auto max-w-6xl min-w-0">
-          <FadeIn className="mx-auto max-w-2xl text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">Features</p>
-            <h2 className="mt-3 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
-              What you get with QuickStart AI
-            </h2>
-            <p className="mt-3 text-sm text-mute sm:text-base md:text-lg">
-              Real product features — clear, useful, and built for your website chatbot.
-            </p>
-          </FadeIn>
-          <Stagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" delay={0.04}>
-            {FEATURES.map((f) => {
-              const Icon = f.icon;
-              return (
-                <StaggerItem
-                  key={f.title}
-                  className="rounded-2xl border border-ink/[0.08] bg-clay p-6 md:p-7"
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-ink/[0.1] bg-white text-ink">
-                      <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                    </div>
-                    <div>
-                      <h3 className="font-sans text-base font-bold text-black">{f.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-mute">{f.body}</p>
-                    </div>
-                  </div>
-                </StaggerItem>
-              );
-            })}
-          </Stagger>
-        </div>
-      </section>
+      <LandingFeatureBento />
 
       <LandingNotificationsSection />
 
@@ -180,8 +113,8 @@ export default function HomePage() {
       >
         <div className="mx-auto max-w-6xl min-w-0">
           <FadeIn>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">Install</p>
-            <h2 className="mt-3 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
+            <p className="qs-eyebrow">Install</p>
+            <h2 className="mt-3 qs-section-title">
               One line of code
             </h2>
             <p className="mt-3 max-w-xl text-sm text-mute sm:text-base">
@@ -281,7 +214,7 @@ export default function HomePage() {
       <section className="border-t border-ink/[0.08] bg-clay px-4 py-8 sm:px-6 sm:py-10 md:px-12 md:py-12">
         <FadeIn className="mx-auto flex max-w-4xl flex-col gap-5 rounded-2xl border border-ink/[0.08] bg-white px-5 py-7 sm:px-6 sm:py-8 md:flex-row md:items-center md:justify-between md:px-8 md:py-9">
           <div className="max-w-md min-w-0">
-            <h2 className="font-sans text-xl font-bold tracking-tight text-black sm:text-2xl md:text-3xl">
+            <h2 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl md:text-3xl">
               Put QuickStart on your site today
             </h2>
             <p className="mt-2 text-sm text-mute md:text-base">
@@ -305,33 +238,7 @@ export default function HomePage() {
         </FadeIn>
       </section>
 
-      <footer className="border-t border-ink/[0.08] bg-white px-4 py-10 text-sm text-mute sm:px-6 sm:py-12 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="font-display text-base font-semibold text-ink">QuickStart AI</p>
-            <p className="mt-2 max-w-xs text-sm">
-              An AI chatbot for your website — one line of code.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-10">
-            <div className="space-y-2">
-              <p className="font-medium text-ink">Product</p>
-              <Link href="/register" className="block hover:text-ink">
-                Get started
-              </Link>
-              <Link href="/docs/embed" className="block hover:text-ink">
-                Documentation
-              </Link>
-              <Link href="/login" className="block hover:text-ink">
-                Sign in
-              </Link>
-            </div>
-          </div>
-        </div>
-        <div className="mx-auto mt-10 max-w-6xl border-t border-ink/[0.08] pt-6">
-          © {new Date().getFullYear()} QuickStart AI
-        </div>
-      </footer>
+      <LandingFooter />
     </main>
   );
 }
