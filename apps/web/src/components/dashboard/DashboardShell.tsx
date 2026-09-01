@@ -194,7 +194,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   }}
                   className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${
                     p.id === activeId
-                      ? "bg-black text-white"
+                      ? "bg-ink text-white"
                       : "text-mute hover:bg-clay hover:text-ink"
                   }`}
                 >
@@ -216,7 +216,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             href="/dashboard"
             className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 font-medium transition ${
               pathname === "/dashboard"
-                ? "bg-black text-white"
+                ? "bg-ink text-white"
                 : "text-mute hover:bg-white hover:text-ink"
             } ${collapsed ? "justify-center" : ""}`}
             title="All projects"
@@ -228,9 +228,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           {activeId && (
             <>
               {!collapsed && (
-                <p className="mb-1 mt-4 px-2.5 font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
-                  Project
-                </p>
+                <p className="qs-micro-label mb-1 mt-4 px-2.5">Project</p>
               )}
               {visibleNav.map((item) => {
                 const Icon = item.icon;
@@ -243,7 +241,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     title={item.label}
                     className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left font-medium transition ${
                       active
-                        ? "bg-black text-white"
+                        ? "bg-ink text-white"
                         : "text-mute hover:bg-white hover:text-ink"
                     } ${collapsed ? "justify-center" : ""}`}
                   >
@@ -281,7 +279,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-ink/[0.08] bg-white px-3 py-2.5">
               <Coins className="h-4 w-4 text-mute" strokeWidth={1.75} />
               <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-mute">Credits</p>
+                <p className="qs-micro-label">Credits</p>
                 <p className="font-mono text-sm font-medium text-ink">{current.credits}</p>
               </div>
             </div>
@@ -341,7 +339,7 @@ export function StatusPill({ status }: { status: string }) {
   const s = status.toUpperCase();
   const tone =
     s === "READY"
-      ? "bg-black text-white"
+      ? "bg-ink text-white"
       : s === "FAILED"
         ? "border border-ink/20 text-ink"
         : "bg-ink/10 text-mute";
@@ -361,29 +359,15 @@ export function DashPanel({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={`rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`qs-panel ${className}`}>{children}</div>;
 }
 
 export function DashField(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-mute focus:border-ink/40 ${props.className ?? ""}`}
-    />
-  );
+  return <input {...props} className={`qs-field ${props.className ?? ""}`} />;
 }
 
 export function DashTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={`w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-mute focus:border-ink/40 ${props.className ?? ""}`}
-    />
-  );
+  return <textarea {...props} className={`qs-field ${props.className ?? ""}`} />;
 }
 
 export function DashBtn({
@@ -394,12 +378,12 @@ export function DashBtn({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" }) {
   const styles =
     variant === "primary"
-      ? "bg-ink text-porcelain hover:bg-inkHover"
-      : "border border-ink/15 text-ink hover:bg-ink/[0.03]";
+      ? "bg-btn-primary text-white shadow-btn hover:brightness-110"
+      : "border border-ink/10 bg-btn-light text-ink shadow-btn hover:border-ink/25";
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${styles} ${className}`}
+      className={`inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${styles} ${className}`}
     >
       {children}
     </button>

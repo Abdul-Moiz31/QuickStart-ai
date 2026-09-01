@@ -13,7 +13,7 @@ export function LandingHeader() {
 
   return (
     <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-5">
-      <div className="mx-auto flex max-w-3xl min-w-0 items-center justify-between gap-2 rounded-full border border-ink/[0.08] bg-white px-2.5 py-2 shadow-soft sm:gap-3 sm:px-4 sm:py-2.5">
+      <div className="mx-auto flex max-w-3xl min-w-0 items-center justify-between gap-2 rounded-3xl bg-porcelain px-2.5 py-2 shadow-nav sm:gap-3 sm:px-4 sm:py-2.5">
         <Link
           href="/"
           className="min-w-0 shrink truncate pl-1.5 font-display text-sm font-bold tracking-tight text-ink sm:pl-2 sm:text-base"
