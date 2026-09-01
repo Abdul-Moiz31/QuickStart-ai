@@ -36,58 +36,71 @@ function AlertsMock() {
 
   return (
     <motion.div
-      className="overflow-hidden rounded-[1.35rem] border border-ink/[0.08] bg-white shadow-[0_24px_60px_rgba(10,10,10,0.08)]"
+      className="qs-code-frame"
       initial={reduce ? false : { opacity: 0, y: 24 }}
       whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-8% 0px" }}
       transition={{ duration: 0.75, ease }}
     >
-      <div className="flex items-center gap-2 border-b border-ink/[0.06] px-4 py-3 sm:px-5">
-        <span className="h-2.5 w-2.5 rounded-full bg-ink/15" />
-        <span className="h-2.5 w-2.5 rounded-full bg-ink/15" />
-        <span className="h-2.5 w-2.5 rounded-full bg-ink/15" />
-        <p className="ml-2 font-sans text-sm font-bold text-ink">Notifications</p>
+      <div className="qs-code-bar">
+        <div className="flex items-center gap-3">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          </span>
+          <span className="text-sm font-medium text-white/90">Live alerts</span>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300/70">
+          streaming
+        </span>
       </div>
 
-      <div className="space-y-4 bg-clay/35 p-5 sm:p-6">
-        <div className="rounded-xl border border-ink/[0.08] bg-white p-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink/[0.08] bg-clay">
-              <Zap className="h-4 w-4 text-ink" strokeWidth={1.75} aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="font-sans text-sm font-bold text-ink">Lead captured</p>
-              <p className="mt-1 text-xs leading-relaxed text-mute">
-                Visitor asked for a demo and shared their email.
-              </p>
-              <p className="mt-2 font-mono text-[10px] text-mute">2 min ago · live chat</p>
-            </div>
-          </div>
-        </div>
+      <div className="space-y-3 p-4 sm:p-5">
+        {[
+          {
+            icon: Zap,
+            title: "Lead captured",
+            body: "Visitor asked for a demo and shared their email.",
+            meta: "2 min ago · live chat",
+          },
+          {
+            icon: Sparkles,
+            title: "Pricing question",
+            body: "Keyword match: pricing, quote",
+            meta: "6 min ago · keyword event",
+          },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <motion.div
+              key={item.title}
+              className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3.5"
+              initial={reduce ? false : { opacity: 0, x: -10 }}
+              whileInView={reduce ? undefined : { opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-8% 0px" }}
+              transition={{ duration: 0.5, ease }}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-400/10 text-sky-300">
+                <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">{item.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#cbc8e0]">{item.body}</p>
+                <p className="mt-2 font-mono text-[10px] text-[#cbc8e0]/60">{item.meta}</p>
+              </div>
+            </motion.div>
+          );
+        })}
 
-        <div className="rounded-xl border border-ink/[0.08] bg-white p-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink/[0.08] bg-clay">
-              <Sparkles className="h-4 w-4 text-ink" strokeWidth={1.75} aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="font-sans text-sm font-bold text-ink">Pricing question</p>
-              <p className="mt-1 text-xs leading-relaxed text-mute">
-                Keyword match: pricing, quote
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-ink/[0.08] bg-white/80 px-4 py-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#cbc8e0]/60">
             Delivered to
           </p>
           <div className="mt-2.5 flex flex-wrap gap-2">
             {DESTINATIONS.map(({ label, icon: Icon }) => (
               <span
                 key={label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/[0.08] bg-clay px-3 py-1.5 text-xs font-medium text-ink"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-medium text-white/90"
               >
                 <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                 {label}
@@ -111,10 +124,10 @@ export function LandingNotificationsSection() {
 
           <div className="min-w-0 lg:order-1">
             <FadeIn>
-              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">
+              <p className="qs-eyebrow">
                 Alerts & events
               </p>
-              <h2 className="mt-3 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
+              <h2 className="mt-3 qs-section-title">
                 Know when visitors need you
               </h2>
               <p className="mt-4 max-w-lg text-sm leading-relaxed text-mute sm:text-base md:text-lg">
@@ -135,7 +148,7 @@ export function LandingNotificationsSection() {
                       <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                     </span>
                     <div className="min-w-0 pt-0.5">
-                      <h3 className="font-sans text-base font-bold text-ink">{point.title}</h3>
+                      <h3 className="font-display text-base font-bold text-ink">{point.title}</h3>
                       <p className="mt-1.5 text-sm leading-relaxed text-mute">{point.body}</p>
                     </div>
                   </div>
