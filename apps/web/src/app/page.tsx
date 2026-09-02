@@ -1,9 +1,10 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Code2, FileText, MessagesSquare, type LucideIcon } from "lucide-react";
+import { Bot, FileText } from "lucide-react";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion/FadeIn";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingHero } from "@/components/landing/LandingHero";
+import { LandingConversations } from "@/components/landing/LandingConversations";
 import { LandingFeatureBento } from "@/components/landing/LandingFeatureBento";
 import { LandingFeatureStrip } from "@/components/landing/LandingFeatureStrip";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -16,27 +17,22 @@ const ScrollHowItWorks = dynamic(
   { loading: () => <div className="bg-clay lg:min-h-[100svh]" /> },
 );
 
-const BENEFITS: {
-  title: string;
-  body: string;
-  icon: LucideIcon;
-}[] = [
+const SOURCE_PAGES = ["Pricing", "Help center", "FAQ"] as const;
+
+const GENERATED_ANSWERS = [
   {
-    title: "Put it on your site",
-    body: "One line of code. The chat appears on your pages.",
-    icon: Code2,
+    question: "What does the Pro plan include?",
+    answer: "Unlimited conversations, team access, and priority support.",
   },
   {
-    title: "Use your own answers",
-    body: "Add your FAQs and docs. It replies from that.",
-    icon: FileText,
+    question: "Can I invite my support team?",
+    answer: "Yes. Add teammates and manage access from your dashboard.",
   },
   {
-    title: "Help people anytime",
-    body: "Visitors get answers even when you’re offline.",
-    icon: MessagesSquare,
+    question: "Where can I find setup help?",
+    answer: "Your help center has guides for installation and configuration.",
   },
-];
+] as const;
 
 export default function HomePage() {
   return (
@@ -48,55 +44,80 @@ export default function HomePage() {
       <LandingFeatureStrip />
 
       {/* What is QuickStart AI */}
-      <section className="border-t border-ink/[0.08] bg-white px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
-        <div className="mx-auto max-w-3xl min-w-0 text-center">
-          <FadeIn>
-            <p className="qs-eyebrow">
-              What is QuickStart AI?
-            </p>
-            <h2 className="mt-4 qs-section-title">
-              It’s a chatbot for your website.
+      <section className="border-t border-ink/[0.08] bg-white px-4 py-16 sm:px-6 sm:py-20 md:px-12 md:py-28">
+        <div className="mx-auto max-w-6xl">
+          <FadeIn className="mx-auto max-w-3xl text-center">
+            <p className="qs-eyebrow">What is QuickStart AI?</p>
+            <h2 className="mt-4 font-sans text-3xl font-bold leading-[1.08] tracking-[-0.035em] text-ink sm:text-4xl md:text-5xl">
+              Your website already has the answers.
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-mute sm:mt-5 sm:text-base md:text-lg">
-              Visitors ask questions on your site. QuickStart answers using your FAQs and docs.
-              You add it with one line of code.
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-mute sm:text-lg">
+              Give visitors a natural way to ask questions—and give them answers based on the
+              content you already trust.
             </p>
           </FadeIn>
-        </div>
 
-        <Stagger
-          className="mx-auto mt-12 grid max-w-5xl gap-0 border-t border-ink/[0.08] text-left md:grid-cols-3"
-          delay={0.05}
-        >
-          {BENEFITS.map((b) => {
-            const Icon = b.icon;
-            return (
-              <StaggerItem
-                key={b.title}
-                className="border-b border-ink/[0.08] py-8 md:border-b-0 md:border-r md:px-8 md:py-10 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
-              >
-                <div className="flex items-start gap-3.5">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-ink/[0.1] bg-clay text-ink">
-                    <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-ink">{b.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-mute">{b.body}</p>
+          <Stagger className="mx-auto mt-10 max-w-4xl sm:mt-14" delay={0.08}>
+            <div className="qs-playground overflow-hidden rounded-3xl bg-white">
+              <div className="grid lg:grid-cols-[0.85fr_0.42fr_1.35fr]">
+                <div className="flex items-center p-5 sm:p-6">
+                  <div className="w-full space-y-2">
+                    {SOURCE_PAGES.map((page) => (
+                      <StaggerItem
+                        key={page}
+                        className="flex items-center gap-3 rounded-xl bg-porcelain px-3.5 py-3"
+                      >
+                        <FileText className="h-4 w-4 shrink-0 text-ink" strokeWidth={1.75} aria-hidden />
+                        <span className="text-sm font-semibold text-ink">{page}</span>
+                      </StaggerItem>
+                    ))}
                   </div>
                 </div>
-              </StaggerItem>
-            );
-          })}
-        </Stagger>
 
-        <FadeIn className="mt-8 flex justify-center sm:mt-10">
-          <a href="#install" className="qs-btn-primary w-full max-w-xs justify-center sm:w-auto sm:max-w-none">
-            Make it live
-          </a>
-        </FadeIn>
+                <StaggerItem className="relative flex min-h-[120px] items-center justify-center bg-white p-6 lg:min-h-0">
+                  <span className="qs-scrape-flow qs-scrape-flow-in absolute left-0 top-1/2 hidden h-px w-1/2 lg:block" />
+                  <span className="qs-scrape-flow qs-scrape-flow-out absolute right-0 top-1/2 hidden h-px w-1/2 lg:block" />
+                  <span className="qs-scrape-agent relative flex h-20 w-20 items-center justify-center rounded-full bg-ink text-white shadow-soft">
+                    <Bot className="h-9 w-9" strokeWidth={1.5} aria-hidden />
+                  </span>
+                </StaggerItem>
+
+                <div className="p-5 sm:p-6">
+                  <div className="space-y-2.5">
+                    {GENERATED_ANSWERS.map(({ question, answer }) => (
+                      <StaggerItem
+                        key={question}
+                        className="flex items-center gap-3 rounded-xl bg-porcelain p-3.5 sm:p-4"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-ink">{question}</p>
+                          <p className="mt-1 truncate text-xs text-mute">{answer}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_1px_3px_rgba(10,10,10,0.1)] transition hover:bg-clay"
+                        >
+                          Review
+                        </button>
+                      </StaggerItem>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Stagger>
+
+          <FadeIn className="mt-8 flex justify-center" delay={0.12}>
+            <a href="#install" className="qs-btn-primary w-full justify-center sm:w-auto">
+              Make it live
+            </a>
+          </FadeIn>
+        </div>
       </section>
 
       <LandingInsightHub />
+
+      <LandingConversations />
 
       <ScrollHowItWorks />
 
@@ -133,7 +154,7 @@ export default function HomePage() {
                   </div>
                   <span className="text-sm font-medium text-white/90">React</span>
                 </div>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300/70">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-white/60">
                   tsx
                 </span>
               </div>
@@ -171,7 +192,7 @@ export default function HomePage() {
                   </div>
                   <span className="text-sm font-medium text-white/90">HTML / JS</span>
                 </div>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300/70">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-white/60">
                   html
                 </span>
               </div>

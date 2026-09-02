@@ -10,7 +10,7 @@ export function LandingHero() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="relative overflow-hidden bg-clay px-4 pb-6 pt-10 sm:px-6 sm:pb-8 sm:pt-14 md:pb-9 md:pt-20">
+    <section className="relative overflow-hidden bg-clay px-4 pb-6 mt-12 pt-10 sm:px-6 sm:pb-8 sm:pt-14 md:pb-9 md:pt-20">
       <div className="mx-auto max-w-3xl min-w-0 text-center">
         <motion.p
           className="qs-eyebrow"
