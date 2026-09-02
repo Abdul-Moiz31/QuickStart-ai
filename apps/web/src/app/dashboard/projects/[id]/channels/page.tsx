@@ -147,7 +147,7 @@ export default function ChannelsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 md:px-10">
-      <h1 className="font-sans text-2xl font-bold text-ink md:text-3xl">Channels</h1>
+      <h1 className="qs-h1">Channels</h1>
       <p className="mt-2 text-sm text-mute">
         Connect your own WhatsApp Business number or Twilio SMS number — your chatbot answers
         messages there using the same knowledge base. You own the number and its cost with

@@ -21,7 +21,7 @@ function CodeBlock({
           </div>
           <span className="text-sm font-medium text-white/90">{title}</span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300/70">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-white/60">
           {lang}
         </span>
       </div>
@@ -71,8 +71,8 @@ export default function EmbedDocsPage() {
       </header>
 
       <div className="mx-auto max-w-3xl min-w-0 px-4 pb-14 pt-8 sm:px-6 sm:pb-16 sm:pt-10 md:px-8 md:pb-20 md:pt-12">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-mute">Documentation</p>
-        <h1 className="mt-3 font-sans text-2xl font-bold tracking-tight text-black sm:text-3xl md:text-4xl">
+        <p className="qs-eyebrow">Documentation</p>
+        <h1 className="mt-3 qs-section-title">
           Embed the chatbot
         </h1>
         <p className="mt-4 text-sm leading-relaxed text-mute sm:text-base md:text-lg">
@@ -88,7 +88,7 @@ export default function EmbedDocsPage() {
         </p>
 
         <section className="mt-12">
-          <h2 className="font-sans text-xl font-bold tracking-tight text-black md:text-2xl">
+          <h2 className="font-display text-xl font-bold tracking-tight text-ink md:text-2xl">
             React
           </h2>
           <p className="mt-2 text-sm text-mute">
@@ -126,7 +126,7 @@ export default function EmbedDocsPage() {
         </section>
 
         <section className="mt-12">
-          <h2 className="font-sans text-xl font-bold tracking-tight text-black md:text-2xl">
+          <h2 className="font-display text-xl font-bold tracking-tight text-ink md:text-2xl">
             HTML / JS
           </h2>
           <p className="mt-2 text-sm text-mute">
@@ -162,7 +162,7 @@ export default function EmbedDocsPage() {
               <Shield className="h-5 w-5" strokeWidth={1.75} aria-hidden />
             </div>
             <div>
-              <h2 className="font-sans text-xl font-bold tracking-tight text-black">
+              <h2 className="font-display text-xl font-bold tracking-tight text-ink">
                 Security checklist
               </h2>
               <p className="mt-1 text-sm text-mute">Keep your chatbot safe in production.</p>

@@ -19,37 +19,78 @@ body {
 }
 
 @layer components {
+  /*
+   * Typography system.
+   * - font-sans (Outfit)      → every heading, body text, buttons, nav, and
+   *                              table cells. This is
+   *                              already the <body> default, so it never needs
+   *                              to be applied explicitly outside these classes.
+   * - font-mono (JetBrains)   → eyebrow labels, table headers, code only.
+   */
+  .qs-h1 {
+    @apply font-display text-2xl font-bold tracking-tight text-ink md:text-3xl;
+  }
+  /* Marketing/docs section title — same role as qs-h1, larger scale for wide pages. */
+  .qs-section-title {
+    @apply font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl md:text-4xl;
+  }
+  .qs-h2 {
+    @apply font-display text-lg font-bold tracking-tight text-ink sm:text-xl;
+  }
+  .qs-h3 {
+    @apply font-display text-base font-bold text-ink;
+  }
+  .qs-h4 {
+    @apply text-sm font-bold text-ink;
+  }
+  .qs-eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.22em] text-mute;
+  }
+  .qs-table-head {
+    @apply font-mono text-[10px] uppercase tracking-wide text-mute;
+  }
+  /* Smaller-scale sibling of qs-eyebrow, for tight spaces like the sidebar. */
+  .qs-micro-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.14em] text-mute;
+  }
+  .qs-field-label {
+    @apply mb-1.5 block text-xs font-semibold text-ink;
+  }
+  .qs-body {
+    @apply text-sm text-mute;
+  }
+
   .qs-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-tight transition duration-300;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold tracking-tight shadow-btn transition duration-300;
   }
   .qs-btn-primary {
-    @apply qs-btn bg-ink text-porcelain hover:bg-inkHover;
+    @apply qs-btn bg-btn-primary text-white hover:brightness-110;
   }
   .qs-btn-ghost {
-    @apply qs-btn border border-ink/15 text-ink hover:border-ink/40 hover:bg-ink/[0.03];
+    @apply qs-btn border border-ink/10 bg-btn-light text-ink hover:border-ink/25;
   }
   .qs-field {
-    @apply w-full rounded-xl border border-ink/10 bg-porcelain px-4 py-3 text-sm text-ink outline-none transition placeholder:text-mute/70 focus:border-ink/40;
+    @apply w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-mute focus:border-ink/40;
   }
   .qs-panel {
-    @apply rounded-2xl border border-ink/[0.08] bg-porcelain;
+    @apply rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft;
   }
   .qs-rule {
     @apply h-px w-full bg-ink/[0.08];
   }
-  /* Stylish navy code panels (Install / docs) */
+  /* Dark code panels keep technical examples readable without affecting page backgrounds. */
   .qs-code-frame {
-    @apply overflow-hidden rounded-2xl border border-[#1e3a5f]/40 shadow-[0_20px_50px_rgba(11,27,51,0.18)];
-    background: #0b1b33;
+    @apply overflow-hidden rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(10,10,10,0.18)];
+    background: #0a0a0a;
   }
   .qs-code-bar {
     @apply flex items-center justify-between border-b border-white/10 px-4 py-2.5;
-    background: #102445;
+    background: #1a1a1a;
   }
   .qs-code-body {
     @apply overflow-x-auto p-5 font-mono text-[12px] leading-[1.75] sm:text-[13px];
-    background: #0b1b33;
-    color: #c8d6e5;
+    background: #0a0a0a;
+    color: #d4d4d4;
   }
   .qs-code-kw {
     color: #7dd3fc;
@@ -108,6 +149,97 @@ body {
   .qs-chat-md-invert code {
     @apply bg-white/15;
   }
+}
+
+@keyframes qs-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.qs-marquee-track {
+  animation: qs-marquee 26s linear infinite;
+}
+
+@keyframes qs-canvas-edge {
+  0%,
+  100% {
+    border-color: rgba(10, 10, 10, 0.08);
+    box-shadow:
+      0 24px 60px rgba(10, 10, 10, 0.07),
+      0 0 0 0 rgba(10, 10, 10, 0);
+  }
+  50% {
+    border-color: rgba(10, 10, 10, 0.14);
+    box-shadow:
+      0 24px 60px rgba(10, 10, 10, 0.09),
+      0 0 0 5px rgba(10, 10, 10, 0.025);
+  }
+}
+
+.qs-playground {
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  animation: qs-canvas-edge 4s ease-in-out infinite;
+}
+
+@keyframes qs-scrape-in {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  15%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(100% - 6px));
+    opacity: 0;
+  }
+}
+
+@keyframes qs-scrape-agent {
+  0%,
+  100% {
+    box-shadow:
+      0 20px 50px rgba(10, 10, 10, 0.06),
+      0 0 0 0 rgba(10, 10, 10, 0.1);
+  }
+  45% {
+    box-shadow:
+      0 20px 50px rgba(10, 10, 10, 0.08),
+      0 0 0 7px rgba(10, 10, 10, 0);
+  }
+}
+
+.qs-scrape-flow {
+  background: rgba(10, 10, 10, 0.12);
+}
+
+.qs-scrape-flow::after {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #0a0a0a;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.qs-scrape-flow-in::after {
+  animation: qs-scrape-in 2.5s ease-in-out infinite;
+}
+
+.qs-scrape-flow-out::after {
+  animation: qs-scrape-in 2.5s ease-in-out 1.15s infinite;
+}
+
+.qs-scrape-agent {
+  animation: qs-scrape-agent 2.5s ease-in-out infinite;
 }
 
 @keyframes qs-chat-bounce {

@@ -242,7 +242,7 @@ export function OnboardingModal() {
             <DialogPanel className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
               <div className="flex items-start justify-between gap-3 border-b border-ink/[0.08] px-5 py-4">
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute">
+                  <p className="qs-micro-label">
                     Onboarding · step {Math.min(stepIndex + 1, STEPS.length)} of {STEPS.length}
                   </p>
                   <DialogTitle className="mt-1 font-sans text-lg font-bold text-ink">

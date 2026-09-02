@@ -256,8 +256,8 @@ export default function InboxPage() {
     <div className="mx-auto max-w-6xl space-y-4 px-6 py-8 md:px-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-bold text-ink">Inbox</h1>
-          <p className="text-sm text-ink/60">
+          <h1 className="qs-h1">Inbox</h1>
+          <p className="qs-body">
             Conversations your bot escalated. Take one over to reply as a person.
           </p>
         </div>

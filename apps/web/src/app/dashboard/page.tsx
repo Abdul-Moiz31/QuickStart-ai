@@ -66,10 +66,8 @@ export default function DashboardHomePage() {
       <header className="border-b border-ink/[0.08] px-6 py-8 md:px-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-mute">
-              Workspace
-            </p>
-            <h1 className="mt-2 font-sans text-3xl font-bold tracking-tight text-ink md:text-4xl">
+            <p className="qs-eyebrow">Workspace</p>
+            <h1 className="mt-2 qs-h1 md:text-4xl">
               All projects
             </h1>
             <p className="mt-2 text-mute">
@@ -118,7 +116,7 @@ export default function DashboardHomePage() {
           </div>
         ) : projects.length === 0 ? (
           <DashPanel className="py-14 text-center">
-            <h2 className="font-sans text-2xl font-bold text-ink">No projects yet</h2>
+            <h2 className="font-display text-2xl font-bold text-ink">No projects yet</h2>
             <p className="mx-auto mt-2 max-w-md text-mute">
               Finish onboarding or create a project to manage knowledge and embeds.
             </p>
@@ -135,7 +133,7 @@ export default function DashboardHomePage() {
                 className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft transition hover:border-ink/20"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="font-sans text-lg font-bold text-ink">{p.name}</h2>
+                  <h2 className="font-display text-lg font-bold text-ink">{p.name}</h2>
                   <span className="rounded-md bg-clay px-2 py-0.5 font-mono text-[10px] uppercase text-mute">
                     {p.plan}
                   </span>
@@ -179,7 +177,7 @@ export default function DashboardHomePage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
             >
-              <h2 className="font-sans text-2xl font-bold text-ink">New project</h2>
+              <h2 className="font-display text-2xl font-bold text-ink">New project</h2>
               <label className="mt-5 block text-xs text-mute">Name</label>
               <DashField name="name" required autoFocus className="mt-1.5" placeholder="Support bot" />
               <label className="mt-4 block text-xs text-mute">Description</label>

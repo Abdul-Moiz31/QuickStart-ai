@@ -68,7 +68,7 @@ export function ChatbotAppearancePreview({
     <div className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
       <div className="flex items-center justify-between border-b border-ink/[0.06] px-4 py-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-mute">Live preview</p>
+          <p className="qs-micro-label">Live preview</p>
           <p className="mt-0.5 text-sm font-medium text-ink">How visitors will see it</p>
         </div>
         <span className="rounded-md bg-clay px-2 py-0.5 font-mono text-[10px] uppercase text-mute">
@@ -101,10 +101,10 @@ export function ChatbotAppearancePreview({
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto bg-[#f8fafc] px-3.5 py-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto bg-clay px-3.5 py-3">
             <div
               className="max-w-[92%] rounded-2xl rounded-tl-sm px-3 py-2 text-[12px] leading-snug text-ink"
-              style={{ background: "#e2e8f0" }}
+              style={{ background: "#F7F5F1" }}
             >
               {welcomeMessage.trim() || "Hi — how can I help?"}
             </div>
@@ -116,7 +116,7 @@ export function ChatbotAppearancePreview({
             </div>
             <div
               className="max-w-[92%] rounded-2xl rounded-tl-sm px-3 py-2 text-[12px] leading-snug text-ink"
-              style={{ background: "#e2e8f0" }}
+              style={{ background: "#F7F5F1" }}
             >
               Mon–Fri, 9am–6pm. Happy to help.
             </div>

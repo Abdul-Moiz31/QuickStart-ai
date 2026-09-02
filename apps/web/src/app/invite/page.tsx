@@ -123,8 +123,8 @@ function InviteContent() {
   return (
     <InviteShell>
       <DashPanel className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-mute">Team invite</p>
-        <h1 className="mt-3 font-sans text-2xl font-bold text-ink">{preview.projectName}</h1>
+        <p className="qs-eyebrow">Team invite</p>
+        <h1 className="mt-3 qs-h1">{preview.projectName}</h1>
         <p className="mt-3 text-sm text-mute">
           {preview.inviterName ? `${preview.inviterName} invited you` : "You were invited"} to join as{" "}
           <strong className="text-ink">{preview.role}</strong>.
