@@ -34,7 +34,7 @@ type SessionRow = {
 
 const CHANNEL_BADGE: Record<string, { label: string; className: string }> = {
   whatsapp: { label: "WA", className: "bg-emerald-600 text-white" },
-  sms: { label: "SMS", className: "bg-sky-600 text-white" },
+  sms: { label: "SMS", className: "bg-ink text-white" },
   instagram: { label: "IG", className: "bg-fuchsia-600 text-white" },
 };
 
@@ -103,7 +103,7 @@ function ChatBubble({
             ? "rounded-full bg-ink text-white"
             : isAgent
               ? "rounded-2xl rounded-tl-md border border-ink/30 bg-white text-ink shadow-[0_1px_2px_rgba(10,10,10,0.04)]"
-              : "rounded-2xl rounded-tl-md border border-ink/[0.08] bg-[#e2e8f0] text-ink shadow-[0_1px_2px_rgba(10,10,10,0.04)]"
+              : "rounded-2xl rounded-tl-md border border-ink/[0.08] bg-clay text-ink shadow-[0_1px_2px_rgba(10,10,10,0.04)]"
         }`}
       >
         {isAgent && (

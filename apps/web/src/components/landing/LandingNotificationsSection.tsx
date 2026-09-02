@@ -50,7 +50,7 @@ function AlertsMock() {
           </span>
           <span className="text-sm font-medium text-white/90">Live alerts</span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300/70">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-white/60">
           streaming
         </span>
       </div>
@@ -80,7 +80,7 @@ function AlertsMock() {
               viewport={{ once: true, margin: "-8% 0px" }}
               transition={{ duration: 0.5, ease }}
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-400/10 text-sky-300">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white/80">
                 <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </span>
               <div className="min-w-0">

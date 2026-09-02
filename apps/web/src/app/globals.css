@@ -14,30 +14,15 @@ html {
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background-color: #dcdef0;
-  background-image:
-    repeating-linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.4) 0px,
-      rgba(255, 255, 255, 0.4) 1px,
-      transparent 1px,
-      transparent 7px
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(255, 255, 255, 0.25) 0px,
-      rgba(255, 255, 255, 0.25) 1px,
-      transparent 1px,
-      transparent 7px
-    );
-  color: #1e213a;
+  background-color: #f7f5f1;
+  color: #0a0a0a;
 }
 
 @layer components {
   /*
    * Typography system.
-   * - font-display (Syne)     → every heading, every role (h1-h4).
-   * - font-sans (Outfit)      → body text, buttons, nav, table cells. This is
+   * - font-sans (Outfit)      → every heading, body text, buttons, nav, and
+   *                              table cells. This is
    *                              already the <body> default, so it never needs
    *                              to be applied explicitly outside these classes.
    * - font-mono (JetBrains)   → eyebrow labels, table headers, code only.
@@ -93,19 +78,19 @@ body {
   .qs-rule {
     @apply h-px w-full bg-ink/[0.08];
   }
-  /* Dark indigo panels (Install / docs / mockups) — matches the `ink` token */
+  /* Dark code panels keep technical examples readable without affecting page backgrounds. */
   .qs-code-frame {
-    @apply overflow-hidden rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(26,0,108,0.25)];
-    background: #1e213a;
+    @apply overflow-hidden rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(10,10,10,0.18)];
+    background: #0a0a0a;
   }
   .qs-code-bar {
     @apply flex items-center justify-between border-b border-white/10 px-4 py-2.5;
-    background: #282c4c;
+    background: #1a1a1a;
   }
   .qs-code-body {
     @apply overflow-x-auto p-5 font-mono text-[12px] leading-[1.75] sm:text-[13px];
-    background: #1e213a;
-    color: #c6c9e0;
+    background: #0a0a0a;
+    color: #d4d4d4;
   }
   .qs-code-kw {
     color: #7dd3fc;
@@ -177,6 +162,84 @@ body {
 
 .qs-marquee-track {
   animation: qs-marquee 26s linear infinite;
+}
+
+@keyframes qs-canvas-edge {
+  0%,
+  100% {
+    border-color: rgba(10, 10, 10, 0.08);
+    box-shadow:
+      0 24px 60px rgba(10, 10, 10, 0.07),
+      0 0 0 0 rgba(10, 10, 10, 0);
+  }
+  50% {
+    border-color: rgba(10, 10, 10, 0.14);
+    box-shadow:
+      0 24px 60px rgba(10, 10, 10, 0.09),
+      0 0 0 5px rgba(10, 10, 10, 0.025);
+  }
+}
+
+.qs-playground {
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  animation: qs-canvas-edge 4s ease-in-out infinite;
+}
+
+@keyframes qs-scrape-in {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  15%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(100% - 6px));
+    opacity: 0;
+  }
+}
+
+@keyframes qs-scrape-agent {
+  0%,
+  100% {
+    box-shadow:
+      0 20px 50px rgba(10, 10, 10, 0.06),
+      0 0 0 0 rgba(10, 10, 10, 0.1);
+  }
+  45% {
+    box-shadow:
+      0 20px 50px rgba(10, 10, 10, 0.08),
+      0 0 0 7px rgba(10, 10, 10, 0);
+  }
+}
+
+.qs-scrape-flow {
+  background: rgba(10, 10, 10, 0.12);
+}
+
+.qs-scrape-flow::after {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #0a0a0a;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.qs-scrape-flow-in::after {
+  animation: qs-scrape-in 2.5s ease-in-out infinite;
+}
+
+.qs-scrape-flow-out::after {
+  animation: qs-scrape-in 2.5s ease-in-out 1.15s infinite;
+}
+
+.qs-scrape-agent {
+  animation: qs-scrape-agent 2.5s ease-in-out infinite;
 }
 
 @keyframes qs-chat-bounce {
