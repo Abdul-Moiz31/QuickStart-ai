@@ -28,7 +28,7 @@ const SCAN_STAGE_MESSAGES: Record<string, string> = {
   reading: "Reading your business details…",
   scanning: "Scanning your website…",
   knowledge: "Building your knowledge base…",
-  questions: "Drafting your onboarding questions…",
+  questions: "Drafting questions and suggested answers…",
 };
 const SCAN_FALLBACK_MESSAGE = "Still working — almost ready…";
 const SCAN_POLL_INTERVAL_MS = 1200;
@@ -39,6 +39,7 @@ interface ScanStatusResponse {
   progress: { stage: string; pct: number } | null;
   result?: {
     questions: string[];
+    suggestedAnswers?: string[];
     model: string | null;
     researchedWebsite: boolean;
     scannedPageCount: number;
@@ -107,9 +108,12 @@ export function OnboardingModal() {
       if (status.progress?.stage) setScanStage(status.progress.stage);
 
       if (status.state === "completed" && status.result) {
-        const { questions: generated, businessLocation, supportEmail } = status.result;
+        const { questions: generated, suggestedAnswers, businessLocation, supportEmail } =
+          status.result;
         setQuestions(generated);
-        setAnswers(generated.map(() => ""));
+        setAnswers(
+          generated.map((_, i) => suggestedAnswers?.[i]?.trim() ?? ""),
+        );
         setBusiness((b) => ({
           ...b,
           businessLocation: b.businessLocation || businessLocation || b.businessLocation,
@@ -422,7 +426,8 @@ export function OnboardingModal() {
                 {step === "questions" && (
                   <form onSubmit={submitAnswers} className="space-y-4">
                     <p className="text-sm text-mute">
-                      Answer all {questions.length} questions. Your chatbot learns from these.
+                      We drafted answers from your website where possible — review and edit each
+                      one. Your chatbot learns from these.
                     </p>
                     {questions.map((q, i) => (
                       <label key={q} className="block rounded-xl border border-ink/[0.08] bg-clay/40 p-4">
@@ -432,7 +437,7 @@ export function OnboardingModal() {
                         <DashTextarea
                           className="mt-3 bg-white"
                           required
-                          rows={2}
+                          rows={3}
                           value={answers[i] ?? ""}
                           onChange={(e) => {
                             const next = [...answers];

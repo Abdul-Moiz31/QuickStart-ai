@@ -52,6 +52,8 @@ export interface OnboardingScanProgress {
 
 export interface OnboardingScanResult {
   questions: string[];
+  /** Draft answers from website research — user can edit before saving. */
+  suggestedAnswers: string[];
   model: string | null;
   researchedWebsite: boolean;
   scannedPageCount: number;
