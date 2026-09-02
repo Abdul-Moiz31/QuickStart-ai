@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Check, Plug } from "lucide-react";
+import { Plug } from "lucide-react";
+import { MCP_TOOL_GROUPS } from "@quickstart-ai/shared";
 
 function CodeBlock({
   title,
@@ -36,16 +37,7 @@ const PRODUCTION_API_URL = "https://api.quickstart.ai";
 const MCP_URL = `${PRODUCTION_API_URL}/mcp`;
 const OAUTH_METADATA_URL = `${PRODUCTION_API_URL}/.well-known/oauth-authorization-server`;
 
-const TOOLS = [
-  "get_business_profile — read business name, industry, description, location, support email",
-  "save_business_profile — update business details (syncs chatbot knowledge)",
-  "list_faqs — list FAQ pairs used by the chatbot",
-  "add_faq — add a new FAQ entry",
-  "list_projects — list your QuickStart projects",
-  "list_conversations — list recent visitor chat sessions",
-  "get_conversation — read a full conversation with messages",
-  "search_conversations — search chats by name, email, or message content",
-];
+const TOOL_COUNT = MCP_TOOL_GROUPS.reduce((total, group) => total + group.tools.length, 0);
 
 export default function McpDocsPage() {
   return (
@@ -80,7 +72,8 @@ export default function McpDocsPage() {
         <p className="mt-4 text-sm leading-relaxed text-mute sm:text-base md:text-lg">
           Connect ChatGPT to your QuickStart chatbot over{" "}
           <span className="font-medium text-ink">Model Context Protocol (MCP)</span>. Manage
-          business details, FAQs, and visitor conversations without opening the dashboard.
+          business details and FAQs, read visitor conversations, and check how the chatbot is
+          performing without opening the dashboard.
         </p>
 
         <section className="mt-12">
@@ -116,22 +109,47 @@ export default function McpDocsPage() {
               <h2 className="font-display text-xl font-bold tracking-tight text-ink">
                 Available MCP tools
               </h2>
-              <p className="mt-1 text-sm text-mute">Scopes: mcp:tools, project:read, knowledge:write</p>
+              <p className="mt-1 text-sm text-mute">
+                {TOOL_COUNT} tools · Scopes: mcp:tools, project:read, knowledge:write
+              </p>
             </div>
           </div>
-          <ul className="mt-6 space-y-3">
-            {TOOLS.map((item) => (
-              <li
-                key={item}
-                className="flex items-start gap-3 border-t border-ink/[0.08] pt-3 text-sm text-mute"
-              >
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-clay text-ink">
-                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-                </span>
-                <code className="font-mono text-[13px] text-ink">{item}</code>
-              </li>
+
+          <div className="mt-8 space-y-8">
+            {MCP_TOOL_GROUPS.map((group) => (
+              <div key={group.id}>
+                <h3 className="text-sm font-semibold tracking-tight text-ink">{group.label}</h3>
+                <p className="mt-1 text-sm text-mute">{group.description}.</p>
+                <ul className="mt-3 space-y-3">
+                  {group.tools.map((tool) => (
+                    <li
+                      key={tool.name}
+                      className="border-t border-ink/[0.08] pt-3 text-sm text-mute"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <code className="font-mono text-[13px] text-ink">{tool.name}</code>
+                        <span
+                          className={
+                            tool.access === "write"
+                              ? "rounded-full bg-ink px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white"
+                              : "rounded-full bg-clay px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-mute"
+                          }
+                        >
+                          {tool.access}
+                        </span>
+                        {tool.minRole && (
+                          <span className="text-[11px] text-mute">
+                            needs {tool.minRole} role
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 leading-relaxed">{tool.summary}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
