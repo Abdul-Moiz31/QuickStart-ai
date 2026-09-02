@@ -2,220 +2,236 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  Bot,
   Check,
   FileText,
   Gift,
-  Globe,
-  Image as ImageIcon,
   KeyRound,
+  Lock,
   MessageSquare,
-  ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion/FadeIn";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-function SourcesMock() {
+const ROW = "flex items-center gap-3 rounded-xl bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(10,10,10,0.05)]";
+const TILE = "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-clay text-ink";
+
+function MockRow({
+  index,
+  className,
+  children,
+}: {
+  index: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
   const reduce = useReducedMotion();
-  const badges = [
-    { icon: FileText, tint: "text-sky-500" },
-    { icon: Globe, tint: "text-emerald-500" },
-    { icon: MessageSquare, tint: "text-amber-500" },
-  ];
+  return (
+    <motion.div
+      className={`${ROW} ${className ?? ""}`}
+      initial={reduce ? false : { opacity: 0, y: 8 }}
+      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-8% 0px" }}
+      transition={{ duration: 0.45, delay: 0.08 * index, ease }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function KnowledgeMock() {
+  const sources = ["Pricing page", "Refund policy", "Help center"];
 
   return (
-    <div className="relative flex w-full flex-col items-center">
-      <div className="flex gap-3">
-        {badges.map(({ icon: Icon, tint }, i) => (
-          <motion.span
-            key={i}
-            className={`flex h-11 w-11 items-center justify-center rounded-full border border-ink/[0.08] bg-white shadow-soft ${tint}`}
-            initial={reduce ? false : { opacity: 0, y: -10 }}
-            whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-8% 0px" }}
-            transition={{ duration: 0.5, delay: 0.08 * i, ease }}
-          >
-            <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-          </motion.span>
-        ))}
-      </div>
-
-      <motion.div
-        className="relative z-10 mt-5 flex w-full max-w-[280px] items-center gap-3 rounded-2xl bg-ink px-4 py-3.5 shadow-soft"
-        initial={reduce ? false : { opacity: 0, y: 12, scale: 0.97 }}
-        whileInView={reduce ? undefined : { opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: true, margin: "-8% 0px" }}
-        transition={{ duration: 0.55, delay: 0.2, ease }}
-      >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
-          <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold text-white">Answered from your FAQ</p>
-          <p className="text-[11px] text-white/60">Refund policy · docs.pdf</p>
-        </div>
-      </motion.div>
+    <div className="w-full max-w-[300px] space-y-2.5">
+      {sources.map((source, i) => (
+        <MockRow key={source} index={i}>
+          <span className={TILE}>
+            <FileText className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </span>
+          <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{source}</p>
+          <span className="shrink-0 rounded-md bg-clay px-2 py-0.5 text-[10px] font-semibold text-ink">
+            Added
+          </span>
+        </MockRow>
+      ))}
     </div>
   );
 }
 
 function ConversationsMock() {
-  const reduce = useReducedMotion();
-  const rows = [
-    { label: "Pricing question", meta: "3 replies", on: true },
-    { label: "Billing issue", meta: "Escalated to team", on: true },
-    { label: "General inquiry", meta: "Auto-resolved", on: false },
+  const chats = [
+    { initial: "S", question: "Do you offer annual billing?", meta: "Answered" },
+    { initial: "M", question: "I need to talk to sales.", meta: "Sent to your team" },
+    { initial: "J", question: "Where are the API docs?", meta: "Answered" },
   ];
 
   return (
-    <div className="w-full space-y-2.5">
-      {rows.map((row, i) => (
-        <motion.div
-          key={row.label}
-          className="flex items-center justify-between gap-3 rounded-xl bg-ink px-4 py-3"
-          initial={reduce ? false : { opacity: 0, x: -12 }}
-          whileInView={reduce ? undefined : { opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-8% 0px" }}
-          transition={{ duration: 0.45, delay: 0.06 * i, ease }}
-        >
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold text-white">{row.label}</p>
-            <p className="text-[11px] text-white/50">{row.meta}</p>
-          </div>
-          <span
-            className={`relative h-5 w-9 shrink-0 rounded-full transition ${
-              row.on ? "bg-accent" : "bg-white/15"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${
-                row.on ? "left-[18px]" : "left-0.5"
-              }`}
-            />
+    <div className="w-full max-w-[300px] space-y-2.5">
+      {chats.map((chat, i) => (
+        <MockRow key={chat.question} index={i}>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-white">
+            {chat.initial}
           </span>
-        </motion.div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-ink">{chat.question}</p>
+            <p className="mt-0.5 text-[11px] text-mute">{chat.meta}</p>
+          </div>
+        </MockRow>
       ))}
     </div>
   );
 }
 
 function SecurityMock() {
-  const reduce = useReducedMotion();
-  return (
-    <motion.div
-      className="flex h-24 w-24 items-center justify-center rounded-2xl bg-ink shadow-soft"
-      initial={reduce ? false : { opacity: 0, scale: 0.85 }}
-      whileInView={reduce ? undefined : { opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: "-8% 0px" }}
-      transition={{ duration: 0.5, ease }}
-    >
-      <ShieldCheck className="h-10 w-10 text-accent" strokeWidth={1.5} aria-hidden />
-    </motion.div>
-  );
-}
+  const credentials = [
+    { icon: Check, label: "client_id", value: "qs_live_8f2a…", note: "Safe in the browser" },
+    { icon: Lock, label: "client_secret", value: "••••••••••••", note: "Stays on your server" },
+  ];
 
-function ImagePlaceholder() {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/20 bg-white/50 px-4 py-8 text-center">
-      <ImageIcon className="h-6 w-6 text-mute" strokeWidth={1.5} aria-hidden />
-      <p className="text-xs font-medium text-mute">
-        Image pending — drop a screenshot of the widget live on a real site at
-      </p>
-      <code className="rounded-md bg-white px-2 py-1 font-mono text-[11px] text-ink">
-        /public/images/features/works-anywhere.png
-      </code>
+    <div className="w-full max-w-[300px] space-y-2.5">
+      {credentials.map((credential, i) => {
+        const Icon = credential.icon;
+        return (
+          <MockRow key={credential.label} index={i}>
+            <span className={TILE}>
+              <Icon className="h-4 w-4" strokeWidth={1.9} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-mono text-[11px] text-mute">{credential.label}</p>
+              <p className="truncate font-mono text-[12px] font-semibold text-ink">
+                {credential.value}
+              </p>
+            </div>
+            <span className="hidden shrink-0 text-[10px] font-medium text-mute sm:block">
+              {credential.note}
+            </span>
+          </MockRow>
+        );
+      })}
     </div>
   );
 }
 
-const CARDS = [
+function EmbedMock() {
+  const reduce = useReducedMotion();
+
+  return (
+    <motion.div
+      className="w-full max-w-[300px] overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(10,10,10,0.05)]"
+      initial={reduce ? false : { opacity: 0, y: 10 }}
+      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-8% 0px" }}
+      transition={{ duration: 0.5, ease }}
+    >
+      <div className="flex items-center gap-2 border-b border-ink/[0.06] px-3.5 py-2.5">
+        <span className="h-2 w-2 rounded-full bg-ink/15" aria-hidden />
+        <span className="rounded-md bg-clay px-2 py-1 text-[10px] text-mute">yourwebsite.com</span>
+      </div>
+      <div className="relative h-[124px] bg-clay/45 p-3.5">
+        <span className="block h-2 w-24 rounded-full bg-ink/[0.09]" aria-hidden />
+        <span className="mt-2 block h-2 w-32 rounded-full bg-ink/[0.06]" aria-hidden />
+
+        <div className="absolute bottom-3.5 right-3.5 flex items-end gap-2">
+          <span className="rounded-2xl rounded-br-sm bg-white px-2.5 py-1.5 text-[10px] font-medium text-ink shadow-[0_2px_6px_rgba(10,10,10,0.08)]">
+            Need any help?
+          </span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-white">
+            <Bot className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+const CARDS: { title: string; body: string; visual: React.ReactNode }[] = [
   {
-    title: "Trained on your docs",
-    body: "Upload FAQs, pricing, and policies. The chatbot answers from your content — not random guesses.",
-    visual: <SourcesMock />,
-    minH: "min-h-[240px]",
+    title: "Trained on your content",
+    body: "Add your FAQs, pricing, and policies. Answers come from what you wrote — nothing invented.",
+    visual: <KnowledgeMock />,
   },
   {
-    title: "See every conversation",
-    body: "Review every chat from the dashboard so you always know what visitors ask and how they were helped.",
+    title: "Every conversation, saved",
+    body: "See what visitors asked and how each chat ended, all from your dashboard.",
     visual: <ConversationsMock />,
-    minH: "min-h-[240px]",
   },
   {
     title: "Secure by design",
-    body: "Public client ID for the widget. Your secret stays on the server — never in the browser.",
+    body: "Only a public ID goes in your page. Your secret key never leaves the server.",
     visual: <SecurityMock />,
-    minH: "min-h-[180px]",
   },
   {
     title: "Works on any website",
-    body: "React apps or plain HTML. Same chatbot everywhere your customers already visit.",
-    visual: <ImagePlaceholder />,
-    minH: "min-h-[180px]",
+    body: "React apps or plain HTML — the same chatbot, added with a single line of code.",
+    visual: <EmbedMock />,
   },
-] as const;
+];
 
-const HIGHLIGHTS = [
+const HIGHLIGHTS: { title: string; body: string; icon: LucideIcon }[] = [
   {
-    title: "Totally free to start",
-    body: "Create a chatbot, add knowledge, and embed it at no cost. No credit card to get going.",
+    title: "Free to start",
+    body: "Build a chatbot, add your knowledge, and embed it without a credit card.",
     icon: Gift,
   },
   {
     title: "Bring your own key",
-    body: "Use your own AI API key. You stay in control of usage and billing with your provider.",
+    body: "Prefer your own AI provider? Use your key and keep usage under your control.",
     icon: KeyRound,
   },
-] as const;
+  {
+    title: "Answers around the clock",
+    body: "Visitors get help at any hour, even when your team is offline.",
+    icon: MessageSquare,
+  },
+];
 
 export function LandingFeatureBento() {
   return (
-    <section className="border-t border-ink/[0.08] bg-white px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
+    <section className="border-t border-ink/[0.08] bg-white px-4 py-16 sm:px-6 sm:py-20 md:px-12 md:py-28">
       <div className="mx-auto max-w-6xl min-w-0">
         <FadeIn className="mx-auto max-w-2xl text-center">
           <p className="qs-eyebrow">Features</p>
-          <h2 className="mt-3 font-display text-3xl font-bold leading-[1.1] tracking-tight text-ink sm:text-4xl md:text-5xl">
-            One chatbot.
-            <br />
-            Every part of your site.
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-sm text-mute sm:text-base md:text-lg">
-            Real product features — clear, useful, and built for your website chatbot.
+          <h2 className="mt-4 qs-section-title">One chatbot, every part of your site.</h2>
+          <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-mute sm:text-base md:text-lg">
+            Everything you need to answer visitors well — and nothing you have to configure to get
+            started.
           </p>
         </FadeIn>
 
-        <Stagger className="mt-12 grid gap-5 lg:grid-cols-2" delay={0.06}>
+        <Stagger className="mt-12 grid gap-5 sm:mt-14 lg:grid-cols-2" delay={0.06}>
           {CARDS.map((card) => (
             <StaggerItem
               key={card.title}
-              className="overflow-hidden rounded-3xl border border-ink/[0.08] bg-clay"
+              className="flex h-full flex-col overflow-hidden rounded-3xl border border-ink/[0.08] bg-clay"
             >
-              <div className={`flex ${card.minH} items-center justify-center p-8`}>
+              <div className="flex min-h-[220px] flex-1 items-center justify-center p-7 sm:p-8">
                 {card.visual}
               </div>
-              <div className="border-t border-ink/[0.08] bg-white p-6 md:p-7">
-                <h3 className="font-display text-base font-bold text-ink">{card.title}</h3>
+              <div className="border-t border-ink/[0.08] bg-white p-6 sm:p-7">
+                <h3 className="text-base font-bold text-ink">{card.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-mute">{card.body}</p>
               </div>
             </StaggerItem>
           ))}
         </Stagger>
 
-        <Stagger className="mt-5 grid gap-4 sm:grid-cols-2" delay={0.06}>
-          {HIGHLIGHTS.map((h) => {
-            const Icon = h.icon;
+        <Stagger className="mt-5 grid gap-5 sm:grid-cols-3" delay={0.06}>
+          {HIGHLIGHTS.map((highlight) => {
+            const Icon = highlight.icon;
             return (
               <StaggerItem
-                key={h.title}
-                className="flex items-start gap-3.5 rounded-2xl border border-ink/[0.08] bg-clay p-5"
+                key={highlight.title}
+                className="h-full rounded-3xl border border-ink/[0.08] bg-clay p-6 sm:p-7"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-ink/[0.1] bg-white text-ink">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-ink shadow-[0_1px_2px_rgba(10,10,10,0.05)]">
                   <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                </div>
-                <div>
-                  <h3 className="font-display text-sm font-bold text-ink">{h.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-mute">{h.body}</p>
-                </div>
+                </span>
+                <h3 className="mt-4 text-base font-bold text-ink">{highlight.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-mute">{highlight.body}</p>
               </StaggerItem>
             );
           })}

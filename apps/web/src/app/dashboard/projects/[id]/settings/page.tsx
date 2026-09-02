@@ -271,7 +271,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => copyEmbedCode(b.title, b.code)}
-                  className="font-mono text-[10px] uppercase tracking-wider text-sky-300/80"
+                  className="font-mono text-[10px] uppercase tracking-wider text-white/60"
                 >
                   {codeCopied === b.title ? "Copied" : "Copy"}
                 </button>

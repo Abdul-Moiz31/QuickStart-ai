@@ -119,7 +119,7 @@ function OrbitPill({
       animate={
         pulsing && !reduce
           ? {
-              backgroundColor: ["#FFFFFF", "#FFFFFF", "#EEEAFE", "#FFFFFF"],
+              backgroundColor: ["#FFFFFF", "#FFFFFF", "#F7F5F1", "#FFFFFF"],
             }
           : undefined
       }
@@ -171,11 +171,11 @@ function LineSpark({
     <motion.path
       d={path}
       fill="none"
-      stroke="#8B7EF2"
+      stroke="#5C5A56"
       strokeWidth={2.5}
       strokeLinecap="round"
       strokeDasharray={`${comet} ${totalLength}`}
-      style={{ filter: "drop-shadow(0 0 4px rgba(92,78,236,0.85))" }}
+      style={{ filter: "drop-shadow(0 0 4px rgba(10,10,10,0.3))" }}
       initial={{ strokeDashoffset: -startLength }}
       animate={{ strokeDashoffset: -(totalLength + comet) }}
       transition={{
@@ -299,7 +299,7 @@ function InsightDiagram() {
                 leftPathRefs.current[i] = el;
               }}
               d={d}
-              stroke="#5C4EEC"
+              stroke="#0A0A0A"
               strokeOpacity={0.35}
               strokeWidth={1.5}
               initial={reduce ? false : { pathLength: 0 }}
@@ -315,7 +315,7 @@ function InsightDiagram() {
                 rightPathRefs.current[i] = el;
               }}
               d={d}
-              stroke="#5C4EEC"
+              stroke="#0A0A0A"
               strokeOpacity={0.35}
               strokeWidth={1.5}
               initial={reduce ? false : { pathLength: 0 }}
