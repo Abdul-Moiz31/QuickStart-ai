@@ -9,7 +9,7 @@ import {
   Transition,
   TransitionChild,
 } from "@headlessui/react";
-import { Loader2, PartyPopper, X } from "lucide-react";
+import { Loader2, PartyPopper, RefreshCw, Sparkles, X } from "lucide-react";
 import { api, getStoredToken } from "@/lib/api";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { DashBtn, DashField, DashTextarea } from "@/components/dashboard/DashboardShell";
@@ -32,6 +32,14 @@ const SCAN_STAGE_MESSAGES: Record<string, string> = {
 };
 const SCAN_FALLBACK_MESSAGE = "Still working — almost ready…";
 const SCAN_POLL_INTERVAL_MS = 1200;
+const GENERATE_MORE_COUNT = 3;
+
+interface RegenerateResponse {
+  success: boolean;
+  questions: string[];
+  suggestedAnswers: string[];
+  model: string | null;
+}
 
 interface ScanStatusResponse {
   success: boolean;
@@ -65,6 +73,9 @@ export function OnboardingModal() {
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
+  const [regeneratingAll, setRegeneratingAll] = useState(false);
+  const [generatingMore, setGeneratingMore] = useState(false);
   const [creds, setCreds] = useState<{ clientId: string; clientSecret: string } | null>(null);
   const [business, setBusiness] = useState({
     businessName: "",
@@ -172,6 +183,75 @@ export function OnboardingModal() {
     }
     setError("");
     setStep("project");
+  }
+
+  async function fetchQuestionPairs(count: number, existingQuestions: string[]) {
+    const token = getStoredToken();
+    if (!token) throw new Error("Not signed in");
+    return api<RegenerateResponse>("/api/v1/onboarding/regenerate-questions", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        ...business,
+        businessWebsite: business.businessWebsite || undefined,
+        supportEmail: business.supportEmail || undefined,
+        existingQuestions,
+        count,
+      }),
+    });
+  }
+
+  function removeQuestion(i: number) {
+    setQuestions((qs) => qs.filter((_, idx) => idx !== i));
+    setAnswers((as) => as.filter((_, idx) => idx !== i));
+  }
+
+  async function regenerateQuestion(i: number) {
+    setError("");
+    setRegeneratingIndex(i);
+    try {
+      const { questions: newQ, suggestedAnswers: newA } = await fetchQuestionPairs(1, questions);
+      if (newQ[0]) {
+        setQuestions((qs) => qs.map((q, idx) => (idx === i ? newQ[0]! : q)));
+        setAnswers((as) => as.map((a, idx) => (idx === i ? (newA[0]?.trim() ?? "") : a)));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to regenerate question");
+    } finally {
+      setRegeneratingIndex(null);
+    }
+  }
+
+  async function regenerateAllQuestions() {
+    setError("");
+    setRegeneratingAll(true);
+    try {
+      const count = Math.max(questions.length, 6);
+      const { questions: newQ, suggestedAnswers: newA } = await fetchQuestionPairs(count, []);
+      setQuestions(newQ);
+      setAnswers(newQ.map((_, i) => newA[i]?.trim() ?? ""));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to regenerate questions");
+    } finally {
+      setRegeneratingAll(false);
+    }
+  }
+
+  async function generateMoreQuestions() {
+    setError("");
+    setGeneratingMore(true);
+    try {
+      const { questions: newQ, suggestedAnswers: newA } = await fetchQuestionPairs(
+        GENERATE_MORE_COUNT,
+        questions,
+      );
+      setQuestions((qs) => [...qs, ...newQ]);
+      setAnswers((as) => [...as, ...newQ.map((_, i) => newA[i]?.trim() ?? "")]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate more questions");
+    } finally {
+      setGeneratingMore(false);
+    }
   }
 
   async function completeOnboarding(e: FormEvent) {
@@ -425,15 +505,53 @@ export function OnboardingModal() {
 
                 {step === "questions" && (
                   <form onSubmit={submitAnswers} className="space-y-4">
-                    <p className="text-sm text-mute">
-                      We drafted answers from your website where possible — review and edit each
-                      one. Your chatbot learns from these.
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-mute">
+                        We drafted answers from your website where possible — review, edit,
+                        remove, or regenerate each one. Your chatbot learns from these.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={regeneratingAll || busy}
+                        onClick={() => void regenerateAllQuestions()}
+                        className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-ink hover:text-porcelain disabled:opacity-50"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 ${regeneratingAll ? "animate-spin" : ""}`}
+                          strokeWidth={1.75}
+                        />
+                        Regenerate all
+                      </button>
+                    </div>
                     {questions.map((q, i) => (
-                      <label key={q} className="block rounded-xl border border-ink/[0.08] bg-clay/40 p-4">
-                        <span className="text-sm font-medium text-ink">
-                          {i + 1}. {q}
-                        </span>
+                      <div key={`${i}-${q}`} className="rounded-xl border border-ink/[0.08] bg-clay/40 p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-medium text-ink">
+                            {i + 1}. {q}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              aria-label="Regenerate this question"
+                              disabled={regeneratingIndex === i || regeneratingAll}
+                              onClick={() => void regenerateQuestion(i)}
+                              className="rounded-lg p-1.5 text-mute transition hover:bg-white hover:text-ink disabled:opacity-50"
+                            >
+                              <RefreshCw
+                                className={`h-3.5 w-3.5 ${regeneratingIndex === i ? "animate-spin" : ""}`}
+                                strokeWidth={1.75}
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Remove this question"
+                              onClick={() => removeQuestion(i)}
+                              className="rounded-lg p-1.5 text-mute transition hover:bg-white hover:text-ink"
+                            >
+                              <X className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            </button>
+                          </div>
+                        </div>
                         <DashTextarea
                           className="mt-3 bg-white"
                           required
@@ -446,8 +564,20 @@ export function OnboardingModal() {
                           }}
                           placeholder="Your answer…"
                         />
-                      </label>
+                      </div>
                     ))}
+                    <button
+                      type="button"
+                      disabled={generatingMore}
+                      onClick={() => void generateMoreQuestions()}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/20 px-3 py-2.5 text-xs font-semibold text-mute transition hover:border-ink/40 hover:text-ink disabled:opacity-50"
+                    >
+                      <Sparkles
+                        className={`h-3.5 w-3.5 ${generatingMore ? "animate-pulse" : ""}`}
+                        strokeWidth={1.75}
+                      />
+                      {generatingMore ? "Generating more…" : "Generate more questions"}
+                    </button>
                     <div className="flex gap-2">
                       <DashBtn type="button" variant="ghost" onClick={() => setStep("business")}>
                         Back
