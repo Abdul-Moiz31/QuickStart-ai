@@ -4,12 +4,14 @@ import {
   ONBOARDING_MODEL_CHAIN,
   chatWithModelFallback,
   crawlWebsite,
+  crawlWebsiteWithOlostep,
 } from "@quickstart-ai/rag";
 import { QUEUE_NAMES, type OnboardingScanResult } from "@quickstart-ai/shared";
 import { processIngest } from "./ingest-job.js";
 
 const MAX_QUESTIONS = 12;
-const MAX_SCAN_PAGES = 6;
+const MAX_SCAN_PAGES = 15;
+const WEBSITE_CONTEXT_CHARS = 12_000;
 
 const FALLBACK_QUESTIONS = [
   "What products or services do you offer?",
@@ -37,17 +39,39 @@ export interface OnboardingScanJobData {
   supportEmail?: string;
 }
 
-function parseQuestions(raw: string): string[] | null {
+interface QuestionPair {
+  question: string;
+  suggestedAnswer: string;
+}
+
+function parseQuestionPairs(raw: string): QuestionPair[] | null {
   const match = raw.match(/\[[\s\S]*\]/);
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[0]) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const questions = parsed
-      .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
-      .map((q) => q.trim())
-      .slice(0, MAX_QUESTIONS);
-    return questions.length >= 6 ? questions : null;
+    const pairs: QuestionPair[] = [];
+    for (const item of parsed) {
+      if (typeof item === "string" && item.trim()) {
+        pairs.push({ question: item.trim(), suggestedAnswer: "" });
+        continue;
+      }
+      if (item && typeof item === "object") {
+        const row = item as { question?: unknown; suggestedAnswer?: unknown; answer?: unknown };
+        const question = typeof row.question === "string" ? row.question.trim() : "";
+        const answerRaw =
+          typeof row.suggestedAnswer === "string"
+            ? row.suggestedAnswer
+            : typeof row.answer === "string"
+              ? row.answer
+              : "";
+        if (question) {
+          pairs.push({ question, suggestedAnswer: answerRaw.trim() });
+        }
+      }
+    }
+    const trimmed = pairs.slice(0, MAX_QUESTIONS);
+    return trimmed.length >= 6 ? trimmed : null;
   } catch {
     return null;
   }
@@ -69,6 +93,25 @@ function parseExtractedFields(raw: string): { location?: string; supportEmail?: 
   }
 }
 
+async function crawlBusinessWebsite(startUrl: string): Promise<Awaited<ReturnType<typeof crawlWebsite>>> {
+  const olostepKey = process.env.OLOSTEP_API_KEY?.trim();
+  if (olostepKey) {
+    try {
+      const pages = await crawlWebsiteWithOlostep(startUrl, olostepKey, {
+        maxPages: MAX_SCAN_PAGES,
+      });
+      if (pages.length > 0) {
+        console.log(`[onboarding-scan] Olostep crawled ${pages.length} pages for ${startUrl}`);
+        return pages;
+      }
+      console.warn("[onboarding-scan] Olostep returned no pages, falling back to basic crawl");
+    } catch (err) {
+      console.warn("[onboarding-scan] Olostep crawl failed, falling back to basic crawl", err);
+    }
+  }
+  return crawlWebsite(startUrl, { maxPages: 6 });
+}
+
 async function processOnboardingScan(
   job: { updateProgress(p: unknown): Promise<void> },
   data: OnboardingScanJobData,
@@ -78,14 +121,14 @@ async function processOnboardingScan(
   let scannedPages: Awaited<ReturnType<typeof crawlWebsite>> = [];
   if (data.businessWebsite) {
     await job.updateProgress({ stage: "scanning", pct: 25 });
-    scannedPages = await crawlWebsite(data.businessWebsite, { maxPages: MAX_SCAN_PAGES });
+    scannedPages = await crawlBusinessWebsite(data.businessWebsite);
   }
   const researchedWebsite = scannedPages.length > 0;
 
   const websiteContext = scannedPages
     .map((p) => `### ${p.title || p.url}\n${p.text}`)
     .join("\n\n")
-    .slice(0, 6000);
+    .slice(0, WEBSITE_CONTEXT_CHARS);
 
   let refinedLocation = data.businessLocation;
   let refinedSupportEmail = data.supportEmail;
@@ -135,14 +178,25 @@ async function processOnboardingScan(
   }
 
   await job.updateProgress({ stage: "questions", pct: 80 });
-  let questions: string[] = FALLBACK_QUESTIONS.slice(0, MAX_QUESTIONS);
+  const fallbackPairs: QuestionPair[] = FALLBACK_QUESTIONS.slice(0, MAX_QUESTIONS).map((q) => ({
+    question: q,
+    suggestedAnswer: "",
+  }));
+  let pairs: QuestionPair[] = fallbackPairs;
   let model: string | null = null;
   try {
     const { content, model: usedModel } = await chatWithModelFallback(
       [
         {
           role: "system",
-          content: `You help set up a website support chatbot. Return ONLY a JSON array of exactly ${MAX_QUESTIONS} short, specific questions a business owner should answer so the chatbot can help customers. Use the website research when present to ask sharper, business-specific questions. No markdown, no commentary.`,
+          content: `You help set up a website support chatbot. Return ONLY a JSON array of exactly ${MAX_QUESTIONS} objects:
+[{"question": string, "suggestedAnswer": string}, ...]
+
+Rules:
+- Each question should be short and specific for a business owner to confirm or edit.
+- Each suggestedAnswer must be a concrete draft answer grounded in the website research when possible (pricing, features, contact, policies, hours, etc.).
+- If the website does not contain enough info for an answer, write a brief honest placeholder the owner can fill in (e.g. "Contact support@… for pricing details").
+- No markdown, no commentary, JSON only.`,
         },
         {
           role: "user",
@@ -150,22 +204,26 @@ async function processOnboardingScan(
 Industry: ${data.businessIndustry}
 Website: ${data.businessWebsite || "n/a"}
 Location: ${refinedLocation || "n/a"}
-Description: ${data.businessDescription}${websiteContext ? `\n\nWebsite research (extracted public page text):\n${websiteContext}` : ""}
+Support email: ${refinedSupportEmail || "n/a"}
+Description: ${data.businessDescription}${websiteContext ? `\n\nWebsite research (public page content from ${scannedPages.length} pages):\n${websiteContext}` : ""}
 
-Generate ${MAX_QUESTIONS} onboarding questions tailored to this business.`,
+Generate ${MAX_QUESTIONS} onboarding question + suggestedAnswer pairs tailored to this business.`,
         },
       ],
       ONBOARDING_MODEL_CHAIN,
-      { temperature: 0.4, maxTokens: 1200 },
+      { temperature: 0.35, maxTokens: 3500 },
     );
-    const parsed = parseQuestions(content);
+    const parsed = parseQuestionPairs(content);
     if (parsed) {
-      questions = parsed;
+      pairs = parsed;
       model = usedModel;
     }
   } catch (err) {
     console.warn("[onboarding-scan] question generation failed, using fallbacks", err);
   }
+
+  const questions = pairs.map((p) => p.question);
+  const suggestedAnswers = pairs.map((p) => p.suggestedAnswer);
 
   await prisma.user.update({
     where: { id: data.userId },
@@ -182,6 +240,7 @@ Generate ${MAX_QUESTIONS} onboarding questions tailored to this business.`,
 
   return {
     questions,
+    suggestedAnswers,
     model,
     researchedWebsite,
     scannedPageCount: scannedPages.length,
@@ -196,7 +255,9 @@ export function startOnboardingScanWorker(redisUrl: string) {
     async (job) => {
       console.log(`[onboarding-scan] processing job ${job.id} for user ${job.data.userId}`);
       const result = await processOnboardingScan(job, job.data as OnboardingScanJobData);
-      console.log(`[onboarding-scan] done job ${job.id} — ${result.questions.length} questions`);
+      console.log(
+        `[onboarding-scan] done job ${job.id} — ${result.questions.length} questions, ${result.suggestedAnswers.filter((a) => a.trim()).length} suggested answers`,
+      );
       return result;
     },
     {

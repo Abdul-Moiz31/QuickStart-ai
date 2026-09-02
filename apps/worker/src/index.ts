@@ -35,18 +35,17 @@ async function main() {
 
   async function shutdown(signal: string) {
     console.log(`[worker] ${signal} received — draining in-flight jobs…`);
+    const shutdownTimer = setTimeout(() => {
+      console.error("[worker] shutdown timeout — forcing exit");
+      process.exit(1);
+    }, 30_000);
+    shutdownTimer.unref();
     await Promise.allSettled(allWorkers.map((w) => w.close()));
+    clearTimeout(shutdownTimer);
     await prisma.$disconnect();
     console.log("[worker] clean shutdown complete");
     process.exit(0);
   }
-
-  // Force-exit after 30 s if jobs don't drain in time
-  const shutdownTimer = setTimeout(() => {
-    console.error("[worker] shutdown timeout — forcing exit");
-    process.exit(1);
-  }, 30_000);
-  shutdownTimer.unref();
 
   process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
   process.on("SIGINT",  () => { void shutdown("SIGINT"); });
