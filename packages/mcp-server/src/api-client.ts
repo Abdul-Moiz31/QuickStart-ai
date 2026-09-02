@@ -69,7 +69,7 @@ export class QuickStartApiClient {
     }>("/api/v1/onboarding");
   }
 
-  async saveBusinessProfile(body: Record<string, unknown>) {
+  async updateBusinessProfile(body: Record<string, unknown>) {
     return this.request<{ success: boolean; business: Record<string, unknown> }>(
       "/api/v1/onboarding/business",
       { method: "PATCH", body },
@@ -94,6 +94,26 @@ export class QuickStartApiClient {
     const id = profile.onboarding.defaultProjectId;
     if (!id) throw new Error("No project found. Complete onboarding or set QUICKSTART_PROJECT_ID.");
     return id;
+  }
+
+  async getProject(projectId: string) {
+    return this.request<{
+      success: boolean;
+      project: {
+        id: string;
+        name: string;
+        description: string | null;
+        category: string | null;
+        plan: string;
+        credits?: number;
+        chatbotEnabled: boolean;
+        evalPassedAt: string | null;
+        memberRole: string;
+        isOwner: boolean;
+        createdAt: string;
+      };
+      documents: { id: string; status: string }[];
+    }>(`/api/v1/projects/${projectId}`);
   }
 
   async listKnowledge(projectId: string) {
@@ -121,6 +141,32 @@ export class QuickStartApiClient {
         },
       },
     );
+  }
+
+  async updateFaq(
+    projectId: string,
+    docId: string,
+    qaIndex: number,
+    question: string,
+    answer: string,
+  ) {
+    return this.request<{
+      success: boolean;
+      document: { id: string; title: string; status: string };
+    }>(`/api/v1/projects/${projectId}/knowledge/${docId}`, {
+      method: "PATCH",
+      body: { qaIndex, question: question.trim(), answer: answer.trim() },
+    });
+  }
+
+  async deleteFaq(projectId: string, docId: string, qaIndex: number) {
+    return this.request<{
+      success: boolean;
+      document: { id: string; title: string; status: string };
+    }>(`/api/v1/projects/${projectId}/knowledge/${docId}/qa`, {
+      method: "DELETE",
+      body: { qaIndex },
+    });
   }
 
   async listSessions(projectId: string, limit?: number) {
@@ -171,6 +217,87 @@ export class QuickStartApiClient {
         createdAt: string;
       }[];
     }>(`/api/v1/projects/${projectId}/sessions/search?${params}`);
+  }
+
+  async getAnalytics(projectId: string, period?: string) {
+    const params = period ? `?period=${encodeURIComponent(period)}` : "";
+    return this.request<{
+      success: boolean;
+      period: string;
+      analytics: {
+        totalConversations: number;
+        totalMessages: number;
+        avgMessagesPerSession: number;
+        analysedAnswers: number;
+        answerQuality: number | null;
+        qualityBreakdown: { strong: number; weak: number; unscored: number };
+        escalationRate: number;
+        leadCaptureRate: number;
+        dailyVolume: { date: string; count: number }[];
+        topToolsUsed: { tool: string; count: number }[];
+      };
+    }>(`/api/v1/projects/${projectId}/analytics${params}`);
+  }
+
+  async listKnowledgeGaps(projectId: string, period?: string) {
+    const params = period ? `?period=${encodeURIComponent(period)}` : "";
+    return this.request<{
+      success: boolean;
+      period: string;
+      analysedAnswers: number;
+      resolvedCount: number;
+      gaps: {
+        question: string;
+        sessionCount: number;
+        lastAskedAt: string | null;
+        sessionIds: string[];
+        precision: number | null;
+        topScore: number | null;
+      }[];
+    }>(`/api/v1/projects/${projectId}/knowledge-gaps${params}`);
+  }
+
+  async getEvalStatus(projectId: string) {
+    return this.request<{
+      success: boolean;
+      status: {
+        qaCount: number;
+        minQaRequired: number;
+        hasEnoughKnowledge: boolean;
+        readyDocCount: number;
+        evalPassedAt: string | null;
+        productionReady: boolean;
+        readiness: Record<string, unknown>;
+        activeRun: { id: string; status: string; createdAt: string } | null;
+        lastRun: {
+          id: string;
+          status: string;
+          metrics: unknown;
+          finishedAt: string | null;
+          createdAt: string;
+        } | null;
+      };
+    }>(`/api/v1/projects/${projectId}/eval/status`);
+  }
+
+  async listInbox(projectId: string) {
+    return this.request<{
+      success: boolean;
+      sessions: {
+        id: string;
+        visitorName: string;
+        visitorEmail: string;
+        humanPending: boolean;
+        humanActive: boolean;
+        stale: boolean;
+        agent: { name?: string; email?: string } | null;
+        escalatedAt: string | null;
+        takenOverAt: string | null;
+        messageCount: number;
+        lastMessage: { role: string; content: string } | null;
+        updatedAt: string | null;
+      }[];
+    }>(`/api/v1/projects/${projectId}/inbox`);
   }
 }
 
