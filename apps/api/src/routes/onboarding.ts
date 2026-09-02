@@ -1,11 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@quickstart-ai/db";
 import {
-  ONBOARDING_MODEL_CHAIN,
-  chatWithModelFallback,
-  fetchWebsiteSummary,
-} from "@quickstart-ai/rag";
-import {
   AppError,
   classifyKnowledgeDoc,
   extractQaFromOnboardingDoc,
@@ -23,24 +18,7 @@ import {
 } from "../credentials.js";
 import { env } from "../env.js";
 import { Queue } from "bullmq";
-import { QUEUE_NAMES } from "@quickstart-ai/shared";
-
-const MAX_QUESTIONS = 12;
-
-const FALLBACK_QUESTIONS = [
-  "What products or services do you offer?",
-  "Who is your ideal customer?",
-  "What are your business hours and timezone?",
-  "What are your most common customer questions?",
-  "How does pricing work (plans, trials, billing)?",
-  "What is your refund or cancellation policy?",
-  "How can customers contact support?",
-  "Do you offer demos, onboarding, or setup help?",
-  "What integrations or tools do you support?",
-  "Are there any limitations or known issues customers should know?",
-  "What makes your business different from competitors?",
-  "Where should the chatbot send leads or urgent requests?",
-];
+import { QUEUE_NAMES, type OnboardingScanResult } from "@quickstart-ai/shared";
 
 function getIngestQueue() {
   return new Queue(QUEUE_NAMES.INGEST, {
@@ -48,73 +26,10 @@ function getIngestQueue() {
   });
 }
 
-function parseQuestions(raw: string): string[] | null {
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    const questions = parsed
-      .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
-      .map((q) => q.trim())
-      .slice(0, MAX_QUESTIONS);
-    return questions.length >= 6 ? questions : null;
-  } catch {
-    return null;
-  }
-}
-
-async function generateQuestions(profile: {
-  businessName: string;
-  businessWebsite?: string;
-  businessIndustry: string;
-  businessDescription: string;
-  businessLocation?: string;
-}): Promise<{ questions: string[]; model?: string; researchedWebsite?: boolean }> {
-  let websiteContext = "";
-  let researchedWebsite = false;
-  if (profile.businessWebsite) {
-    const summary = await fetchWebsiteSummary(profile.businessWebsite);
-    if (summary) {
-      researchedWebsite = true;
-      websiteContext = `\n\nWebsite research (extracted public page text):\n${summary}`;
-    }
-  }
-
-  try {
-    const { content, model } = await chatWithModelFallback(
-      [
-        {
-          role: "system",
-          content: `You help set up a website support chatbot. Return ONLY a JSON array of exactly ${MAX_QUESTIONS} short, specific questions a business owner should answer so the chatbot can help customers. Use the website research when present to ask sharper, business-specific questions. No markdown, no commentary.`,
-        },
-        {
-          role: "user",
-          content: `Business: ${profile.businessName}
-Industry: ${profile.businessIndustry}
-Website: ${profile.businessWebsite || "n/a"}
-Location: ${profile.businessLocation || "n/a"}
-Description: ${profile.businessDescription}${websiteContext}
-
-Generate ${MAX_QUESTIONS} onboarding questions tailored to this business.`,
-        },
-      ],
-      ONBOARDING_MODEL_CHAIN,
-      { temperature: 0.4, maxTokens: 1200 },
-    );
-
-    const questions = parseQuestions(content);
-    if (questions) {
-      return { questions, model, researchedWebsite };
-    }
-  } catch (err) {
-    console.warn("[onboarding] question generation failed, using fallbacks", err);
-  }
-
-  return {
-    questions: FALLBACK_QUESTIONS.slice(0, MAX_QUESTIONS),
-    researchedWebsite,
-  };
+function getOnboardingScanQueue() {
+  return new Queue(QUEUE_NAMES.ONBOARDING_SCAN, {
+    connection: { url: env.redisUrl },
+  });
 }
 
 export async function onboardingRoutes(app: FastifyInstance) {
@@ -273,35 +188,66 @@ Answer only from the business knowledge provided. Be clear, helpful, and brief (
     };
   });
 
-  app.post("/api/v1/onboarding/questions", async (req) => {
+  app.post("/api/v1/onboarding/scan", async (req) => {
     await requireAuth(req);
     const body = onboardingBusinessSchema.parse(req.body);
-    const { questions, model, researchedWebsite } = await generateQuestions({
-      businessName: body.businessName,
-      businessWebsite: body.businessWebsite || undefined,
-      businessIndustry: body.businessIndustry,
-      businessDescription: body.businessDescription,
-      businessLocation: body.businessLocation || undefined,
+
+    const project = await prisma.project.findFirst({
+      where: { ownerId: req.user!.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
     });
 
-    await prisma.user.update({
-      where: { id: req.user!.id },
-      data: {
+    const queue = getOnboardingScanQueue();
+    const job = await queue.add(
+      "scan",
+      {
+        userId: req.user!.id,
+        projectId: project?.id ?? null,
         businessName: body.businessName,
-        businessWebsite: body.businessWebsite || null,
+        businessWebsite: body.businessWebsite || undefined,
         businessIndustry: body.businessIndustry,
         businessDescription: body.businessDescription,
-        onboardingQuestions: questions,
+        businessLocation: body.businessLocation || undefined,
+        supportEmail: body.supportEmail || undefined,
       },
-    });
+      { removeOnComplete: 50, removeOnFail: 50, attempts: 1 },
+    );
+    await queue.close();
 
-    return {
-      success: true,
-      questions,
-      maxQuestions: MAX_QUESTIONS,
-      model: model ?? null,
-      researchedWebsite: Boolean(researchedWebsite),
-    };
+    return { success: true, jobId: job.id };
+  });
+
+  app.get("/api/v1/onboarding/scan/:jobId", async (req) => {
+    await requireAuth(req);
+    const { jobId } = req.params as { jobId: string };
+
+    const queue = getOnboardingScanQueue();
+    try {
+      const job = await queue.getJob(jobId);
+      if (!job || job.data?.userId !== req.user!.id) {
+        throw new AppError("Scan not found", 404);
+      }
+
+      const state = await job.getState();
+      const progress = (job.progress as { stage: string; pct: number } | number | null) ?? null;
+
+      if (state === "completed") {
+        const result = job.returnvalue as OnboardingScanResult;
+        return { success: true, state, progress, result };
+      }
+      if (state === "failed") {
+        return {
+          success: true,
+          state,
+          progress,
+          error: job.failedReason || "Website scan failed",
+        };
+      }
+      return { success: true, state, progress };
+    } finally {
+      await queue.close();
+    }
   });
 
   app.post("/api/v1/onboarding/complete", async (req) => {
