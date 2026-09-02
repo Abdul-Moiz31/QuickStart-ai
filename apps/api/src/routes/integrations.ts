@@ -1,44 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@quickstart-ai/db";
-import { NotFoundError } from "@quickstart-ai/shared";
+import { MCP_TOOL_CATALOG, MCP_TOOL_GROUPS, NotFoundError } from "@quickstart-ai/shared";
 import { requireAuth } from "../auth.js";
 import { requireProjectAccess } from "../project-access.js";
 import { env } from "../env.js";
-
-const MCP_TOOLS = [
-  {
-    name: "get_business_profile",
-    description: "Read business name, industry, description, location, support email, and onboarding Q&A.",
-  },
-  {
-    name: "save_business_profile",
-    description: "Save or update business details — syncs your chatbot knowledge automatically.",
-  },
-  {
-    name: "list_faqs",
-    description: "List FAQ question/answer pairs the chatbot uses.",
-  },
-  {
-    name: "add_faq",
-    description: "Add a new FAQ to the chatbot knowledge base.",
-  },
-  {
-    name: "list_projects",
-    description: "List your QuickStart AI projects.",
-  },
-  {
-    name: "list_conversations",
-    description: "List recent visitor chat conversations (excludes admin test sessions).",
-  },
-  {
-    name: "get_conversation",
-    description: "Get a full conversation with all messages by session ID.",
-  },
-  {
-    name: "search_conversations",
-    description: "Search conversations by visitor name, email, or message content.",
-  },
-] as const;
 
 export async function integrationsRoutes(app: FastifyInstance) {
   app.get("/api/v1/projects/:id/mcp", async (req) => {
@@ -72,7 +37,8 @@ export async function integrationsRoutes(app: FastifyInstance) {
           QUICKSTART_API_TOKEN: "<your-access-token>",
           QUICKSTART_PROJECT_ID: project.id,
         },
-        tools: MCP_TOOLS,
+        tools: MCP_TOOL_CATALOG,
+        toolGroups: MCP_TOOL_GROUPS,
       },
     };
   });
