@@ -1,32 +1,19 @@
 import { Worker } from "bullmq";
 import { prisma } from "@quickstart-ai/db";
 import {
+  ONBOARDING_MAX_QUESTIONS,
   ONBOARDING_MODEL_CHAIN,
+  ONBOARDING_WEBSITE_CONTEXT_CHARS,
   chatWithModelFallback,
   crawlWebsite,
   crawlWebsiteWithOlostep,
+  generateOnboardingQuestionPairs,
 } from "@quickstart-ai/rag";
 import { QUEUE_NAMES, type OnboardingScanResult } from "@quickstart-ai/shared";
 import { processIngest } from "./ingest-job.js";
 
-const MAX_QUESTIONS = 12;
 const MAX_SCAN_PAGES = 15;
-const WEBSITE_CONTEXT_CHARS = 12_000;
-
-const FALLBACK_QUESTIONS = [
-  "What products or services do you offer?",
-  "Who is your ideal customer?",
-  "What are your business hours and timezone?",
-  "What are your most common customer questions?",
-  "How does pricing work (plans, trials, billing)?",
-  "What is your refund or cancellation policy?",
-  "How can customers contact support?",
-  "Do you offer demos, onboarding, or setup help?",
-  "What integrations or tools do you support?",
-  "Are there any limitations or known issues customers should know?",
-  "What makes your business different from competitors?",
-  "Where should the chatbot send leads or urgent requests?",
-];
+const WEBSITE_CONTEXT_CHARS = ONBOARDING_WEBSITE_CONTEXT_CHARS;
 
 export interface OnboardingScanJobData {
   userId: string;
@@ -37,44 +24,6 @@ export interface OnboardingScanJobData {
   businessDescription: string;
   businessLocation?: string;
   supportEmail?: string;
-}
-
-interface QuestionPair {
-  question: string;
-  suggestedAnswer: string;
-}
-
-function parseQuestionPairs(raw: string): QuestionPair[] | null {
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    const pairs: QuestionPair[] = [];
-    for (const item of parsed) {
-      if (typeof item === "string" && item.trim()) {
-        pairs.push({ question: item.trim(), suggestedAnswer: "" });
-        continue;
-      }
-      if (item && typeof item === "object") {
-        const row = item as { question?: unknown; suggestedAnswer?: unknown; answer?: unknown };
-        const question = typeof row.question === "string" ? row.question.trim() : "";
-        const answerRaw =
-          typeof row.suggestedAnswer === "string"
-            ? row.suggestedAnswer
-            : typeof row.answer === "string"
-              ? row.answer
-              : "";
-        if (question) {
-          pairs.push({ question, suggestedAnswer: answerRaw.trim() });
-        }
-      }
-    }
-    const trimmed = pairs.slice(0, MAX_QUESTIONS);
-    return trimmed.length >= 6 ? trimmed : null;
-  } catch {
-    return null;
-  }
 }
 
 function parseExtractedFields(raw: string): { location?: string; supportEmail?: string } {
@@ -178,49 +127,18 @@ async function processOnboardingScan(
   }
 
   await job.updateProgress({ stage: "questions", pct: 80 });
-  const fallbackPairs: QuestionPair[] = FALLBACK_QUESTIONS.slice(0, MAX_QUESTIONS).map((q) => ({
-    question: q,
-    suggestedAnswer: "",
-  }));
-  let pairs: QuestionPair[] = fallbackPairs;
-  let model: string | null = null;
-  try {
-    const { content, model: usedModel } = await chatWithModelFallback(
-      [
-        {
-          role: "system",
-          content: `You help set up a website support chatbot. Return ONLY a JSON array of exactly ${MAX_QUESTIONS} objects:
-[{"question": string, "suggestedAnswer": string}, ...]
-
-Rules:
-- Each question should be short and specific for a business owner to confirm or edit.
-- Each suggestedAnswer must be a concrete draft answer grounded in the website research when possible (pricing, features, contact, policies, hours, etc.).
-- If the website does not contain enough info for an answer, write a brief honest placeholder the owner can fill in (e.g. "Contact support@… for pricing details").
-- No markdown, no commentary, JSON only.`,
-        },
-        {
-          role: "user",
-          content: `Business: ${data.businessName}
-Industry: ${data.businessIndustry}
-Website: ${data.businessWebsite || "n/a"}
-Location: ${refinedLocation || "n/a"}
-Support email: ${refinedSupportEmail || "n/a"}
-Description: ${data.businessDescription}${websiteContext ? `\n\nWebsite research (public page content from ${scannedPages.length} pages):\n${websiteContext}` : ""}
-
-Generate ${MAX_QUESTIONS} onboarding question + suggestedAnswer pairs tailored to this business.`,
-        },
-      ],
-      ONBOARDING_MODEL_CHAIN,
-      { temperature: 0.35, maxTokens: 3500 },
-    );
-    const parsed = parseQuestionPairs(content);
-    if (parsed) {
-      pairs = parsed;
-      model = usedModel;
-    }
-  } catch (err) {
-    console.warn("[onboarding-scan] question generation failed, using fallbacks", err);
-  }
+  const { pairs, model } = await generateOnboardingQuestionPairs({
+    businessName: data.businessName,
+    businessIndustry: data.businessIndustry,
+    businessWebsite: data.businessWebsite,
+    businessDescription: data.businessDescription,
+    businessLocation: refinedLocation,
+    supportEmail: refinedSupportEmail,
+    websiteContext: websiteContext
+      ? `${websiteContext}\n\n(from ${scannedPages.length} pages)`
+      : undefined,
+    count: ONBOARDING_MAX_QUESTIONS,
+  });
 
   const questions = pairs.map((p) => p.question);
   const suggestedAnswers = pairs.map((p) => p.suggestedAnswer);

@@ -115,6 +115,17 @@ export const onboardingCompleteSchema = z.object({
   projectDescription: z.string().max(2000).optional(),
 });
 
+export const onboardingRegenerateQuestionsSchema = z.object({
+  businessName: z.string().min(1).max(160),
+  businessWebsite: z.string().max(300).optional(),
+  businessIndustry: z.string().min(1).max(120),
+  businessDescription: z.string().min(20).max(4000),
+  businessLocation: z.string().max(160).optional(),
+  supportEmail: z.string().max(160).optional(),
+  existingQuestions: z.array(z.string()).max(50).default([]),
+  count: z.number().int().min(1).max(10),
+});
+
 export const ingestTextSchema = z.object({
   title: z.string().min(1).max(240),
   content: z.string().min(1).max(500_000),

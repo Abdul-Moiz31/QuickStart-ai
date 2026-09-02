@@ -6,10 +6,15 @@ import {
   extractQaFromOnboardingDoc,
   onboardingBusinessSchema,
   onboardingCompleteSchema,
+  onboardingRegenerateQuestionsSchema,
   parseBusinessProfileExtras,
   rebuildOnboardingDocContent,
   updateBusinessProfileSchema,
 } from "@quickstart-ai/shared";
+import {
+  ONBOARDING_WEBSITE_CONTEXT_CHARS,
+  generateOnboardingQuestionPairs,
+} from "@quickstart-ai/rag";
 import { requireAuth } from "../auth.js";
 import {
   generateClientId,
@@ -248,6 +253,50 @@ Answer only from the business knowledge provided. Be clear, helpful, and brief (
     } finally {
       await queue.close();
     }
+  });
+
+  app.post("/api/v1/onboarding/regenerate-questions", async (req) => {
+    await requireAuth(req);
+    const body = onboardingRegenerateQuestionsSchema.parse(req.body);
+
+    const project = await prisma.project.findFirst({
+      where: { ownerId: req.user!.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
+    let websiteContext: string | undefined;
+    if (project) {
+      const pages = await prisma.knowledgeDocument.findMany({
+        where: { projectId: project.id, sourceType: "url" },
+        select: { title: true, rawContent: true },
+      });
+      if (pages.length > 0) {
+        websiteContext = pages
+          .map((p) => `### ${p.title}\n${p.rawContent}`)
+          .join("\n\n")
+          .slice(0, ONBOARDING_WEBSITE_CONTEXT_CHARS);
+      }
+    }
+
+    const { pairs, model } = await generateOnboardingQuestionPairs({
+      businessName: body.businessName,
+      businessIndustry: body.businessIndustry,
+      businessWebsite: body.businessWebsite,
+      businessDescription: body.businessDescription,
+      businessLocation: body.businessLocation,
+      supportEmail: body.supportEmail,
+      websiteContext,
+      count: body.count,
+      excludeQuestions: body.existingQuestions,
+    });
+
+    return {
+      success: true,
+      questions: pairs.map((p) => p.question),
+      suggestedAnswers: pairs.map((p) => p.suggestedAnswer),
+      model,
+    };
   });
 
   app.post("/api/v1/onboarding/complete", async (req) => {
