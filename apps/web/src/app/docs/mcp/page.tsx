@@ -21,7 +21,7 @@ function CodeBlock({
           </div>
           <span className="text-sm font-medium text-white/90">{title}</span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300/70">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-white/60">
           {lang}
         </span>
       </div>
