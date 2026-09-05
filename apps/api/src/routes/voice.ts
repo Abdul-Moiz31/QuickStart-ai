@@ -3,9 +3,12 @@ import { prisma } from "@quickstart-ai/db";
 import { AppError, type PlanTier, voiceTranscribeSchema } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
 import { transcribeAudio, VoiceTranscriptionError } from "../groq.js";
-import { checkVoiceGate } from "../voice-gate.js";
+import { checkVoiceTranscribeGate } from "../voice-gate.js";
+import { registerVoiceRealtimeRoutes } from "../voice/routes.js";
 
 export async function voiceRoutes(app: FastifyInstance) {
+  await registerVoiceRealtimeRoutes(app);
+
   app.post("/api/v1/voice/transcribe", async (req) => {
     await requireClient(req);
     const body = voiceTranscribeSchema.parse(req.body);
@@ -20,7 +23,7 @@ export async function voiceRoutes(app: FastifyInstance) {
       where: { projectId: project.id, kind: "voice_transcribe", createdAt: { gte: startOfToday } },
     });
 
-    const gate = checkVoiceGate(planKey, todayCount);
+    const gate = checkVoiceTranscribeGate(planKey, todayCount);
     if (!gate.allowed) {
       const status = gate.code === "PLAN_UPGRADE_REQUIRED" ? 403 : 429;
       throw new AppError(gate.reason, status, gate.code);

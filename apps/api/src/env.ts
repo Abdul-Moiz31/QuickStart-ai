@@ -31,6 +31,12 @@ export const env = {
   mailFrom: process.env.MAIL_FROM ?? "QuickStart AI <onboarding@resend.dev>",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
   groqApiKey: process.env.GROQ_API_KEY ?? "",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  voiceProvider: process.env.VOICE_PROVIDER ?? "gemini_live",
+  geminiLiveModel: process.env.GEMINI_LIVE_MODEL ?? "gemini-2.5-flash-native-audio-latest",
+  voiceRealtimeEnabled: process.env.VOICE_REALTIME_ENABLED !== "false",
+  voiceEphemeralTokenTtlMin: Number(process.env.VOICE_EPHEMERAL_TOKEN_TTL_MIN ?? 30),
+  voiceSessionTtlSec: Number(process.env.VOICE_SESSION_TTL_SEC ?? 7200),
 };
 
 // The JWT default is publicly known (committed to the repo). Any deployment

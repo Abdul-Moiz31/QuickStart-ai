@@ -42,6 +42,10 @@ async function main() {
   await app.register(formbody);
 
   app.addHook("onRequest", async (req) => {
+    if (req.method === "OPTIONS") return;
+    const path = req.url.split("?")[0] ?? req.url;
+    if (path === "/health") return;
+
     const ip = req.ip || "unknown";
     const rl = await assertRateLimit(
       `ip:${ip}`,

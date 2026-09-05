@@ -181,6 +181,13 @@ export async function chatRoutes(app: FastifyInstance) {
         description: project.description,
         proactiveTriggers: project.proactiveTriggers,
         allowAnonymousSessions: project.allowAnonymousSessions,
+        voice: {
+          enabled: project.voiceEnabled && env.voiceRealtimeEnabled,
+          provider: project.voiceProvider,
+          fallbackMode: project.voiceFallbackMode,
+          language: project.voiceLanguage,
+          voiceName: project.voiceName,
+        },
       },
     };
   });

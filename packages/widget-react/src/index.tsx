@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -11,6 +11,15 @@ import {
   type WidgetTheme,
 } from "@quickstart-ai/widget-core";
 import { looksLikeHandoffOffer, visitorRequestsHumanHelp } from "@quickstart-ai/shared";
+import { useRealtimeVoice } from "./useRealtimeVoice.js";
+import { VoiceChatBar } from "./VoiceChatBar.js";
+import type { VoiceTranscriptEvent } from "@quickstart-ai/voice-core";
+import {
+  applyVoiceTranscript,
+  finalizeVoiceTranscripts,
+  isDuplicateWelcome,
+  type VoiceTurnIndexes,
+} from "./voice-transcript.js";
 
 export interface ChatBotProps {
   clientId: string;
@@ -259,9 +268,61 @@ const markdownStyles = `
   display: flex;
   gap: 8px;
   padding: 12px 14px 14px;
-  border-top: 1px solid rgba(10,10,10,0.06);
   background: #ffffff;
   flex-shrink: 0;
+  transition: opacity 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.48s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 88px;
+  opacity: 1;
+  transform: translateY(0);
+}
+.qs-widget-composer {
+  position: relative;
+  flex-shrink: 0;
+  background: #ffffff;
+  border-top: 1px solid rgba(10,10,10,0.06);
+  padding-bottom: max(22px, calc(10px + env(safe-area-inset-bottom, 0px)));
+}
+.qs-widget-composer--voice .qs-widget-input-row {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transform: translateY(10px);
+  overflow: hidden;
+  pointer-events: none;
+  border-top-color: transparent;
+}
+.qs-widget-voice-dock {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(16px);
+  transition: opacity 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.48s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.48s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 14px;
+}
+.qs-widget-composer--voice .qs-widget-voice-dock {
+  max-height: 56px;
+  opacity: 1;
+  transform: translateY(0);
+  padding: 10px 14px 8px;
+}
+.qs-widget-composer-banner {
+  padding: 0 14px 8px;
+}
+.qs-widget-composer-banner .qs-voice-error {
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qs-widget-input-row,
+  .qs-widget-voice-dock {
+    transition: none;
+  }
 }
 .qs-widget-input-row input {
   min-width: 0;
@@ -314,8 +375,11 @@ const markdownStyles = `
     padding: 12px 14px;
   }
   .qs-widget-input-row {
-    padding: 10px 12px 12px;
+    padding: 10px 12px 10px;
     gap: 6px;
+  }
+  .qs-widget-composer {
+    padding-bottom: max(18px, calc(8px + env(safe-area-inset-bottom, 0px)));
   }
   .qs-widget-input-row input,
   .qs-widget-start-form input {
@@ -371,6 +435,225 @@ const markdownStyles = `
 }
 .qs-transcribe-dots span:nth-child(2) { animation-delay: 0.12s; }
 .qs-transcribe-dots span:nth-child(3) { animation-delay: 0.24s; }
+@keyframes qs-voice-strip-natural {
+  0%, 100% {
+    transform: scaleY(calc(var(--bar-min, 0.12) * var(--bar-env, 1)));
+    opacity: calc(0.22 + var(--bar-env, 0.5) * 0.25);
+  }
+  40% {
+    transform: scaleY(calc((var(--bar-min, 0.12) + var(--bar-max, 0.75)) * 0.5 * var(--bar-env, 1)));
+    opacity: calc(0.35 + var(--bar-env, 0.5) * 0.35);
+  }
+  65% {
+    transform: scaleY(calc(var(--bar-max, 0.75) * var(--bar-env, 1)));
+    opacity: calc(0.45 + var(--bar-env, 0.5) * 0.5);
+  }
+  82% {
+    transform: scaleY(calc((var(--bar-min, 0.12) + var(--bar-max, 0.75)) * 0.42 * var(--bar-env, 1)));
+    opacity: calc(0.28 + var(--bar-env, 0.5) * 0.3);
+  }
+}
+@keyframes qs-voice-dot-idle {
+  0%, 100% { opacity: 0.22; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.35); }
+}
+.qs-voice-wave-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  height: 26px;
+  min-width: 0;
+  flex: 1;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+}
+.qs-voice-wave-strip__bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  max-width: 3px;
+  height: 100%;
+  border-radius: 999px;
+  background: #0A0A0A;
+  transform-origin: center center;
+  transform: scaleY(calc(var(--bar-min, 0.12) * var(--bar-env, 1)));
+  opacity: calc(0.2 + var(--bar-env, 0.5) * 0.28);
+  will-change: transform, opacity;
+}
+.qs-voice-wave-strip__bar--dot {
+  flex: 0 0 3px;
+  min-width: 3px;
+  max-width: 3px;
+  height: 3px;
+  align-self: center;
+  border-radius: 50%;
+  transform: none;
+  opacity: 0.28;
+}
+.qs-voice-wave-strip--active:not(.qs-voice-wave-strip--mic) .qs-voice-wave-strip__bar:not(.qs-voice-wave-strip__bar--dot) {
+  animation: qs-voice-strip-natural var(--bar-dur, 1.2s) ease-in-out infinite;
+}
+.qs-voice-wave-strip--active:not(.qs-voice-wave-strip--mic) .qs-voice-wave-strip__bar--dot {
+  animation: qs-voice-dot-idle calc(var(--bar-dur, 1.2s) * 1.4) ease-in-out infinite;
+}
+.qs-voice-wave-strip--mic .qs-voice-wave-strip__bar:not(.qs-voice-wave-strip__bar--dot) {
+  animation: none;
+  transition: transform 0.08s ease-out, opacity 0.1s ease-out;
+}
+.qs-voice-wave-strip--mic .qs-voice-wave-strip__bar--dot {
+  animation: none;
+  transition: opacity 0.1s ease-out, transform 0.1s ease-out;
+}
+.qs-voice-wave-strip--speaking:not(.qs-voice-wave-strip--mic) .qs-voice-wave-strip__bar:not(.qs-voice-wave-strip__bar--dot) {
+  animation-duration: calc(var(--bar-dur, 1.2s) * 0.68);
+}
+@media (prefers-reduced-motion: reduce) {
+  .qs-voice-wave-strip__bar { animation: none !important; transform: scaleY(0.4); opacity: 0.5; }
+}
+.qs-voice-wave-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.qs-voice-bar-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.qs-voice-bar-wrap--inline {
+  margin-top: auto;
+}
+.qs-voice-bar-wrap--dock {
+  margin-top: 0;
+  padding-top: 0;
+  width: 100%;
+}
+.qs-voice-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.qs-voice-icon-btn:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+.qs-voice-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.qs-voice-start-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 7px 14px 7px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(10,10,10,0.1);
+  background: #ffffff;
+  color: #0A0A0A;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(10,10,10,0.04);
+  white-space: nowrap;
+}
+.qs-voice-start-btn:hover:not(:disabled) {
+  background: #F7F5F1;
+  border-color: rgba(10,10,10,0.16);
+  box-shadow: 0 2px 6px rgba(10,10,10,0.06);
+}
+.qs-voice-start-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.qs-voice-start-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.qs-voice-start-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.qs-voice-start-btn__text {
+  line-height: 1;
+  padding-right: 2px;
+}
+.qs-voice-active-dock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 7px 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(10,10,10,0.08);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(10,10,10,0.04);
+}
+.qs-voice-active-dock__strip {
+  flex: 1;
+  min-width: 0;
+}
+.qs-voice-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #DC2626;
+  background: #FEF2F2;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.qs-voice-stop-btn:hover {
+  transform: scale(1.03);
+  background: #FEE2E2;
+  border-color: rgba(220, 38, 38, 0.45);
+  color: #B91C1C;
+}
+.qs-voice-stop-btn:active {
+  transform: scale(0.97);
+  background: #FECACA;
+}
+.qs-widget-bubble--streaming {
+  box-shadow: 0 0 0 1px rgba(10,10,10,0.06);
+}
+.qs-voice-error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: #FEF2F2;
+  color: #991B1B;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
 `;
 
 function MessageCircleIcon() {
@@ -481,6 +764,16 @@ function StopRecordingIcon() {
 function TranscribingIcon() {
   return (
     <span className="qs-transcribe-dots" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
+function StreamingTail() {
+  return (
+    <span className="qs-transcribe-dots" aria-hidden="true" style={{ marginLeft: 6 }}>
       <span />
       <span />
       <span />
@@ -608,6 +901,8 @@ export function ChatBot({
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speakReplies, setSpeakReplies] = useState(false);
+  const [voiceRealtimeEnabled, setVoiceRealtimeEnabled] = useState(false);
+  const [voiceFallbackMode, setVoiceFallbackMode] = useState<"transcribe" | "text_only">("transcribe");
   const endRef = useRef<HTMLDivElement>(null);
   const agentTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingPing = useRef(0);
@@ -616,6 +911,91 @@ export function ChatBot({
   const sessionIdRef = useRef("");
   const humanActiveRef = useRef(false);
   const loadingRef = useRef(false);
+  const voiceTurnRef = useRef<VoiceTurnIndexes>({ userIdx: null, assistantIdx: null });
+  const voicePersistedRef = useRef<Set<string>>(new Set());
+
+  const mergeChatMessages = useCallback((prev: WidgetMessage[], chatMessages: ChatMessage[]) => {
+    if (!prev.some((m) => m.role === "divider")) return chatMessages;
+    const out: WidgetMessage[] = [];
+    let chatIdx = 0;
+    for (const m of prev) {
+      if (m.role === "divider") {
+        out.push(m);
+      } else if (chatIdx < chatMessages.length) {
+        out.push(chatMessages[chatIdx]!);
+        chatIdx += 1;
+      }
+    }
+    while (chatIdx < chatMessages.length) {
+      out.push(chatMessages[chatIdx]!);
+      chatIdx += 1;
+    }
+    return out;
+  }, []);
+
+  const handleVoiceTranscript = useCallback(
+    (event: VoiceTranscriptEvent) => {
+      setMessages((prev) => {
+        const chatOnly = prev.filter((m): m is ChatMessage => m.role !== "divider");
+        if (event.role === "assistant" && isDuplicateWelcome(chatOnly, event.text)) {
+          return prev;
+        }
+        const result = applyVoiceTranscript(chatOnly, event, voiceTurnRef.current);
+        voiceTurnRef.current = result.turn;
+        return mergeChatMessages(prev, result.messages);
+      });
+    },
+    [mergeChatMessages],
+  );
+
+  const finalizeVoiceMessages = useCallback(() => {
+    setMessages((prev) => {
+      const chatOnly = prev.filter((m): m is ChatMessage => m.role !== "divider");
+      const finalized = finalizeVoiceTranscripts(chatOnly);
+      voiceTurnRef.current = { userIdx: null, assistantIdx: null };
+      return mergeChatMessages(prev, finalized);
+    });
+  }, [mergeChatMessages]);
+
+  const handleVoiceFinalTranscript = useCallback(
+    (event: VoiceTranscriptEvent) => {
+      const sid = sessionIdRef.current;
+      if (!sid || !event.text.trim()) return;
+      const key = `${event.role}:${event.text.trim()}`;
+      if (voicePersistedRef.current.has(key)) return;
+      voicePersistedRef.current.add(key);
+      void client
+        .appendVoiceTranscript({
+          chatSessionId: sid,
+          voiceSessionId: voiceSessionIdRef.current ?? undefined,
+          role: event.role,
+          content: event.text.trim(),
+        })
+        .catch(() => {
+          voicePersistedRef.current.delete(key);
+        });
+    },
+    [client],
+  );
+
+  const handleVoiceEscalation = useCallback(() => {
+    setHandoffPending(true);
+    finalizeVoiceMessages();
+  }, [finalizeVoiceMessages]);
+
+  const {
+    voiceState,
+    voiceActive,
+    voiceError,
+    voiceSessionIdRef,
+    getMicLevels,
+    startVoice,
+    stopVoice,
+  } = useRealtimeVoice(client, {
+    onTranscript: handleVoiceTranscript,
+    onFinalTranscript: handleVoiceFinalTranscript,
+    onEscalation: handleVoiceEscalation,
+  });
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -637,7 +1017,35 @@ export function ChatBot({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, open, proactivePhase, pendingQuestion]);
+  }, [messages, open, proactivePhase, pendingQuestion, voiceActive, voiceState]);
+
+  useEffect(() => {
+    if (voiceState !== "live") return;
+    setMessages((prev) => {
+      let changed = false;
+      const chatOnly = prev.filter((m): m is ChatMessage => m.role !== "divider");
+      const nextChat = chatOnly.map((m) => {
+        if (m.role === "assistant" && m.streaming) {
+          changed = true;
+          return { ...m, streaming: false };
+        }
+        return m;
+      });
+      if (!changed) return prev;
+      voiceTurnRef.current.assistantIdx = null;
+      return mergeChatMessages(prev, nextChat);
+    });
+  }, [voiceState, mergeChatMessages]);
+
+  useEffect(() => {
+    if (!voiceActive) return;
+    if (humanActive || handoffPending) {
+      void (async () => {
+        await stopVoice();
+        finalizeVoiceMessages();
+      })();
+    }
+  }, [humanActive, handoffPending, voiceActive, stopVoice, finalizeVoiceMessages]);
 
   useEffect(() => {
     if (!id) return;
@@ -661,6 +1069,12 @@ export function ChatBot({
         }
         if (cfg?.allowAnonymousSessions) {
           setAllowAnonymous(true);
+        }
+        if (cfg?.voice?.enabled) {
+          setVoiceRealtimeEnabled(true);
+          if (cfg.voice.fallbackMode === "transcribe" || cfg.voice.fallbackMode === "text_only") {
+            setVoiceFallbackMode(cfg.voice.fallbackMode);
+          }
         }
       })
       .catch(() => {
@@ -1057,6 +1471,62 @@ export function ChatBot({
     }
   };
 
+  const startLiveVoice = async () => {
+    if (loading || recording || transcribing || voiceActive) return;
+
+    let sid = sessionIdRef.current;
+    if (!sid) {
+      setLoading(true);
+      try {
+        sid = await beginSession();
+      } catch (e) {
+        console.error(e);
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: "Could not start chat session for voice." },
+        ]);
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    }
+
+    voiceTurnRef.current = { userIdx: null, assistantIdx: null };
+    try {
+      await startVoice(sid);
+    } catch (e) {
+      console.error(e);
+      const message =
+        e instanceof ChatRequestError
+          ? e.message
+          : "Could not start live voice. Try the mic button to record a message instead.";
+      setMessages((m) => [...m, { role: "assistant", content: message }]);
+    }
+  };
+
+  const endLiveVoice = async () => {
+    await stopVoice();
+    finalizeVoiceMessages();
+  };
+
+  const showPushToTalkMic =
+    micSupported && voiceFallbackMode === "transcribe";
+  const hasUserMessages = messages.some((m) => m.role === "user");
+  const voiceBarProps = {
+    active: voiceActive,
+    state: voiceState,
+    disabled: loading || recording || transcribing,
+    accentBg: surface.accent.bg,
+    accentText: surface.accent.text,
+    onStart: () => void startLiveVoice(),
+    onStop: () => void endLiveVoice(),
+    getMicLevels,
+  };
+  const showVoiceStartInline =
+    voiceRealtimeEnabled && chatReady && !voiceActive && !hasUserMessages;
+  const showVoiceStartIcon =
+    voiceRealtimeEnabled && chatReady && !voiceActive && hasUserMessages;
+
   const posKey = resolvedPosition === "left" ? "left" : "right";
   const initials = projectInitials(projectName);
   const fabClass = `qs-widget-fab qs-widget-fab--${posKey}`;
@@ -1329,7 +1799,7 @@ export function ChatBot({
                       <div
                         className={`qs-widget-bubble qs-widget-bubble--${
                           m.role === "user" ? "user" : isAgent ? "agent" : "assistant"
-                        }`}
+                        }${m.streaming ? " qs-widget-bubble--streaming" : ""}`}
                         style={
                           m.role === "user"
                             ? {
@@ -1343,9 +1813,15 @@ export function ChatBot({
                       >
                         {isAgent && <div className="qs-agent-label">Support team</div>}
                         {m.role === "assistant" || isAgent ? (
-                          <MarkdownContent content={m.content} />
+                          <>
+                            <MarkdownContent content={m.content} />
+                            {m.streaming && <StreamingTail />}
+                          </>
                         ) : (
-                          m.content
+                          <>
+                            {m.content}
+                            {m.streaming && <StreamingTail />}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1385,78 +1861,94 @@ export function ChatBot({
                   <TypingIndicator />
                 </div>
               )}
+              {showVoiceStartInline && <VoiceChatBar variant="inline" {...voiceBarProps} />}
               <div ref={endRef} />
             </div>
 
-            <div className="qs-widget-input-row">
-              <input
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  notifyTyping();
-                }}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-                placeholder={recording ? "Listening…" : "Type a message…"}
-                disabled={loading || recording || transcribing}
-                style={{ ...inputStyle(surface), margin: 0, borderRadius: 9999 }}
-              />
-              {speechSupported && (
+            <div className={`qs-widget-composer${voiceActive ? " qs-widget-composer--voice" : ""}`}>
+              {voiceError && voiceRealtimeEnabled && !voiceActive && (
+                <div className="qs-widget-composer-banner">
+                  <div className="qs-voice-error">{voiceError}</div>
+                </div>
+              )}
+              <div className="qs-widget-input-row">
+                <input
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    notifyTyping();
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+                  placeholder={
+                    voiceActive ? "Live voice active…" : recording ? "Listening…" : "Type a message…"
+                  }
+                  disabled={loading || recording || transcribing || voiceActive}
+                  style={{ ...inputStyle(surface), margin: 0, borderRadius: 9999 }}
+                />
+                {speechSupported && !voiceActive && (
+                  <button
+                    type="button"
+                    onClick={() => setSpeakReplies((v) => !v)}
+                    title={speakReplies ? "Stop speaking replies aloud" : "Speak replies aloud"}
+                    aria-label={speakReplies ? "Disable spoken replies" : "Enable spoken replies"}
+                    aria-pressed={speakReplies}
+                    className="qs-widget-speak-btn"
+                    style={{
+                      ...iconBtnStyle,
+                      background: speakReplies ? surface.accent.bg : surface.panel.bg,
+                      color: speakReplies ? "#ffffff" : surface.input.text,
+                      border: `1px solid ${speakReplies ? surface.accent.bg : surface.input.border}`,
+                    }}
+                  >
+                    {speakReplies ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
+                  </button>
+                )}
+                {showVoiceStartIcon && <VoiceChatBar variant="icon" {...voiceBarProps} />}
+                {showPushToTalkMic && !voiceActive && (
+                  <button
+                    type="button"
+                    onClick={recording ? stopRecording : startRecording}
+                    disabled={transcribing || loading}
+                    title={recording ? "Stop recording" : "Record a voice message"}
+                    aria-label={recording ? "Stop recording" : "Record a voice message"}
+                    className={`qs-widget-mic-btn${recording ? " qs-widget-mic-btn--recording" : ""}`}
+                    style={{
+                      ...iconBtnStyle,
+                      background: recording ? "#DC2626" : surface.panel.bg,
+                      color: recording ? "#ffffff" : surface.input.text,
+                      border: `1px solid ${recording ? "#DC2626" : surface.input.border}`,
+                      opacity: transcribing ? 0.55 : 1,
+                    }}
+                  >
+                    {transcribing ? (
+                      <TranscribingIcon />
+                    ) : recording ? (
+                      <StopRecordingIcon />
+                    ) : (
+                      <MicStandIcon />
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setSpeakReplies((v) => !v)}
-                  title={speakReplies ? "Stop speaking replies aloud" : "Speak replies aloud"}
-                  aria-label={speakReplies ? "Disable spoken replies" : "Enable spoken replies"}
-                  aria-pressed={speakReplies}
-                  className="qs-widget-speak-btn"
+                  onClick={send}
+                  disabled={loading || recording || transcribing || voiceActive || !input.trim()}
+                  className="qs-widget-send-btn"
                   style={{
-                    ...iconBtnStyle,
-                    background: speakReplies ? surface.accent.bg : surface.panel.bg,
-                    color: speakReplies ? "#ffffff" : surface.input.text,
-                    border: `1px solid ${speakReplies ? surface.accent.bg : surface.input.border}`,
+                    ...sendBtnStyle,
+                    background: surface.accent.bg,
+                    color: surface.accent.text,
+                    opacity: loading || !input.trim() ? 0.55 : 1,
                   }}
                 >
-                  {speakReplies ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
+                  <span className="qs-widget-send-label">Send</span>
                 </button>
+              </div>
+              {voiceRealtimeEnabled && chatReady && (
+                <div className="qs-widget-voice-dock">
+                  <VoiceChatBar variant="dock" {...voiceBarProps} />
+                </div>
               )}
-              {micSupported && (
-                <button
-                  type="button"
-                  onClick={recording ? stopRecording : startRecording}
-                  disabled={transcribing || loading}
-                  title={recording ? "Stop recording" : "Record a voice message"}
-                  aria-label={recording ? "Stop recording" : "Record a voice message"}
-                  className={`qs-widget-mic-btn${recording ? " qs-widget-mic-btn--recording" : ""}`}
-                  style={{
-                    ...iconBtnStyle,
-                    background: recording ? "#DC2626" : surface.panel.bg,
-                    color: recording ? "#ffffff" : surface.input.text,
-                    border: `1px solid ${recording ? "#DC2626" : surface.input.border}`,
-                    opacity: transcribing ? 0.55 : 1,
-                  }}
-                >
-                  {transcribing ? (
-                    <TranscribingIcon />
-                  ) : recording ? (
-                    <StopRecordingIcon />
-                  ) : (
-                    <MicStandIcon />
-                  )}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={send}
-                disabled={loading || recording || transcribing || !input.trim()}
-                className="qs-widget-send-btn"
-                style={{
-                  ...sendBtnStyle,
-                  background: surface.accent.bg,
-                  color: surface.accent.text,
-                  opacity: loading || !input.trim() ? 0.55 : 1,
-                }}
-              >
-                <span className="qs-widget-send-label">Send</span>
-              </button>
             </div>
           </>
         )}

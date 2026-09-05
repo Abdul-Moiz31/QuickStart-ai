@@ -17,6 +17,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "lint": "echo 'ok'"
   },
   "peerDependencies": {
@@ -25,6 +26,7 @@
   },
   "dependencies": {
     "@quickstart-ai/shared": "workspace:*",
+    "@quickstart-ai/voice-core": "workspace:*",
     "@quickstart-ai/widget-core": "workspace:*",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
@@ -34,6 +36,7 @@
     "@types/react-dom": "^18.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

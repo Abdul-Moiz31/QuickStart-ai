@@ -70,10 +70,48 @@ export const EVENT_LIMITS = {
 } as const;
 
 export const PLAN_LIMITS = {
-  free: { messagesPerDay: 200, documents: 20, projects: 2, teamMembers: 1 },
-  pro: { messagesPerDay: 5000, documents: 500, projects: 20, teamMembers: 5 },
-  enterprise: { messagesPerDay: 100_000, documents: 10_000, projects: 200, teamMembers: 10_000 },
+  free: {
+    messagesPerDay: 200,
+    documents: 20,
+    projects: 2,
+    teamMembers: 1,
+    voiceTranscriptionsPerDay: 0,
+    voiceMinutesPerMonth: 0,
+    maxConcurrentVoiceSessions: 0,
+  },
+  pro: {
+    messagesPerDay: 5000,
+    documents: 500,
+    projects: 20,
+    teamMembers: 5,
+    voiceTranscriptionsPerDay: 200,
+    voiceMinutesPerMonth: 120,
+    maxConcurrentVoiceSessions: 5,
+  },
+  enterprise: {
+    messagesPerDay: 100_000,
+    documents: 10_000,
+    projects: 200,
+    teamMembers: 10_000,
+    voiceTranscriptionsPerDay: 10_000,
+    voiceMinutesPerMonth: 10_000,
+    maxConcurrentVoiceSessions: 50,
+  },
 } as const;
+
+/** Gemini Live voice names supported in dashboard + session config. */
+export const GEMINI_VOICE_NAMES = [
+  "Puck",
+  "Charon",
+  "Kore",
+  "Fenrir",
+  "Aoede",
+  "Leda",
+  "Orus",
+  "Zephyr",
+] as const;
+
+export type GeminiVoiceName = (typeof GEMINI_VOICE_NAMES)[number];
 
 export const CUSTOM_TOOL_LIMITS = {
   maxPerProject: 20,

@@ -51,6 +51,13 @@ export const updateProjectSchema = createProjectSchema.partial().extend({
   toolsLeadCapture: z.boolean().optional(),
   allowAnonymousSessions: z.boolean().optional(),
   proactiveTriggers: proactiveTriggersConfigSchema.optional(),
+  voiceEnabled: z.boolean().optional(),
+  voiceProvider: z.enum(["gemini_live"]).optional(),
+  voiceModel: z.string().max(120).optional(),
+  voiceName: z.string().max(32).optional(),
+  voiceLanguage: z.string().max(16).optional(),
+  voiceInstructionsExtra: z.string().max(4000).optional(),
+  voiceFallbackMode: z.enum(["transcribe", "text_only"]).optional(),
 });
 
 export const updateLlmSettingsSchema = z.object({
@@ -144,6 +151,35 @@ export const voiceTranscribeSchema = z.object({
   sessionId: z.string().optional(),
   audioBase64: z.string().min(1),
   mimeType: z.string().min(1).max(100),
+});
+
+export const voiceSessionCreateSchema = z.object({
+  /** Existing Mongo chat session to attach transcripts to. */
+  chatSessionId: z.string().optional(),
+  /** Gemini session resumption handle from a prior connection. */
+  resumptionHandle: z.string().max(500).optional(),
+});
+
+export const voiceSessionHeartbeatSchema = z.object({
+  resumptionHandle: z.string().max(500).optional(),
+});
+
+export const voiceSessionEndSchema = z.object({
+  reason: z.enum(["user", "error", "timeout"]).optional(),
+});
+
+export const voiceToolExecuteSchema = z.object({
+  voiceSessionId: z.string().uuid(),
+  toolCallId: z.string().min(1).max(120),
+  toolName: z.string().min(1).max(120),
+  args: z.record(z.unknown()).optional().default({}),
+});
+
+export const voiceTranscriptSchema = z.object({
+  chatSessionId: z.string().min(1),
+  voiceSessionId: z.string().uuid().optional(),
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(8000),
 });
 
 export const createSessionSchema = z.object({
@@ -296,6 +332,9 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
 export type VoiceTranscribeInput = z.infer<typeof voiceTranscribeSchema>;
+export type VoiceSessionCreateInput = z.infer<typeof voiceSessionCreateSchema>;
+export type VoiceSessionHeartbeatInput = z.infer<typeof voiceSessionHeartbeatSchema>;
+export type VoiceTranscriptInput = z.infer<typeof voiceTranscriptSchema>;
 export type TriggerCondition = z.infer<typeof triggerConditionSchema>;
 export type ProactiveTriggerRule = z.infer<typeof proactiveTriggerRuleSchema>;
 export type ProactiveTriggersConfig = z.infer<typeof proactiveTriggersConfigSchema>;

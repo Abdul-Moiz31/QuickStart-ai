@@ -30,6 +30,11 @@ export async function assertRateLimit(
   }
   const bucket = `rl:${key}`;
   const count = await r.incr(bucket);
-  if (count === 1) await r.pexpire(bucket, windowMs);
+  if (count === 1) {
+    await r.pexpire(bucket, windowMs);
+  } else {
+    const ttl = await r.pttl(bucket);
+    if (ttl < 0) await r.pexpire(bucket, windowMs);
+  }
   return { allowed: count <= limit, remaining: Math.max(0, limit - count) };
 }

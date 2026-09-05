@@ -247,6 +247,13 @@ export async function projectRoutes(app: FastifyInstance) {
         toolsLeadCapture: body.toolsLeadCapture,
         allowAnonymousSessions: body.allowAnonymousSessions,
         proactiveTriggers: body.proactiveTriggers,
+        voiceEnabled: body.voiceEnabled,
+        voiceProvider: body.voiceProvider,
+        voiceModel: body.voiceModel,
+        voiceName: body.voiceName,
+        voiceLanguage: body.voiceLanguage,
+        voiceInstructionsExtra: body.voiceInstructionsExtra,
+        voiceFallbackMode: body.voiceFallbackMode,
       },
     });
     return { success: true, project };

@@ -16,6 +16,7 @@
     "@fastify/cors": "^10.0.1",
     "@fastify/formbody": "^8.0.2",
     "@fastify/helmet": "^13.0.0",
+    "@google/genai": "^1.52.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@quickstart-ai/db": "workspace:*",
     "@quickstart-ai/events": "workspace:*",

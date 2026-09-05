@@ -161,6 +161,13 @@ export class QuickStartClient {
         welcomeMessage?: string;
         proactiveTriggers?: ProactiveTriggersConfig;
         allowAnonymousSessions?: boolean;
+        voice?: {
+          enabled: boolean;
+          provider?: string;
+          fallbackMode?: "transcribe" | "text_only";
+          language?: string;
+          voiceName?: string | null;
+        };
       };
     }>;
   }
@@ -277,6 +284,100 @@ export class QuickStartClient {
     });
     if (!res.ok) throw await parseErrorResponse(res);
     return res.json() as Promise<{ success: boolean; text: string }>;
+  }
+
+  /** Start a Gemini Live voice session — returns ephemeral token + connect hints. */
+  async createVoiceSession(chatSessionId?: string, resumptionHandle?: string) {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/session`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ chatSessionId, resumptionHandle }),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+    const data = (await res.json()) as {
+      success: boolean;
+      session: {
+        voiceSessionId: string;
+        chatSessionId: string | null;
+        provider: string;
+        ephemeralToken: string;
+        model: string;
+        expiresAt: string;
+        fallbackMode: "transcribe" | "text_only";
+        connect: {
+          useEphemeralToken: boolean;
+          responseModalities: string[];
+          language: string;
+          voiceName: string | null;
+        };
+      };
+    };
+    const s = data.session;
+    return {
+      voiceSessionId: s.voiceSessionId,
+      chatSessionId: s.chatSessionId,
+      provider: s.provider,
+      ephemeralToken: s.ephemeralToken,
+      model: s.model,
+      expiresAt: s.expiresAt,
+      fallbackMode: s.fallbackMode,
+      connect: s.connect,
+    };
+  }
+
+  async voiceHeartbeat(voiceSessionId: string, resumptionHandle?: string) {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/session/${voiceSessionId}/heartbeat`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ resumptionHandle }),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+  }
+
+  async endVoiceSession(voiceSessionId: string, reason?: "user" | "error" | "timeout") {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/session/${voiceSessionId}/end`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ reason }),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+  }
+
+  async executeVoiceTool(
+    voiceSessionId: string,
+    call: { id: string; name: string; args: Record<string, unknown> },
+  ) {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/tools/execute`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        voiceSessionId,
+        toolCallId: call.id,
+        toolName: call.name,
+        args: call.args,
+      }),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+    const data = (await res.json()) as {
+      success: boolean;
+      output: unknown;
+      actions?: { stopVoice?: boolean; humanPending?: boolean };
+    };
+    return { output: data.output, actions: data.actions };
+  }
+
+  async appendVoiceTranscript(input: {
+    chatSessionId: string;
+    voiceSessionId?: string;
+    role: "user" | "assistant";
+    content: string;
+  }) {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/transcript`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
   }
 
   async getSessionMessages(sessionId: string) {
