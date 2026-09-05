@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { MCP_TOOL_GROUPS } from "@quickstart-ai/shared";
 import { API_URL, api, getStoredToken } from "@/lib/api";
 
 function AuthorizeInner() {
@@ -100,12 +101,12 @@ function AuthorizeInner() {
       <p className="qs-eyebrow">Authorize MCP</p>
       <h1 className="mt-2 qs-h1">{clientName}</h1>
       <p className="mt-3 text-sm leading-relaxed text-mute">
-        This app wants to manage your QuickStart AI business profile and FAQs via MCP tools.
+        This app wants to work with your QuickStart AI project via MCP tools. It will be able to:
       </p>
       <ul className="mt-4 space-y-1 text-sm text-mute">
-        <li>· Read and update business profile</li>
-        <li>· List and add FAQ entries</li>
-        <li>· List your projects</li>
+        {MCP_TOOL_GROUPS.map((group) => (
+          <li key={group.id}>· {group.description}</li>
+        ))}
       </ul>
       {error && (
         <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
