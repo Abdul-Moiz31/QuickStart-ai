@@ -11,25 +11,12 @@ import {
 } from "../realtime.js";
 import { streamChannels } from "../sse.js";
 import { isHandoffStale } from "../handoff.js";
+import { buildAuditMessage, resolveAgentUsers } from "../session-audit.js";
 import { requireProjectAccess, requireSessionProjectAccess } from "../project-access.js";
 
 const agentMessageSchema = z.object({
   content: z.string().min(1).max(4000),
 });
-
-type AgentUser = { id: string; name: string; email: string };
-
-async function resolveAgentUsers(agentIds: string[]): Promise<Map<string, AgentUser>> {
-  const unique = [...new Set(agentIds.filter(Boolean))];
-  if (unique.length === 0) return new Map();
-
-  const users = await prisma.user.findMany({
-    where: { id: { in: unique } },
-    select: { id: true, name: true, email: true },
-  });
-
-  return new Map(users.map((u) => [u.id, u]));
-}
 
 function inboxPermissions(
   session: { humanActive?: boolean; agentId?: string | null },
@@ -158,6 +145,15 @@ export async function agentInboxRoutes(app: FastifyInstance) {
     const { sessionId } = req.params as { sessionId: string };
     const { Session, session } = await requireMemberSession(sessionId, req.user!.id);
 
+    const agentProfile = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { id: true, name: true, email: true },
+    });
+    const agent = agentProfile ?? {
+      id: req.user!.id,
+      name: "",
+      email: req.user!.email,
+    };
     const now = new Date();
     const claimed = await Session.findOneAndUpdate(
       { _id: session._id, humanActive: { $ne: true } },
@@ -168,6 +164,9 @@ export async function agentInboxRoutes(app: FastifyInstance) {
           agentId: req.user!.id,
           takenOverAt: now,
           agentLastActiveAt: now,
+        },
+        $push: {
+          messages: buildAuditMessage("agent_joined", { agent }),
         },
       },
       { new: true },
@@ -199,7 +198,20 @@ export async function agentInboxRoutes(app: FastifyInstance) {
     }
 
     const at = new Date();
-    session.messages.push({ role: "agent", content: body.content, meta: { agentId: req.user!.id } });
+    const agentProfile = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { id: true, name: true, email: true },
+    });
+    const agentLabel =
+      agentProfile?.name?.trim() || agentProfile?.email || req.user!.email;
+    session.messages.push({
+      role: "agent",
+      content: body.content,
+      meta: {
+        agentId: req.user!.id,
+        agentName: agentLabel,
+      },
+    });
     session.agentLastActiveAt = at;
     await session.save();
 
@@ -218,11 +230,17 @@ export async function agentInboxRoutes(app: FastifyInstance) {
     const { sessionId } = req.params as { sessionId: string };
     const { Session, session } = await requireMemberSession(sessionId, req.user!.id);
 
+    const agents = session.agentId ? await resolveAgentUsers([session.agentId]) : new Map();
+    const agent = session.agentId ? agents.get(session.agentId) ?? null : null;
+
     await Session.updateOne(
       { _id: session._id },
       {
         $set: { humanActive: false, humanPending: false, releasedAt: new Date() },
         $unset: { agentId: "" },
+        $push: {
+          messages: buildAuditMessage("agent_released", { agent }),
+        },
       },
     );
 

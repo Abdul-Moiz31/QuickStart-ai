@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { connectMongo, getChatSessionModel, isValidSessionId, prisma } from "@quickstart-ai/db";
+import { isValidSessionId, prisma } from "@quickstart-ai/db";
 import {
   AppError,
   NotFoundError,
@@ -10,6 +10,7 @@ import {
   voiceSessionHeartbeatSchema,
   voiceToolExecuteSchema,
   voiceTranscriptSchema,
+  voiceTranscriptBatchSchema,
 } from "@quickstart-ai/shared";
 import { requireClient } from "../auth.js";
 import { requireAuth } from "../auth.js";
@@ -32,7 +33,7 @@ import {
   touchVoiceSession,
 } from "./session-store.js";
 import { executeVoiceToolCall } from "./tool-bridge.js";
-import { publishInboxEvent } from "../realtime.js";
+import { persistVoiceTranscriptTurns } from "./transcript-persist.js";
 
 async function requireVoiceSession(req: FastifyRequest, voiceSessionId: string) {
   const state = await getVoiceSession(voiceSessionId);
@@ -282,31 +283,41 @@ export async function registerVoiceRealtimeRoutes(app: FastifyInstance) {
       throw new NotFoundError("Session not found");
     }
 
-    await connectMongo();
-    const Session = getChatSessionModel();
-    const session = await Session.findById(body.chatSessionId);
-    if (!session || session.projectId !== req.projectId) {
+    const { saved } = await persistVoiceTranscriptTurns({
+      projectId: req.projectId!,
+      chatSessionId: body.chatSessionId,
+      turns: [
+        {
+          role: body.role,
+          content: body.content,
+          clientTurnId: body.clientTurnId,
+          voiceSessionId: body.voiceSessionId,
+        },
+      ],
+    });
+
+    return { success: true, saved };
+  });
+
+  /** Persist multiple voice turns in one request (e.g. end-of-session flush). */
+  app.post("/api/v1/voice/transcript/batch", async (req) => {
+    await requireClient(req);
+    const body = voiceTranscriptBatchSchema.parse(req.body ?? {});
+    if (!isValidSessionId(body.chatSessionId)) {
       throw new NotFoundError("Session not found");
     }
 
-    const content = body.content.trim();
-    session.messages.push({
-      role: body.role,
-      content,
-      meta: { source: "voice", voiceSessionId: body.voiceSessionId ?? null },
+    const { saved } = await persistVoiceTranscriptTurns({
+      projectId: req.projectId!,
+      chatSessionId: body.chatSessionId,
+      turns: body.turns.map((turn) => ({
+        role: turn.role,
+        content: turn.content,
+        clientTurnId: turn.clientTurnId,
+        voiceSessionId: body.voiceSessionId,
+      })),
     });
-    await session.save();
 
-    const at = new Date().toISOString();
-    if (body.role === "user") {
-      void publishInboxEvent(session.projectId, {
-        type: "visitor_message",
-        sessionId: body.chatSessionId,
-        content,
-        at,
-      });
-    }
-
-    return { success: true };
+    return { success: true, saved };
   });
 }

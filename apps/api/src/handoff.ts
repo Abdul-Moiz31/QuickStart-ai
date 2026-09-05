@@ -1,5 +1,6 @@
 import type { ChatSessionModel } from "@quickstart-ai/db";
 import { publishInboxEvent, publishSessionEvent } from "./realtime.js";
+import { buildAuditMessage, resolveAgentUsers } from "./session-audit.js";
 
 /** Without a timeout, a visitor who escalates when nobody is on shift is left with a widget that never replies again. */
 const DEFAULT_HANDOFF_TIMEOUT_MS = 10 * 60 * 1000;
@@ -48,11 +49,20 @@ export async function releaseStaleHandoff(
   sessionId: string,
   projectId: string,
 ): Promise<void> {
+  const session = await Session.findById(sessionId);
+  if (!session) return;
+
+  const agents = session.agentId ? await resolveAgentUsers([session.agentId]) : new Map();
+  const agent = session.agentId ? agents.get(session.agentId) ?? null : null;
+
   await Session.updateOne(
     { _id: sessionId },
     {
       $set: { humanActive: false, humanPending: true, releasedAt: new Date() },
       $unset: { agentId: "" },
+      $push: {
+        messages: buildAuditMessage("handoff_expired", { agent }),
+      },
     },
   );
   await publishSessionEvent(sessionId, { type: "human_released" });

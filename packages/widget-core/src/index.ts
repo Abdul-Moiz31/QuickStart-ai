@@ -50,6 +50,8 @@ export interface ChatMessage {
   role: "user" | "assistant" | "agent";
   content: string;
   streaming?: boolean;
+  /** Client-assigned id for voice turns — used when persisting transcript history. */
+  voiceTurnId?: number;
 }
 
 export type StreamEvent =
@@ -371,8 +373,26 @@ export class QuickStartClient {
     voiceSessionId?: string;
     role: "user" | "assistant";
     content: string;
+    clientTurnId?: string;
   }) {
     const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/transcript`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseErrorResponse(res);
+  }
+
+  async appendVoiceTranscriptBatch(input: {
+    chatSessionId: string;
+    voiceSessionId?: string;
+    turns: Array<{
+      role: "user" | "assistant";
+      content: string;
+      clientTurnId?: string;
+    }>;
+  }) {
+    const res = await fetch(`${this.opts.apiUrl}/api/v1/voice/transcript/batch`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(input),

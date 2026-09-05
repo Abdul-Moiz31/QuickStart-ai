@@ -1,4 +1,5 @@
 import { GoogleGenAI, type FunctionCall, type LiveServerMessage, type Session } from "@google/genai/web";
+import { TranscriptTurnBuffer } from "./transcript-buffer.js";
 import type { VoiceTranscriptEvent } from "./types.js";
 
 export interface GeminiLiveClientOptions {
@@ -20,6 +21,7 @@ const SETUP_TIMEOUT_MS = 12_000;
 export class GeminiLiveClient {
   private session: Session | null = null;
   private speaking = false;
+  private transcriptBuffer = new TranscriptTurnBuffer();
 
   constructor(private opts: GeminiLiveClientOptions) {}
 
@@ -111,6 +113,7 @@ export class GeminiLiveClient {
     this.session?.close();
     this.session = null;
     this.setSpeaking(false);
+    this.transcriptBuffer.reset();
   }
 
   private setSpeaking(next: boolean): void {
@@ -131,19 +134,21 @@ export class GeminiLiveClient {
     }
 
     if (content?.inputTranscription?.text) {
-      this.opts.onTranscript({
-        role: "user",
-        text: content.inputTranscription.text,
-        final: Boolean(content.inputTranscription.finished),
-      });
+      this.transcriptBuffer.ingest(
+        "user",
+        content.inputTranscription.text,
+        Boolean(content.inputTranscription.finished),
+        (event) => this.opts.onTranscript(event),
+      );
     }
 
     if (content?.outputTranscription?.text) {
-      this.opts.onTranscript({
-        role: "assistant",
-        text: content.outputTranscription.text,
-        final: Boolean(content.outputTranscription.finished),
-      });
+      this.transcriptBuffer.ingest(
+        "assistant",
+        content.outputTranscription.text,
+        Boolean(content.outputTranscription.finished),
+        (event) => this.opts.onTranscript(event),
+      );
     }
 
     const parts = content?.modelTurn?.parts ?? [];
@@ -162,20 +167,7 @@ export class GeminiLiveClient {
     }
     if (content?.turnComplete || content?.generationComplete) {
       this.setSpeaking(false);
-      if (content.outputTranscription?.text) {
-        this.opts.onTranscript({
-          role: "assistant",
-          text: content.outputTranscription.text,
-          final: true,
-        });
-      }
-      if (content.inputTranscription?.text) {
-        this.opts.onTranscript({
-          role: "user",
-          text: content.inputTranscription.text,
-          final: true,
-        });
-      }
+      this.transcriptBuffer.finalizeAll((event) => this.opts.onTranscript(event));
     }
 
     const calls = msg.toolCall?.functionCalls;

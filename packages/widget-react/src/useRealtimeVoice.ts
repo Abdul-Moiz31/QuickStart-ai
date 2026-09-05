@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import {
   VoiceSessionController,
   type VoiceConnectionState,
@@ -10,21 +10,32 @@ export interface UseRealtimeVoiceOptions {
   onTranscript?: (event: VoiceTranscriptEvent) => void;
   onFinalTranscript?: (event: VoiceTranscriptEvent) => void;
   onEscalation?: () => void;
+  voiceSessionIdRef?: MutableRefObject<string | null>;
 }
 
 export function useRealtimeVoice(client: QuickStartClient, options: UseRealtimeVoiceOptions = {}) {
   const controllerRef = useRef<VoiceSessionController | null>(null);
-  const voiceSessionIdRef = useRef<string | null>(null);
+  const internalVoiceSessionIdRef = useRef<string | null>(null);
   const [voiceState, setVoiceState] = useState<VoiceConnectionState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  const syncVoiceSessionId = useCallback(
+    (value: string | null) => {
+      internalVoiceSessionIdRef.current = value;
+      if (options.voiceSessionIdRef) {
+        options.voiceSessionIdRef.current = value;
+      }
+    },
+    [options.voiceSessionIdRef],
+  );
 
   useEffect(() => {
     return () => {
       void controllerRef.current?.stop("user");
       controllerRef.current = null;
-      voiceSessionIdRef.current = null;
+      syncVoiceSessionId(null);
     };
-  }, []);
+  }, [syncVoiceSessionId]);
 
   const getMicLevels = useCallback((): number[] | null => {
     return controllerRef.current?.getMicLevels() ?? null;
@@ -51,20 +62,20 @@ export function useRealtimeVoice(client: QuickStartClient, options: UseRealtimeV
       });
       controllerRef.current = controller;
       await controller.start(chatSessionId);
-      voiceSessionIdRef.current = controller.activeVoiceSessionId;
+      syncVoiceSessionId(controller.activeVoiceSessionId);
     },
-    [client, options.onTranscript, options.onFinalTranscript, options.onEscalation],
+    [client, options.onTranscript, options.onFinalTranscript, options.onEscalation, syncVoiceSessionId],
   );
 
   const stopVoice = useCallback(async () => {
     const controller = controllerRef.current;
     controllerRef.current = null;
-    voiceSessionIdRef.current = null;
+    syncVoiceSessionId(null);
     setVoiceError(null);
     if (!controller) return;
     await controller.stop("user");
     setVoiceState("ended");
-  }, []);
+  }, [syncVoiceSessionId]);
 
   const voiceActive =
     voiceState === "live" || voiceState === "speaking" || voiceState === "connecting";
@@ -73,7 +84,7 @@ export function useRealtimeVoice(client: QuickStartClient, options: UseRealtimeV
     voiceState,
     voiceActive,
     voiceError,
-    voiceSessionIdRef,
+    voiceSessionIdRef: internalVoiceSessionIdRef,
     getMicLevels,
     startVoice,
     stopVoice,

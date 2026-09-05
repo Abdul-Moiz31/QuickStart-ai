@@ -10,6 +10,7 @@ import { BUILTIN_EVENT_TYPES, NotFoundError } from "@quickstart-ai/shared";
 import { env } from "../env.js";
 import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-llm.js";
 import { publishInboxEvent } from "../realtime.js";
+import { appendAuditMessage } from "../session-audit.js";
 import { buildGeminiToolDeclarations, type VoiceProjectConfig } from "./instructions.js";
 import { getVoiceSession } from "./session-store.js";
 
@@ -71,10 +72,10 @@ async function escalateVoice(opts: {
   }
   if (!session.humanActive && !session.humanPending) {
     const now = new Date();
-    await Session.updateOne(
-      { _id: opts.chatSessionId, humanActive: { $ne: true } },
-      { $set: { humanPending: true, escalatedAt: now } },
-    );
+    session.humanPending = true;
+    session.escalatedAt = now;
+    appendAuditMessage(session, "handoff_requested", { detail: reason });
+    await session.save();
     void publishInboxEvent(opts.projectId, {
       type: "escalation",
       sessionId: opts.chatSessionId,

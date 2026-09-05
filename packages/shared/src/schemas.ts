@@ -180,6 +180,22 @@ export const voiceTranscriptSchema = z.object({
   voiceSessionId: z.string().uuid().optional(),
   role: z.enum(["user", "assistant"]),
   content: z.string().min(1).max(8000),
+  clientTurnId: z.string().max(64).optional(),
+});
+
+export const voiceTranscriptBatchSchema = z.object({
+  chatSessionId: z.string().min(1),
+  voiceSessionId: z.string().uuid().optional(),
+  turns: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1).max(8000),
+        clientTurnId: z.string().max(64).optional(),
+      }),
+    )
+    .min(1)
+    .max(50),
 });
 
 export const createSessionSchema = z.object({
@@ -335,6 +351,7 @@ export type VoiceTranscribeInput = z.infer<typeof voiceTranscribeSchema>;
 export type VoiceSessionCreateInput = z.infer<typeof voiceSessionCreateSchema>;
 export type VoiceSessionHeartbeatInput = z.infer<typeof voiceSessionHeartbeatSchema>;
 export type VoiceTranscriptInput = z.infer<typeof voiceTranscriptSchema>;
+export type VoiceTranscriptBatchInput = z.infer<typeof voiceTranscriptBatchSchema>;
 export type TriggerCondition = z.infer<typeof triggerConditionSchema>;
 export type ProactiveTriggerRule = z.infer<typeof proactiveTriggerRuleSchema>;
 export type ProactiveTriggersConfig = z.infer<typeof proactiveTriggersConfigSchema>;

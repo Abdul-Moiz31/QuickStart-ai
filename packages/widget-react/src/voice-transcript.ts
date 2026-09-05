@@ -1,7 +1,17 @@
 import type { VoiceTranscriptEvent } from "@quickstart-ai/voice-core";
 import type { ChatMessage } from "@quickstart-ai/widget-core";
 
-export type VoiceTurnIndexes = { userIdx: number | null; assistantIdx: number | null };
+export type VoiceTurnIndexes = {
+  userIdx: number | null;
+  assistantIdx: number | null;
+  nextTurnId: number;
+};
+
+export type VoiceFinalizedTurn = {
+  turnId: number;
+  role: "user" | "assistant";
+  content: string;
+};
 
 const WORD_CHAR = /[\p{L}\p{N}\u0900-\u097F]/u;
 
@@ -53,23 +63,31 @@ export function mergeTranscriptText(existing: string, incoming: string): string 
   return `${prev}${gap}${next}`;
 }
 
+function toFinalizedTurn(msg: ChatMessage | undefined): VoiceFinalizedTurn | undefined {
+  if (!msg || (msg.role !== "user" && msg.role !== "assistant")) return undefined;
+  if (msg.voiceTurnId == null) return undefined;
+  const content = msg.content.trim();
+  if (!content) return undefined;
+  return { turnId: msg.voiceTurnId, role: msg.role, content };
+}
+
 function finalizeStreamingBubble(
   messages: ChatMessage[],
   idx: number | null,
-): ChatMessage[] {
-  if (idx === null || !messages[idx]) return messages;
+): { messages: ChatMessage[]; finalized?: VoiceFinalizedTurn } {
+  if (idx === null || !messages[idx]) return { messages };
   const msg = messages[idx]!;
-  if (!msg.streaming) return messages;
+  if (!msg.streaming) return { messages };
   const copy = [...messages];
   copy[idx] = { ...msg, streaming: false };
-  return copy;
+  return { messages: copy, finalized: toFinalizedTurn(copy[idx]) };
 }
 
 export function applyVoiceTranscript(
   messages: ChatMessage[],
   event: VoiceTranscriptEvent,
   turn: VoiceTurnIndexes,
-): { messages: ChatMessage[]; turn: VoiceTurnIndexes } {
+): { messages: ChatMessage[]; turn: VoiceTurnIndexes; finalizedTurn?: VoiceFinalizedTurn } {
   if (!event.text.trim()) {
     return { messages, turn };
   }
@@ -78,14 +96,19 @@ export function applyVoiceTranscript(
   const idxKey = event.role === "user" ? "userIdx" : "assistantIdx";
   let idx = turn[idxKey];
   let nextTurn = { ...turn };
+  let finalizedTurn: VoiceFinalizedTurn | undefined;
 
   if (event.role === "user" && nextTurn.assistantIdx !== null) {
-    copy = finalizeStreamingBubble(copy, nextTurn.assistantIdx);
+    const finalized = finalizeStreamingBubble(copy, nextTurn.assistantIdx);
+    copy = finalized.messages;
+    finalizedTurn = finalized.finalized;
     nextTurn.assistantIdx = null;
   }
 
   if (event.role === "assistant" && nextTurn.userIdx !== null) {
-    copy = finalizeStreamingBubble(copy, nextTurn.userIdx);
+    const finalized = finalizeStreamingBubble(copy, nextTurn.userIdx);
+    copy = finalized.messages;
+    finalizedTurn = finalized.finalized;
     nextTurn.userIdx = null;
   }
 
@@ -95,27 +118,62 @@ export function applyVoiceTranscript(
       : event.text.trim();
 
   if (idx !== null && copy[idx]?.role === event.role) {
-    copy[idx] = { role: event.role, content, streaming: !event.final };
+    copy[idx] = {
+      ...copy[idx]!,
+      role: event.role,
+      content,
+      streaming: !event.final,
+    };
   } else {
     idx = copy.length;
-    nextTurn = { ...nextTurn, [idxKey]: idx };
-    copy.push({ role: event.role, content, streaming: !event.final });
+    const voiceTurnId = nextTurn.nextTurnId;
+    nextTurn = { ...nextTurn, [idxKey]: idx, nextTurnId: nextTurn.nextTurnId + 1 };
+    copy.push({ role: event.role, content, streaming: !event.final, voiceTurnId });
   }
 
   if (event.final && idx !== null && copy[idx]) {
     copy[idx] = {
+      ...copy[idx]!,
       role: event.role,
       content: copy[idx]!.content.trim(),
       streaming: false,
     };
+    finalizedTurn = toFinalizedTurn(copy[idx]);
     nextTurn = { ...nextTurn, [idxKey]: null };
   }
 
-  return { messages: copy, turn: nextTurn };
+  return { messages: copy, turn: nextTurn, finalizedTurn };
 }
 
 export function finalizeVoiceTranscripts(messages: ChatMessage[]): ChatMessage[] {
   return messages.map((m) => (m.streaming ? { ...m, streaming: false } : m));
+}
+
+export type VoiceTranscriptBatchTurn = {
+  role: "user" | "assistant";
+  content: string;
+  clientTurnId: string;
+};
+
+/** Collect voice turns that have not yet been persisted to the server. */
+export function collectUnpersistedVoiceTurns(
+  messages: ChatMessage[],
+  persistedTurnIds: ReadonlySet<number>,
+): VoiceTranscriptBatchTurn[] {
+  const turns: VoiceTranscriptBatchTurn[] = [];
+  for (const msg of messages) {
+    if (msg.role !== "user" && msg.role !== "assistant") continue;
+    if (msg.streaming || msg.voiceTurnId == null) continue;
+    if (persistedTurnIds.has(msg.voiceTurnId)) continue;
+    const content = msg.content.trim();
+    if (!content) continue;
+    turns.push({
+      role: msg.role,
+      content,
+      clientTurnId: String(msg.voiceTurnId),
+    });
+  }
+  return turns;
 }
 
 /** Skip assistant bubble when voice repeats the existing welcome message. */

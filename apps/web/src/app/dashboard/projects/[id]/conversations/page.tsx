@@ -9,7 +9,7 @@ import {
   Transition,
   TransitionChild,
 } from "@headlessui/react";
-import { Inbox, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { Inbox, Info, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { isAnonymousVisitor } from "@quickstart-ai/shared";
 import { api, getStoredToken } from "@/lib/api";
 import { DashBtn } from "@/components/dashboard/DashboardShell";
@@ -20,7 +20,45 @@ import {
   plainChatPreviewWords,
 } from "@/components/dashboard/ChatMessageContent";
 
-type ChatMsg = { role: "user" | "assistant" | "agent"; content: string };
+type SessionAuditType =
+  | "handoff_requested"
+  | "agent_joined"
+  | "agent_released"
+  | "handoff_expired";
+
+type ChatMsg =
+  | {
+      role: "user" | "assistant" | "agent";
+      content: string;
+      createdAt?: string;
+      agentName?: string | null;
+    }
+  | {
+      role: "system";
+      content: string;
+      createdAt?: string;
+      auditType?: SessionAuditType | null;
+      agentName?: string | null;
+      detail?: string | null;
+    };
+
+type SessionAuditEvent = {
+  type: SessionAuditType;
+  at: string;
+  agentId?: string | null;
+  agentName?: string | null;
+  detail?: string | null;
+};
+
+type SessionHandoff = {
+  humanPending: boolean;
+  humanActive: boolean;
+  escalatedAt?: string | null;
+  takenOverAt?: string | null;
+  releasedAt?: string | null;
+  agent?: { id: string; name: string; email: string } | null;
+};
+
 type SessionRow = {
   id: string;
   visitorName: string;
@@ -73,19 +111,148 @@ function initials(name: string) {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
+function dividerLabelForAudit(type?: SessionAuditType | null): string {
+  switch (type) {
+    case "handoff_requested":
+      return "Support requested";
+    case "agent_joined":
+      return "Team joined";
+    case "agent_released":
+    case "handoff_expired":
+      return "Team left";
+    default:
+      return "Session update";
+  }
+}
+
+function handoffDetailLines(input: {
+  auditType?: SessionAuditType | null;
+  agentName?: string | null;
+  detail?: string | null;
+  createdAt?: string;
+}): string[] {
+  const lines: string[] = [];
+  if (input.createdAt) lines.push(formatWhen(input.createdAt));
+  if (input.agentName?.trim()) lines.push(`Agent: ${input.agentName.trim()}`);
+  if (input.auditType === "handoff_requested" && input.detail?.trim()) {
+    lines.push(`Reason: ${input.detail.trim()}`);
+  }
+  if (input.auditType === "handoff_expired") {
+    lines.push("The handoff timed out and the bot resumed.");
+  }
+  if (input.auditType === "agent_released") {
+    lines.push("The agent handed the conversation back to the bot.");
+  }
+  if (input.auditType === "agent_joined" && !input.agentName?.trim()) {
+    lines.push("A support agent took over this conversation.");
+  }
+  return lines;
+}
+
+/** Insert legacy audit events into the transcript when system messages are missing. */
+function enrichTranscript(messages: ChatMsg[], audit: SessionAuditEvent[]): ChatMsg[] {
+  const transcript = [...messages];
+  const systemKeys = new Set(
+    transcript
+      .filter((m): m is Extract<ChatMsg, { role: "system" }> => m.role === "system")
+      .map((m) => `${m.auditType ?? "unknown"}:${m.createdAt ?? ""}`),
+  );
+
+  for (const event of audit) {
+    const key = `${event.type}:${event.at}`;
+    if (systemKeys.has(key)) continue;
+    if (transcript.some((m) => m.role === "system" && m.auditType === event.type)) continue;
+    transcript.push({
+      role: "system",
+      content: dividerLabelForAudit(event.type),
+      createdAt: event.at,
+      auditType: event.type,
+      agentName: event.agentName ?? null,
+      detail: event.detail ?? null,
+    });
+    systemKeys.add(key);
+  }
+
+  return transcript.sort((a, b) => {
+    const ta = a.createdAt ? Date.parse(a.createdAt) : Number.MAX_SAFE_INTEGER;
+    const tb = b.createdAt ? Date.parse(b.createdAt) : Number.MAX_SAFE_INTEGER;
+    return ta - tb;
+  });
+}
+
+function HandoffDivider({
+  auditType,
+  createdAt,
+  agentName,
+  detail,
+}: {
+  auditType?: SessionAuditType | null;
+  createdAt?: string;
+  agentName?: string | null;
+  detail?: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const label = dividerLabelForAudit(auditType);
+  const infoLines = handoffDetailLines({ auditType, agentName, detail, createdAt });
+  const hasInfo = infoLines.length > 0;
+
+  return (
+    <div className="flex w-full items-center gap-2.5 py-2" role="separator" aria-label={label}>
+      <div className="h-px flex-1 bg-ink/[0.12]" />
+      <div
+        className="relative flex items-center gap-1"
+        onMouseEnter={() => hasInfo && setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        <span className="cursor-default text-[10px] font-semibold uppercase tracking-[0.06em] text-[#5C5A56]">
+          {label}
+        </span>
+        {hasInfo ? (
+          <button
+            type="button"
+            className="rounded-full p-0.5 text-[#5C5A56] transition hover:bg-ink/[0.06] hover:text-ink"
+            aria-label={`${label} details`}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <Info className="h-3 w-3" strokeWidth={2} />
+          </button>
+        ) : null}
+        {hasInfo && open ? (
+          <div
+            className="absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-[240px] -translate-x-1/2 rounded-xl border border-ink/[0.08] bg-white px-3 py-2 text-left shadow-soft"
+            role="tooltip"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/45">{label}</p>
+            <ul className="mt-1 space-y-0.5">
+              {infoLines.map((line) => (
+                <li key={line} className="text-[11px] leading-snug text-ink/80">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+      <div className="h-px flex-1 bg-ink/[0.12]" />
+    </div>
+  );
+}
+
 function ChatBubble({
   role,
   content,
   visitorLabel,
+  agentName,
 }: {
   role: "user" | "assistant" | "agent";
   content: string;
   visitorLabel: string;
+  agentName?: string | null;
 }) {
   const isUser = role === "user";
-  // A human reply during a handoff. Shown apart from the bot so the transcript
-  // makes it obvious where a person took over.
   const isAgent = role === "agent";
+  const agentLabel = agentName?.trim() || "Support agent";
 
   return (
     <div className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}>
@@ -95,7 +262,7 @@ function ChatBubble({
         }`}
         aria-hidden
       >
-        {isUser ? initials(visitorLabel) : isAgent ? "YOU" : "QS"}
+        {isUser ? initials(visitorLabel) : isAgent ? initials(agentLabel) : "QS"}
       </span>
       <div
         className={`max-w-[min(100%,540px)] px-4 py-3 ${
@@ -108,7 +275,7 @@ function ChatBubble({
       >
         {isAgent && (
           <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink/50">
-            Support agent
+            {agentLabel}
           </span>
         )}
         {isUser ? (
@@ -136,7 +303,9 @@ export default function ConversationsPage() {
 
   const [testOpen, setTestOpen] = useState(false);
   const [testSessionId, setTestSessionId] = useState<string | null>(null);
-  const [testMessages, setTestMessages] = useState<ChatMsg[]>([]);
+  const [testMessages, setTestMessages] = useState<
+    Array<{ role: "user" | "assistant"; content: string }>
+  >([]);
   const [testInput, setTestInput] = useState("");
   const [testBusy, setTestBusy] = useState(false);
   const testBottomRef = useRef<HTMLDivElement>(null);
@@ -171,15 +340,41 @@ export default function ConversationsPage() {
             visitorEmail?: string;
             updatedAt?: string;
             createdAt?: string;
-            messages?: { role: string; content: string }[];
+            handoff?: SessionHandoff;
+            audit?: SessionAuditEvent[];
+            messages?: Array<{
+              role: string;
+              content: string;
+              createdAt?: string;
+              agentName?: string | null;
+              auditType?: SessionAuditType | null;
+              detail?: string | null;
+            }>;
           };
         }>(`/api/v1/projects/${id}/sessions/${sid}`, { token });
         setSelectedMessages(
-          (res.session.messages || []).map((m) => ({
-            role:
-              m.role === "assistant" ? "assistant" : m.role === "agent" ? "agent" : "user",
-            content: m.content,
-          })),
+          enrichTranscript(
+            (res.session.messages || []).map((m) => {
+              if (m.role === "system") {
+                return {
+                  role: "system" as const,
+                  content: m.content,
+                  createdAt: m.createdAt,
+                  auditType: m.auditType ?? null,
+                  agentName: m.agentName ?? null,
+                  detail: m.detail ?? null,
+                };
+              }
+              return {
+                role:
+                  m.role === "assistant" ? "assistant" : m.role === "agent" ? "agent" : "user",
+                content: m.content,
+                createdAt: m.createdAt,
+                agentName: m.agentName ?? null,
+              };
+            }),
+            res.session.audit ?? [],
+          ),
         );
         setSelectedMeta(
           row ?? {
@@ -415,7 +610,7 @@ export default function ConversationsPage() {
                     </div>
                   </div>
                   <p className="mt-2.5 font-mono text-[11px] text-mute">
-                    {selectedMessages.length} messages
+                    {selectedMessages.filter((m) => m.role !== "system").length} messages
                     {selectedMeta.updatedAt
                       ? ` · last active ${formatWhen(selectedMeta.updatedAt)}`
                       : ""}
@@ -432,14 +627,28 @@ export default function ConversationsPage() {
                       <p className="text-sm text-mute">No messages in this session.</p>
                     </div>
                   ) : (
-                    selectedMessages.map((m, i) => (
-                      <ChatBubble
-                        key={`${i}-${m.role}-${m.content.slice(0, 24)}`}
-                        role={m.role}
-                        content={m.content}
-                        visitorLabel={visitorLabel}
-                      />
-                    ))
+                    selectedMessages.map((m, i) => {
+                      if (m.role === "system") {
+                        return (
+                          <HandoffDivider
+                            key={`handoff-${i}-${m.auditType}-${m.createdAt ?? ""}`}
+                            auditType={m.auditType}
+                            createdAt={m.createdAt}
+                            agentName={m.agentName}
+                            detail={m.detail}
+                          />
+                        );
+                      }
+                      return (
+                        <ChatBubble
+                          key={`${i}-${m.role}-${m.content.slice(0, 24)}`}
+                          role={m.role}
+                          content={m.content}
+                          visitorLabel={visitorLabel}
+                          agentName={m.role === "agent" ? m.agentName : null}
+                        />
+                      );
+                    })
                   )}
                   <div ref={threadBottomRef} />
                 </div>

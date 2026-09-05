@@ -35,6 +35,7 @@ import { getRedis } from "../redis.js";
 import { env } from "../env.js";
 import { publishInboxEvent } from "../realtime.js";
 import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
+import { appendAuditMessage } from "../session-audit.js";
 import { beginSseReply, endSse, writeSseEvent } from "../sse.js";
 
 function streamError(reply: FastifyReply, message: string) {
@@ -114,11 +115,18 @@ async function markSessionEscalated(
   visitorName: string,
   triggerMessage?: string,
 ): Promise<void> {
+  const session = await Session.findById(sessionId);
+  if (!session || session.humanActive) return;
+
+  const wasPending = Boolean(session.humanPending);
   const now = new Date();
-  await Session.updateOne(
-    { _id: sessionId, humanActive: { $ne: true } },
-    { $set: { humanPending: true, escalatedAt: now } },
-  );
+  session.humanPending = true;
+  session.escalatedAt = session.escalatedAt ?? now;
+  if (!wasPending) {
+    appendAuditMessage(session, "handoff_requested", { detail: triggerMessage ?? null });
+  }
+  await session.save();
+
   void publishInboxEvent(projectId, {
     type: "escalation",
     sessionId,
@@ -439,8 +447,12 @@ export async function chatRoutes(app: FastifyInstance) {
         },
       });
       if (escalated && stillBot && !session.humanActive) {
+        const wasPending = Boolean(session.humanPending);
         session.humanPending = true;
-        session.escalatedAt = new Date();
+        session.escalatedAt = session.escalatedAt ?? new Date();
+        if (!wasPending) {
+          appendAuditMessage(session, "handoff_requested", { detail: body.message });
+        }
       }
       try {
         await session.save();
@@ -542,8 +554,12 @@ export async function chatRoutes(app: FastifyInstance) {
       },
     });
     if (escalated && stillBot && !session.humanActive) {
+      const wasPending = Boolean(session.humanPending);
       session.humanPending = true;
-      session.escalatedAt = new Date();
+      session.escalatedAt = session.escalatedAt ?? new Date();
+      if (!wasPending) {
+        appendAuditMessage(session, "handoff_requested", { detail: body.message });
+      }
     }
     try {
       await session.save();

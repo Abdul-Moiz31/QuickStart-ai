@@ -15,6 +15,7 @@ import { getProjectChatRuntime, getProjectEmbeddingsRuntime } from "../project-l
 import { getRedis, assertRateLimit } from "../redis.js";
 import { publishInboxEvent } from "../realtime.js";
 import { isHandoffStale, releaseStaleHandoff } from "../handoff.js";
+import { appendAuditMessage } from "../session-audit.js";
 import { env } from "../env.js";
 
 export type ChannelName = "sms" | "whatsapp" | "instagram";
@@ -179,8 +180,12 @@ export async function runChannelMessage(opts: {
     },
   });
   if (escalated && !session.humanActive) {
+    const wasPending = Boolean(session.humanPending);
     session.humanPending = true;
-    session.escalatedAt = new Date();
+    session.escalatedAt = session.escalatedAt ?? new Date();
+    if (!wasPending) {
+      appendAuditMessage(session, "handoff_requested", { detail: opts.message });
+    }
   }
   await session.save();
 

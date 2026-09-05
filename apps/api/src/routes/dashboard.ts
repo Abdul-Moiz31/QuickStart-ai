@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Queue } from "bullmq";
 import { z } from "zod";
-import { connectMongo, getChatSessionModel, prisma } from "@quickstart-ai/db";
+import { connectMongo, getChatSessionModel, prisma, type ChatMessageDoc } from "@quickstart-ai/db";
 import {
   createChatClient,
   createEmbeddingsClient,
@@ -39,6 +39,13 @@ import {
   computeProjectAnalytics,
   type AnalyticsPeriod,
 } from "../analytics.js";
+import {
+  buildSessionAuditTimeline,
+  collectAgentIdsFromSession,
+  displayAgentName,
+  resolveAgentUsers,
+  resolveMessageAgentName,
+} from "../session-audit.js";
 
 const playgroundMessageSchema = z.object({
   message: z.string().min(1).max(4000),
@@ -99,9 +106,20 @@ type SessionLean = {
   visitorName?: string;
   visitorEmail?: string;
   channel?: string;
-  messages?: { role?: string; content?: string; createdAt?: Date }[];
+  messages?: {
+    role?: string;
+    content?: string;
+    createdAt?: Date;
+    meta?: unknown;
+  }[];
   memorySummary?: string;
   metadata?: unknown;
+  humanPending?: boolean;
+  humanActive?: boolean;
+  agentId?: string | null;
+  escalatedAt?: Date | null;
+  takenOverAt?: Date | null;
+  releasedAt?: Date | null;
   updatedAt?: Date;
   createdAt?: Date;
 };
@@ -129,7 +147,27 @@ function formatSessionSummary(s: SessionLean) {
   };
 }
 
-function formatSessionDetail(s: SessionLean) {
+function formatSessionDetail(
+  s: SessionLean,
+  agents: Map<string, { id: string; name: string; email: string }>,
+) {
+  const assignedAgent = s.agentId ? agents.get(s.agentId) ?? null : null;
+  const audit = buildSessionAuditTimeline(
+    {
+      messages: (s.messages ?? []) as Array<{
+        role: ChatMessageDoc["role"];
+        content: string;
+        meta?: unknown;
+        createdAt?: Date;
+      }>,
+      escalatedAt: s.escalatedAt ?? null,
+      takenOverAt: s.takenOverAt ?? null,
+      releasedAt: s.releasedAt ?? null,
+      agentId: s.agentId ?? null,
+    },
+    agents,
+  );
+
   return {
     id: String(s._id),
     visitorName: s.visitorName,
@@ -137,10 +175,44 @@ function formatSessionDetail(s: SessionLean) {
     channel: s.channel ?? "web",
     memorySummary: s.memorySummary ?? "",
     messageCount: s.messages?.length ?? 0,
+    handoff: {
+      humanPending: Boolean(s.humanPending),
+      humanActive: Boolean(s.humanActive),
+      escalatedAt: s.escalatedAt?.toISOString?.() ?? null,
+      takenOverAt: s.takenOverAt?.toISOString?.() ?? null,
+      releasedAt: s.releasedAt?.toISOString?.() ?? null,
+      agent: assignedAgent
+        ? {
+            id: assignedAgent.id,
+            name: displayAgentName(assignedAgent),
+            email: assignedAgent.email,
+          }
+        : null,
+    },
+    audit,
     messages: (s.messages ?? []).map((m) => ({
       role: m.role,
       content: m.content,
       createdAt: m.createdAt,
+      meta: m.meta ?? {},
+      agentName:
+        m.role === "agent" || m.role === "system"
+          ? resolveMessageAgentName(
+              {
+                role: (m.role ?? "user") as ChatMessageDoc["role"],
+                meta: m.meta,
+              },
+              agents,
+            )
+          : null,
+      auditType:
+        m.role === "system"
+          ? (((m.meta ?? {}) as { auditType?: string }).auditType ?? null)
+          : null,
+      detail:
+        m.role === "system"
+          ? (((m.meta ?? {}) as { detail?: string | null }).detail ?? null)
+          : null,
     })),
     updatedAt: s.updatedAt,
     createdAt: s.createdAt,
@@ -221,7 +293,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const Session = getChatSessionModel();
     const session = await Session.findById(sessionId).lean();
     if (!session || session.projectId !== id) throw new NotFoundError("Session not found");
-    return { success: true, session: formatSessionDetail(session as SessionLean) };
+    const agentIds = collectAgentIdsFromSession({
+      agentId: session.agentId ?? null,
+      messages: (session.messages ?? []) as Array<Pick<ChatMessageDoc, "role" | "meta">>,
+    });
+    const agents = await resolveAgentUsers(agentIds);
+    return { success: true, session: formatSessionDetail(session as SessionLean, agents) };
   });
 
   /** Owner playground — try the live chatbot against project knowledge (JWT auth). */

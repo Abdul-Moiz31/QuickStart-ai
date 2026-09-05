@@ -16,8 +16,10 @@ import { VoiceChatBar } from "./VoiceChatBar.js";
 import type { VoiceTranscriptEvent } from "@quickstart-ai/voice-core";
 import {
   applyVoiceTranscript,
+  collectUnpersistedVoiceTurns,
   finalizeVoiceTranscripts,
   isDuplicateWelcome,
+  type VoiceFinalizedTurn,
   type VoiceTurnIndexes,
 } from "./voice-transcript.js";
 
@@ -911,8 +913,11 @@ export function ChatBot({
   const sessionIdRef = useRef("");
   const humanActiveRef = useRef(false);
   const loadingRef = useRef(false);
-  const voiceTurnRef = useRef<VoiceTurnIndexes>({ userIdx: null, assistantIdx: null });
-  const voicePersistedRef = useRef<Set<string>>(new Set());
+  const voiceTurnRef = useRef<VoiceTurnIndexes>({ userIdx: null, assistantIdx: null, nextTurnId: 1 });
+  const voicePersistedRef = useRef<Set<number>>(new Set());
+  const voiceSessionIdRef = useRef<string | null>(null);
+  const chatMessagesRef = useRef<ChatMessage[]>([]);
+  const persistVoiceTurnRef = useRef<(turn: VoiceFinalizedTurn) => void>(() => {});
 
   const mergeChatMessages = useCallback((prev: WidgetMessage[], chatMessages: ChatMessage[]) => {
     if (!prev.some((m) => m.role === "divider")) return chatMessages;
@@ -942,6 +947,10 @@ export function ChatBot({
         }
         const result = applyVoiceTranscript(chatOnly, event, voiceTurnRef.current);
         voiceTurnRef.current = result.turn;
+        chatMessagesRef.current = result.messages;
+        if (result.finalizedTurn) {
+          persistVoiceTurnRef.current(result.finalizedTurn);
+        }
         return mergeChatMessages(prev, result.messages);
       });
     },
@@ -952,50 +961,97 @@ export function ChatBot({
     setMessages((prev) => {
       const chatOnly = prev.filter((m): m is ChatMessage => m.role !== "divider");
       const finalized = finalizeVoiceTranscripts(chatOnly);
-      voiceTurnRef.current = { userIdx: null, assistantIdx: null };
+      chatMessagesRef.current = finalized;
+      voiceTurnRef.current = {
+        userIdx: null,
+        assistantIdx: null,
+        nextTurnId: voiceTurnRef.current.nextTurnId,
+      };
       return mergeChatMessages(prev, finalized);
     });
   }, [mergeChatMessages]);
 
-  const handleVoiceFinalTranscript = useCallback(
-    (event: VoiceTranscriptEvent) => {
+  const flushUnpersistedVoiceTurns = useCallback(
+    async (messages: ChatMessage[]) => {
       const sid = sessionIdRef.current;
-      if (!sid || !event.text.trim()) return;
-      const key = `${event.role}:${event.text.trim()}`;
-      if (voicePersistedRef.current.has(key)) return;
-      voicePersistedRef.current.add(key);
-      void client
-        .appendVoiceTranscript({
+      if (!sid) return;
+      const turns = collectUnpersistedVoiceTurns(messages, voicePersistedRef.current);
+      if (!turns.length) return;
+
+      for (const turn of turns) {
+        voicePersistedRef.current.add(Number(turn.clientTurnId));
+      }
+
+      try {
+        await client.appendVoiceTranscriptBatch({
           chatSessionId: sid,
           voiceSessionId: voiceSessionIdRef.current ?? undefined,
-          role: event.role,
-          content: event.text.trim(),
-        })
-        .catch(() => {
-          voicePersistedRef.current.delete(key);
+          turns,
         });
+      } catch (err) {
+        for (const turn of turns) {
+          voicePersistedRef.current.delete(Number(turn.clientTurnId));
+        }
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+          console.warn("[QuickStart voice] Failed to persist transcript batch:", err);
+        }
+      }
     },
     [client],
   );
 
+  const persistVoiceTurn = useCallback(
+    async (turn: VoiceFinalizedTurn) => {
+      if (voicePersistedRef.current.has(turn.turnId)) return;
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      voicePersistedRef.current.add(turn.turnId);
+      try {
+        await client.appendVoiceTranscript({
+          chatSessionId: sid,
+          voiceSessionId: voiceSessionIdRef.current ?? undefined,
+          role: turn.role,
+          content: turn.content,
+          clientTurnId: String(turn.turnId),
+        });
+      } catch (err) {
+        voicePersistedRef.current.delete(turn.turnId);
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+          console.warn("[QuickStart voice] Failed to persist transcript turn:", err);
+        }
+      }
+    },
+    [client],
+  );
+
+  useEffect(() => {
+    persistVoiceTurnRef.current = (turn) => {
+      void persistVoiceTurn(turn);
+    };
+  }, [persistVoiceTurn]);
+
   const handleVoiceEscalation = useCallback(() => {
     setHandoffPending(true);
     finalizeVoiceMessages();
-  }, [finalizeVoiceMessages]);
+    void flushUnpersistedVoiceTurns(chatMessagesRef.current);
+  }, [finalizeVoiceMessages, flushUnpersistedVoiceTurns]);
 
   const {
     voiceState,
     voiceActive,
     voiceError,
-    voiceSessionIdRef,
     getMicLevels,
     startVoice,
     stopVoice,
   } = useRealtimeVoice(client, {
     onTranscript: handleVoiceTranscript,
-    onFinalTranscript: handleVoiceFinalTranscript,
     onEscalation: handleVoiceEscalation,
+    voiceSessionIdRef,
   });
+
+  useEffect(() => {
+    chatMessagesRef.current = messages.filter((m): m is ChatMessage => m.role !== "divider");
+  }, [messages]);
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -1043,9 +1099,16 @@ export function ChatBot({
       void (async () => {
         await stopVoice();
         finalizeVoiceMessages();
+        await flushUnpersistedVoiceTurns(chatMessagesRef.current);
       })();
     }
-  }, [humanActive, handoffPending, voiceActive, stopVoice, finalizeVoiceMessages]);
+  }, [humanActive, handoffPending, voiceActive, stopVoice, finalizeVoiceMessages, flushUnpersistedVoiceTurns]);
+
+  useEffect(() => {
+    return () => {
+      void flushUnpersistedVoiceTurns(chatMessagesRef.current);
+    };
+  }, [flushUnpersistedVoiceTurns]);
 
   useEffect(() => {
     if (!id) return;
@@ -1491,7 +1554,11 @@ export function ChatBot({
       setLoading(false);
     }
 
-    voiceTurnRef.current = { userIdx: null, assistantIdx: null };
+    voiceTurnRef.current = {
+      userIdx: null,
+      assistantIdx: null,
+      nextTurnId: voiceTurnRef.current.nextTurnId,
+    };
     try {
       await startVoice(sid);
     } catch (e) {
@@ -1507,6 +1574,7 @@ export function ChatBot({
   const endLiveVoice = async () => {
     await stopVoice();
     finalizeVoiceMessages();
+    await flushUnpersistedVoiceTurns(chatMessagesRef.current);
   };
 
   const showPushToTalkMic =
