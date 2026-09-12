@@ -1,5 +1,5 @@
 import type { ChatClient, EmbeddingsClient, LLMMessage } from "./llm.js";
-import { BUILTIN_EVENT_TYPES, HANDOFF_AGENT_GUIDELINES, looksLikeGibberish, visitorRequestsHumanHelp } from "@quickstart-ai/shared";
+import { BUILTIN_EVENT_TYPES, HANDOFF_AGENT_GUIDELINES } from "@quickstart-ai/shared";
 import { fetchWebsiteSummary } from "./website.js";
 import { hybridRetrieve, rerankChunks, type RetrievedChunk } from "./retrieve.js";
 import {
@@ -7,6 +7,7 @@ import {
   formatCustomToolDescription,
   type CustomToolRuntime,
 } from "./custom-tools.js";
+import { runTrueAgentLoop, runTrueAgentStream } from "./agent-loop.js";
 
 export interface ToolEventPayload {
   type: string;
@@ -51,12 +52,16 @@ export interface AgentResult {
   quickReplies?: QuickReplyOptions;
 }
 
-export function buildAgentTools(ctx: {
+export interface BuildAgentToolsContext {
   projectId: string;
   projectName: string;
   businessHours?: string;
   businessWebsite?: string;
-  chunks: RetrievedChunk[];
+  embeddings: EmbeddingsClient;
+  chat: ChatClient;
+  useHyde?: boolean;
+  accumulatedChunks: RetrievedChunk[];
+  retrievalTopScoreRef: { value: number };
   toolsWebSearch?: boolean;
   toolsHumanHandoff?: boolean;
   toolsLeadCapture?: boolean;
@@ -67,15 +72,46 @@ export function buildAgentTools(ctx: {
   userMessage?: string;
   customTools?: CustomToolRuntime[];
   redisUrl?: string;
-}): AgentTool[] {
+}
+
+function mergeUniqueChunks(target: RetrievedChunk[], incoming: RetrievedChunk[]): void {
+  const seen = new Set(target.map((c) => c.id));
+  for (const chunk of incoming) {
+    if (!seen.has(chunk.id)) {
+      seen.add(chunk.id);
+      target.push(chunk);
+    }
+  }
+}
+
+export function buildAgentTools(ctx: BuildAgentToolsContext): AgentTool[] {
   const tools: AgentTool[] = [
     {
       name: "search_knowledge",
-      description: "Return the top retrieved knowledge snippets for the current query",
-      async execute() {
-        if (!ctx.chunks.length) return { output: "No knowledge snippets found." };
+      description:
+        "Search the business knowledge base (policies, products, FAQs, docs). Pass args.query with a focused search string. Call multiple times with different queries when needed.",
+      async execute(args) {
+        const query = String(args.query ?? ctx.userMessage ?? "").trim();
+        if (!query) return { output: "Error: provide args.query with what to search for." };
+
+        const { chunks: raw } = await hybridRetrieve({
+          projectId: ctx.projectId,
+          query,
+          embeddings: ctx.embeddings,
+          chat: ctx.chat,
+          useHyde: ctx.useHyde ?? true,
+          topK: 20,
+        });
+        const topRaw = raw.length ? Math.max(...raw.map((c) => c.score)) : 0;
+        ctx.retrievalTopScoreRef.value = Math.max(ctx.retrievalTopScoreRef.value, topRaw);
+        const reranked = await rerankChunks(query, raw, ctx.chat, 8);
+        mergeUniqueChunks(ctx.accumulatedChunks, reranked);
+
+        if (!reranked.length) {
+          return { output: "No knowledge snippets found for that query." };
+        }
         return {
-          output: ctx.chunks
+          output: reranked
             .map((c, i) => `[${i + 1}] (score=${c.score.toFixed(3)}) ${c.content}`)
             .join("\n\n"),
         };
@@ -83,14 +119,14 @@ export function buildAgentTools(ctx: {
     },
     {
       name: "get_project_faq",
-      description: "Return FAQ-style snippets from retrieved context",
+      description: "Return FAQ-style snippets from knowledge gathered so far in this turn",
       async execute() {
-        const faqs = ctx.chunks.filter((c) => /q:|question|faq/i.test(c.content));
-        const content = (faqs.length ? faqs : ctx.chunks)
+        const faqs = ctx.accumulatedChunks.filter((c) => /q:|question|faq/i.test(c.content));
+        const content = (faqs.length ? faqs : ctx.accumulatedChunks)
           .slice(0, 5)
           .map((c) => c.content)
           .join("\n---\n");
-        return { output: content };
+        return { output: content || "No FAQ snippets yet — try search_knowledge first." };
       },
     },
     {
@@ -216,12 +252,6 @@ if (ctx.toolsInteractiveReplies) {
   return tools;
 }
 
-function computeConfidence(chunks: RetrievedChunk[]): AgentResult["confidence"] {
-  const avgScore =
-    chunks.length > 0 ? chunks.reduce((s, c) => s + c.score, 0) / chunks.length : 0;
-  return avgScore >= 0.55 ? "high" : avgScore >= 0.3 ? "medium" : "low";
-}
-
 /** Appended to every agent reply so answers fit the embed widget. */
 export const WIDGET_REPLY_GUIDELINES = [
   "Reply format: small chat widget — keep it scannable.",
@@ -239,164 +269,47 @@ export function buildAgentSystemPrompt(projectName: string, custom?: string): st
   return `${base}\n\n${WIDGET_REPLY_GUIDELINES}\n\n${HANDOFF_AGENT_GUIDELINES}`;
 }
 
-async function maybeEscalateForVisitorIntent(
-  tools: AgentTool[],
-  query: string,
-  toolsHumanHandoff?: boolean,
-  alreadyEscalated = false,
-): Promise<ToolEventPayload[]> {
-  if (
-    alreadyEscalated ||
-    toolsHumanHandoff === false ||
-    looksLikeGibberish(query) ||
-    !visitorRequestsHumanHelp(query)
-  ) {
-    return [];
-  }
-  const escalate = tools.find((t) => t.name === "escalate_to_human");
-  if (!escalate) return [];
-  const esc = await escalate.execute({ reason: "visitor requested human support" });
-  return esc.event ? [esc.event] : [];
-}
-
-function gibberishAnswerNote(query: string): string | null {
-  if (!looksLikeGibberish(query)) return null;
-  return [
-    "The visitor message looks unclear or nonsensical.",
-    "Politely ask them to rephrase with a specific question about the business.",
-    "Do NOT offer human support or call escalate_to_human for gibberish.",
-  ].join(" ");
-}
-
-interface ToolLoopPrelude {
-  toolsUsed: string[];
-  eventsEmitted: ToolEventPayload[];
-  quickReplies?: QuickReplyOptions;
-  answerMessages: LLMMessage[];
-}
-
-async function runToolLoopPrelude(opts: {
-  tools: AgentTool[];
+function buildTrueAgentContext(opts: {
+  projectId: string;
+  projectName: string;
+  businessHours?: string;
+  businessWebsite?: string;
+  embeddings: EmbeddingsClient;
   chat: ChatClient;
-  systemPrompt: string;
-  query: string;
-  history: LLMMessage[];
-  knowledge: string;
-  confidence: AgentResult["confidence"];
-  modelChainRotate?: number;
-}): Promise<ToolLoopPrelude> {
-  const toolsUsed: string[] = ["search_knowledge"];
-  const eventsEmitted: ToolEventPayload[] = [];
-  let quickReplies: QuickReplyOptions | undefined;
-  const toolCatalog = opts.tools
-    .map((t) => `- ${t.name}: ${t.description}`)
-    .join("\n");
-
-  const plannerMessages: LLMMessage[] = [
-    {
-      role: "system",
-      content: [
-        opts.systemPrompt,
-        "You may call tools to answer. Reply with JSON only:",
-        '{"tools":["tool_name"],"args":{"tool_name":{"key":"value"}},"reason":"brief"}',
-        "Pick 0-2 tools besides search_knowledge when helpful.",
-        "If the visitor asks for a human, agent, or support person, include escalate_to_human.",
-        "Do not call escalate_to_human for gibberish or nonsense messages.",
-        "For capture_lead include name and email in args when known.",
-        `Available tools:\n${toolCatalog}`,
-        `Retrieval confidence: ${opts.confidence}.`,
-        "Knowledge preview:",
-        opts.knowledge.slice(0, 3000),
-      ].join("\n\n"),
-    },
-    ...opts.history.slice(-6),
-    { role: "user", content: opts.query },
-  ];
-
-  let selectedTools: string[] = [];
-  let toolArgs: Record<string, Record<string, unknown>> = {};
-  try {
-    const planRaw = await opts.chat.chat(plannerMessages, {
-      temperature: 0,
-      maxTokens: 200,
-      modelChainRotate: opts.modelChainRotate,
-      textOnly: true,
-    });
-    const match = planRaw.match(/\{[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]) as {
-        tools?: string[];
-        args?: Record<string, Record<string, unknown>>;
-      };
-      selectedTools = (parsed.tools ?? []).filter(
-        (n) => n !== "search_knowledge" && opts.tools.some((t) => t.name === n),
-      );
-      toolArgs = parsed.args ?? {};
-    }
-  } catch {
-    selectedTools = [];
-  }
-
-  const toolResults: string[] = [`search_knowledge:\n${opts.knowledge}`];
-  for (const name of selectedTools.slice(0, 2)) {
-    const tool = opts.tools.find((t) => t.name === name);
-    if (!tool) continue;
-    const args = { query: opts.query, ...toolArgs[name] };
-    const result = await tool.execute(args);
-    toolResults.push(`${name}:\n${result.output}`);
-    toolsUsed.push(name);
-    if (result.event) eventsEmitted.push(result.event);
-    if (result.quickReplies) quickReplies = result.quickReplies;
-  }
-
-  const answerMessages: LLMMessage[] = [
-    {
-      role: "system",
-      content: [
-        opts.systemPrompt,
-        "Answer ONLY using the provided knowledge and tool results.",
-        "If unsure about a legitimate question, say you don't know and offer escalation.",
-        "Never invent policies, prices, or contact details.",
-        "Never claim you forwarded or notified the team unless escalate_to_human appears in tool results.",
-        gibberishAnswerNote(opts.query),
-        `Retrieval confidence: ${opts.confidence}.`,
-        "Tool results:",
-        toolResults.join("\n\n---\n\n"),
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
-    },
-    ...opts.history.slice(-8),
-    { role: "user", content: opts.query },
-  ];
-
-  return { toolsUsed, eventsEmitted, quickReplies, answerMessages };
-}
-
-async function runToolLoop(opts: {
-  tools: AgentTool[];
-  chat: ChatClient;
-  systemPrompt: string;
-  query: string;
-  history: LLMMessage[];
-  knowledge: string;
-  confidence: AgentResult["confidence"];
-  modelChainRotate?: number;
-}): Promise<{
-  answer: string;
-  toolsUsed: string[];
-  eventsEmitted: ToolEventPayload[];
-  quickReplies?: QuickReplyOptions;
-}> {
-  const { toolsUsed, eventsEmitted, quickReplies, answerMessages } = await runToolLoopPrelude(opts);
-
-  const answer = await opts.chat.chat(answerMessages, {
-    temperature: 0.2,
-    maxTokens: 400,
-    modelChainRotate: opts.modelChainRotate,
+  useHyde?: boolean;
+  toolsWebSearch?: boolean;
+  toolsHumanHandoff?: boolean;
+  toolsLeadCapture?: boolean;
+  toolsInteractiveReplies?: boolean;
+  visitorName?: string;
+  visitorEmail?: string;
+  userMessage?: string;
+  customTools?: CustomToolRuntime[];
+  redisUrl?: string;
+}) {
+  const accumulatedChunks: RetrievedChunk[] = [];
+  const retrievalTopScoreRef = { value: 0 };
+  const tools = buildAgentTools({
+    projectId: opts.projectId,
+    projectName: opts.projectName,
+    businessHours: opts.businessHours,
+    businessWebsite: opts.businessWebsite,
+    embeddings: opts.embeddings,
+    chat: opts.chat,
+    useHyde: opts.useHyde,
+    accumulatedChunks,
+    retrievalTopScoreRef,
+    toolsWebSearch: opts.toolsWebSearch,
+    toolsHumanHandoff: opts.toolsHumanHandoff,
+    toolsLeadCapture: opts.toolsLeadCapture,
+    toolsInteractiveReplies: opts.toolsInteractiveReplies,
+    visitorName: opts.visitorName,
+    visitorEmail: opts.visitorEmail,
+    userMessage: opts.userMessage,
+    customTools: opts.customTools,
+    redisUrl: opts.redisUrl,
   });
-
-  return { answer, toolsUsed, eventsEmitted, quickReplies };
+  return { accumulatedChunks, retrievalTopScoreRef, tools };
 }
 
 export async function runAgenticRag(opts: {
@@ -420,86 +333,31 @@ export async function runAgenticRag(opts: {
   customTools?: CustomToolRuntime[];
   redisUrl?: string;
 }): Promise<AgentResult> {
-  const { chunks: rawChunks, method: _method } = await hybridRetrieve({
-    projectId: opts.projectId,
-    query: opts.query,
-    embeddings: opts.embeddings,
-    chat: opts.chat,
-    useHyde: opts.useHyde ?? true,
-    topK: 20,
-  });
-
-  // Captured before rerankChunks replaces score with an LLM judgement on a
-  // different scale. Gap detection compares this against vectorSearch cosines.
-  const retrievalTopScore = rawChunks.length
-    ? Math.max(...rawChunks.map((c) => c.score))
-    : 0;
-  const chunks = await rerankChunks(opts.query, rawChunks, opts.chat, 8);
-
-  const tools = buildAgentTools({
-    projectId: opts.projectId,
-    projectName: opts.projectName,
-    businessHours: opts.businessHours,
-    businessWebsite: opts.businessWebsite,
-    chunks,
-    toolsWebSearch: opts.toolsWebSearch,
-    toolsHumanHandoff: opts.toolsHumanHandoff,
-    toolsLeadCapture: opts.toolsLeadCapture,
-    toolsInteractiveReplies: opts.toolsInteractiveReplies,
-    visitorName: opts.visitorName,
-    visitorEmail: opts.visitorEmail,
+  const { accumulatedChunks, retrievalTopScoreRef, tools } = buildTrueAgentContext({
+    ...opts,
     userMessage: opts.query,
-    customTools: opts.customTools,
-    redisUrl: opts.redisUrl,
   });
-
-  const knowledgeResult = await tools[0]!.execute({});
-  const knowledge = knowledgeResult.output;
-  const confidence = computeConfidence(chunks);
-  const eventsEmitted: ToolEventPayload[] = [];
-
-  if (confidence === "low" && chunks.length === 0 && !looksLikeGibberish(opts.query)) {
-    const escalate = tools.find((t) => t.name === "escalate_to_human");
-    if (escalate) {
-      const esc = await escalate.execute({ reason: "insufficient knowledge base coverage" });
-      if (esc.event) eventsEmitted.push(esc.event);
-    }
-  }
-
-  const intentEvents = await maybeEscalateForVisitorIntent(
-    tools,
-    opts.query,
-    opts.toolsHumanHandoff,
-    eventsEmitted.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF),
-  );
-  eventsEmitted.push(...intentEvents);
-
   const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 
-  const {
-    answer,
-    toolsUsed,
-    eventsEmitted: loopEvents,
-    quickReplies,
-  } = await runToolLoop({
-    tools,
-    chat: opts.chat,
+  const result = await runTrueAgentLoop({
     systemPrompt: system,
     query: opts.query,
     history: opts.history,
-    knowledge,
-    confidence,
+    chat: opts.chat,
+    tools,
     modelChainRotate: opts.modelChainRotate,
+    accumulatedChunks,
+    retrievalTopScoreRef,
   });
 
   return {
-    answer,
-    chunks,
-    toolsUsed,
-    confidence,
-    retrievalTopScore,
-    eventsEmitted: [...eventsEmitted, ...loopEvents],
-    quickReplies,
+    answer: result.answer,
+    chunks: result.chunks,
+    toolsUsed: result.toolsUsed,
+    confidence: result.confidence,
+    retrievalTopScore: result.retrievalTopScore,
+    eventsEmitted: result.eventsEmitted,
+    quickReplies: result.quickReplies,
   };
 }
 
@@ -517,105 +375,42 @@ export interface AgentStreamPreamble {
 type AgentRagOpts = Parameters<typeof runAgenticRag>[0];
 
 /**
- * Streaming variant of runAgenticRag. Yields real LLM tokens from the final
- * answer step and returns a preamble with metadata on completion. The
- * retrieval + planning phase runs to completion first (cannot be streamed),
- * then the answer generation streams token-by-token.
+ * Streaming variant — yields speak steps immediately, runs tools between steps,
+ * then streams the final answer.
  */
 export async function* runAgenticRagStream(
   opts: AgentRagOpts,
 ): AsyncGenerator<string, AgentStreamPreamble, undefined> {
-  const { chunks: rawChunks } = await hybridRetrieve({
-    projectId: opts.projectId,
-    query: opts.query,
-    embeddings: opts.embeddings,
-    chat: opts.chat,
-    useHyde: opts.useHyde ?? true,
-    topK: 20,
-  });
-
-  // Captured before rerankChunks replaces score with an LLM judgement on a
-  // different scale. Gap detection compares this against vectorSearch cosines.
-  const retrievalTopScore = rawChunks.length
-    ? Math.max(...rawChunks.map((c) => c.score))
-    : 0;
-  const chunks = await rerankChunks(opts.query, rawChunks, opts.chat, 8);
-
-  const tools = buildAgentTools({
-    projectId: opts.projectId,
-    projectName: opts.projectName,
-    businessHours: opts.businessHours,
-    businessWebsite: opts.businessWebsite,
-    chunks,
-    toolsWebSearch: opts.toolsWebSearch,
-    toolsHumanHandoff: opts.toolsHumanHandoff,
-    toolsLeadCapture: opts.toolsLeadCapture,
-    visitorName: opts.visitorName,
-    visitorEmail: opts.visitorEmail,
+  const { accumulatedChunks, retrievalTopScoreRef, tools } = buildTrueAgentContext({
+    ...opts,
     userMessage: opts.query,
-    customTools: opts.customTools,
-    redisUrl: opts.redisUrl,
   });
-
-  const knowledgeResult = await tools[0]!.execute({});
-  const knowledge = knowledgeResult.output;
-  const confidence = computeConfidence(chunks);
-  const preEventsEmitted: ToolEventPayload[] = [];
-
-  if (confidence === "low" && chunks.length === 0 && !looksLikeGibberish(opts.query)) {
-    const escalate = tools.find((t) => t.name === "escalate_to_human");
-    if (escalate) {
-      const esc = await escalate.execute({ reason: "insufficient knowledge base coverage" });
-      if (esc.event) preEventsEmitted.push(esc.event);
-    }
-  }
-
-  const intentEvents = await maybeEscalateForVisitorIntent(
-    tools,
-    opts.query,
-    opts.toolsHumanHandoff,
-    preEventsEmitted.some((e) => e.type === BUILTIN_EVENT_TYPES.HUMAN_HANDOFF),
-  );
-  preEventsEmitted.push(...intentEvents);
-
   const system = buildAgentSystemPrompt(opts.projectName, opts.systemPrompt);
 
-  const { toolsUsed, eventsEmitted: loopEvents, answerMessages } = await runToolLoopPrelude({
-    tools,
-    chat: opts.chat,
+  const gen = runTrueAgentStream({
     systemPrompt: system,
     query: opts.query,
     history: opts.history,
-    knowledge,
-    confidence,
+    chat: opts.chat,
+    tools,
     modelChainRotate: opts.modelChainRotate,
+    accumulatedChunks,
+    retrievalTopScoreRef,
   });
 
-  // Stream the final answer token-by-token; fall back to completed response if
-  // the chat client doesn't support streaming (e.g. stub/test clients).
-  if (opts.chat.chatStream) {
-    for await (const token of opts.chat.chatStream(answerMessages, {
-      temperature: 0.2,
-      maxTokens: 400,
-      modelChainRotate: opts.modelChainRotate,
-    })) {
-      yield token;
-    }
-  } else {
-    const answer = await opts.chat.chat(answerMessages, {
-      temperature: 0.2,
-      maxTokens: 400,
-      modelChainRotate: opts.modelChainRotate,
-    });
-    yield answer;
+  let next = await gen.next();
+  while (!next.done) {
+    yield next.value;
+    next = await gen.next();
   }
 
+  const result = next.value;
   return {
-    chunks,
-    toolsUsed,
-    confidence,
-    retrievalTopScore,
-    eventsEmitted: [...preEventsEmitted, ...loopEvents],
-    answerMessages,
+    chunks: result.chunks,
+    toolsUsed: result.toolsUsed,
+    confidence: result.confidence,
+    retrievalTopScore: result.retrievalTopScore,
+    eventsEmitted: result.eventsEmitted,
+    answerMessages: result.answerMessages,
   };
 }
