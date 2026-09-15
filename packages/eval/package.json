@@ -10,8 +10,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/cli.js",
-    "dev": "tsc -p tsconfig.json --watch",
+    "start": "node api.js && node dist/cli.js",
+    "dev": "node api.js && tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo 'ok'",
     "test": "node --import tsx src/cli.ts --fixture"

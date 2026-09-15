@@ -6,7 +6,7 @@
   "main": "./dist/widget.js",
   "scripts": {
     "build": "esbuild src/widget.ts --bundle --minify --format=iife --global-name=QuickStartWidget --outfile=dist/widget.js",
-    "dev": "esbuild src/widget.ts --bundle --format=iife --global-name=QuickStartWidget --outfile=dist/widget.js --watch",
+    "dev": "node api.js && esbuild src/widget.ts --bundle --format=iife --global-name=QuickStartWidget --outfile=dist/widget.js --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo 'ok'"
   },

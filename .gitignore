@@ -3,7 +3,6 @@ node_modules
 dist
 .next
 .turbo
-.env
 .env.*.local
 .env.tunnel
 *.log
@@ -20,7 +19,6 @@ _legacy/**/dist
 server.key
 server.cert
 .idea
-.vscode/*
 !.vscode/extensions.json
 fixtures/*.live.json
 

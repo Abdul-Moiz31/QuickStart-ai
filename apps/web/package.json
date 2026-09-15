@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node ../../node_modules/dotenv-cli/cli.js -e ../../.env -o -- next dev -p 3000",
+    "dev": "node api.js && node ../../node_modules/dotenv-cli/cli.js -e ../../.env -o -- next dev -p 3000",
     "build": "node ../../node_modules/dotenv-cli/cli.js -e ../../.env -o -- next build",
-    "start": "next start",
+    "start": "node api.js && next start",
     "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

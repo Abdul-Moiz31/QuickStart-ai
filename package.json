@@ -2,11 +2,11 @@
   "name": "quickstart-ai",
   "private": true,
   "version": "0.1.0",
-  "description": "QuickStart AI — production chatbot platform monorepo",
+  "description": "QuickStart AI \u2014 production chatbot platform monorepo",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo watch dev",
+    "dev": "node api.js && turbo watch dev",
     "bootstrap": "bash scripts/setup.sh",
     "lint": "turbo run lint",
     "test": "turbo run test",
